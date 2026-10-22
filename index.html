@@ -1,193 +1,292 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suivi des Envois de Marchandises - Eurequat Algérie</title>
-    <!-- Tailwind CSS CDN -->
+    <link rel="icon" type="image/png" href="assets/logo-eurequat.png">
+    <title>LogiTrak • Eurequat Algérie</title>
+    <!-- Tailwind CSS -->
+    <script>try{if(localStorage.getItem('logitrak_theme')!=='dark')document.documentElement.classList.add('light')}catch(e){document.documentElement.classList.add('light')}</script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="js/tailwind-config.js"></script>
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Supabase JS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        @media print {
-            body * { visibility: hidden; }
-            #printArea, #printArea * { visibility: visible; }
-            #printArea { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 20px; }
-            .no-print { display: none !important; }
-        }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
 
-    <!-- Top Navigation Bar -->
-    <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-40 border-b border-slate-800">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-600/30">
-                    <i class="fa-solid fa-truck-fast text-lg"></i>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+    <!-- Ambient Glowing Background Orbs -->
+    <div class="bg-orbs fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div class="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl animate-pulse-subtle"></div>
+        <div class="absolute top-1/3 -right-40 w-96 h-96 bg-cyan-600/15 rounded-full blur-3xl animate-pulse-subtle" style="animation-delay: 2s;"></div>
+        <div class="absolute -bottom-40 left-1/3 w-[32rem] h-[32rem] bg-purple-600/15 rounded-full blur-3xl animate-pulse-subtle" style="animation-delay: 4s;"></div>
+    </div>
+
+    <!-- Top Navigation Header -->
+    <header class="relative z-30 border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-xl sticky top-0 shadow-2xl shadow-black/40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            
+            <!-- Logo & Brand -->
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    <div class="h-12 px-3 rounded-2xl bg-white shadow-lg shadow-black/30 ring-1 ring-white/10 flex items-center">
+                        <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" class="h-8 w-auto block">
+                    </div>
+                    <span class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-900 rounded-full shadow"></span>
                 </div>
                 <div>
-                    <span id="navCompanyName" class="font-bold text-lg tracking-tight block leading-tight">EUREQUAT ALGERIE</span>
-                    <span class="text-xs text-slate-400 font-medium">Logistique & Expéditions 2027</span>
+                    <div class="flex items-center space-x-2.5">
+                        <h1 class="text-xl font-extrabold tracking-tight text-white flex items-center space-x-2">
+                            <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 font-black">LogiTrak</span>
+                        </h1>
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 border border-indigo-500/30 shadow-inner">
+                            Suivi permanent
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
+                        <i class="fa-solid fa-location-dot text-indigo-400 text-[10px]"></i>
+                        <span>Usine Tlemcen • Suivi & Expédition des Marchandises</span>
+                    </p>
                 </div>
             </div>
 
-            <!-- Database connection badge & Mode -->
+            <!-- Header Quick Actions & Badges -->
             <div class="flex items-center space-x-3">
-                <div id="dbStatusBadge" class="flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-full text-xs font-semibold">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span id="dbStatusText">Supabase Connecté</span>
+                
+                <!-- Supabase Live Connection Pill -->
+                <div id="dbStatusBadge" class="flex items-center space-x-2 bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-emerald-950/50 backdrop-blur-md cursor-pointer hover:border-emerald-400 transition" onclick="manualSync()" title="Actualiser">
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span id="dbPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span id="dbDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <span id="dbStatusText" class="tracking-wide">Connexion…</span>
                 </div>
 
-                <div id="roleBadge" class="hidden sm:flex items-center space-x-1.5 bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-full text-xs font-medium">
-                    <i class="fa-solid fa-shield-halved text-indigo-400"></i>
-                    <span id="roleLabel">Opérateur</span>
-                </div>
+                <!-- Sync Reload Button -->
+                <button onclick="manualSync()" id="syncBtn" class="w-10 h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/70 flex items-center justify-center transition-all duration-200 transform hover:rotate-180 shadow-md" title="Synchroniser avec la base">
+                    <i class="fa-solid fa-arrows-rotate text-sm text-indigo-400"></i>
+                </button>
 
-                <button onclick="openAdminModal()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm">
-                    <i class="fa-solid fa-gear text-slate-400"></i>
-                    <span>Admin</span>
+                <button id="themeBtn" onclick="toggleTheme()" class="w-10 h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700/70 flex items-center justify-center transition" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-moon text-sm text-indigo-400"></i></button>
+                <button id="authBtn" onclick="authAction()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 text-xs font-bold transition flex items-center space-x-2" title="Espace opérateur">
+                    <i class="fa-solid fa-user-lock text-indigo-400 text-sm"></i>
+                    <span id="authBtnText" class="hidden sm:inline">Espace opérateur</span>
+                </button>
+                <!-- Admin Settings Button -->
+                <button id="opsBtn" onclick="openOperators()" class="adm-only px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 text-xs font-bold transition flex items-center space-x-2"><i class="fa-solid fa-users-gear text-indigo-400 text-sm"></i><span class="hidden sm:inline">Opérateurs</span></button>
+                <button id="cfgBtn" onclick="openAdminModal()" class="adm-only px-4 py-2 rounded-xl bg-gradient-to-r from-slate-800 to-slate-850 hover:from-slate-750 hover:to-slate-700 text-slate-200 border border-slate-700/80 text-xs font-bold transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-indigo-500/10 hover:border-indigo-500/40 transform hover:-translate-y-0.5">
+                    <i class="fa-solid fa-sliders text-indigo-400 text-sm"></i>
+                    <span class="hidden sm:inline">Configuration</span>
+                </button>
+
+                <!-- Primary CTA: Nouvelle Expédition -->
+                <button onclick="openNewExpeditionModal()" class="op-only px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white text-xs font-extrabold uppercase tracking-wider transition-all duration-200 flex items-center space-x-2 shadow-xl shadow-indigo-600/30 hover:shadow-indigo-600/50 border border-indigo-400/30 transform hover:-translate-y-0.5 active:translate-y-0">
+                    <i class="fa-solid fa-plus text-sm"></i>
+                    <span>Nouvel Envoi</span>
                 </button>
             </div>
+
         </div>
     </header>
 
+    <div id="visitorBar" class="no-print relative z-20 bg-indigo-950/70 border-b border-indigo-900/40 text-indigo-200 text-xs text-center py-2 px-4">
+        Vous consultez en lecture seule. <button onclick="authAction()" class="underline font-bold hover:text-white">Connexion opérateur</button> pour ajouter ou modifier des envois.
+    </div>
+
     <!-- Main Container -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+    <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
 
-        <!-- Banner & KPIs Section -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Journées d'Envoi</p>
-                    <p id="kpiShipmentDays" class="text-2xl font-bold text-slate-900 mt-1">0</p>
-                    <span class="text-xs text-indigo-600 font-medium"><i class="fa-regular fa-calendar-check mr-1"></i>Enregistrées</span>
+        <!-- Top Dynamic Metric Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            
+            <!-- Card 1: Départs -->
+            <div class="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-slate-800/80 to-slate-900/90 border border-slate-750/70 shadow-xl backdrop-blur-xl hover:border-indigo-500/50 transition-all duration-300 transform hover:-translate-y-1">
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition-all"></div>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Journées d'Expédition</span>
+                        <div class="text-3xl font-black text-white mt-2 flex items-baseline gap-2">
+                            <span id="kpiShipmentDays">0</span>
+                            <span class="text-xs font-semibold text-indigo-400">dates</span>
+                        </div>
+                    </div>
+                    <div class="w-13 h-13 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-regular fa-calendar-check"></i>
+                    </div>
                 </div>
-                <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl">
-                    <i class="fa-regular fa-calendar-days"></i>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-clock-rotate-left text-indigo-400"></i> Historique actif</span>
+                    <span class="font-bold text-slate-300" id="kpiCurrentYearLabel">2027</span>
                 </div>
             </div>
 
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Lignes d'Articles</p>
-                    <p id="kpiTotalItems" class="text-2xl font-bold text-slate-900 mt-1">0</p>
-                    <span class="text-xs text-emerald-600 font-medium"><i class="fa-solid fa-layer-group mr-1"></i>Rubans, étiquettes, PVC</span>
+            <!-- Card 2: Lignes d'articles -->
+            <div class="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-slate-800/80 to-slate-900/90 border border-slate-750/70 shadow-xl backdrop-blur-xl hover:border-cyan-500/50 transition-all duration-300 transform hover:-translate-y-1">
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-cyan-500/10 rounded-full blur-xl group-hover:bg-cyan-500/20 transition-all"></div>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Références / Lignes</span>
+                        <div class="text-3xl font-black text-white mt-2 flex items-baseline gap-2">
+                            <span id="kpiTotalItems">0</span>
+                            <span class="text-xs font-semibold text-cyan-400">produits</span>
+                        </div>
+                    </div>
+                    <div class="w-13 h-13 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-barcode"></i>
+                    </div>
                 </div>
-                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl">
-                    <i class="fa-solid fa-boxes-stacked"></i>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-tags text-cyan-400"></i> Rubans, Étiquettes & PVC</span>
+                    <span class="text-cyan-400 font-semibold" id="kpiSubTypes">Traçabilité</span>
                 </div>
             </div>
 
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Nombre de Cartons</p>
-                    <p id="kpiTotalCartons" class="text-2xl font-bold text-slate-900 mt-1">0</p>
-                    <span class="text-xs text-amber-600 font-medium"><i class="fa-solid fa-box mr-1"></i>Colis expédiés</span>
+            <!-- Card 3: Cartons -->
+            <div class="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-slate-800/80 to-slate-900/90 border border-slate-750/70 shadow-xl backdrop-blur-xl hover:border-amber-500/50 transition-all duration-300 transform hover:-translate-y-1">
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-all"></div>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Volume Total Colis</span>
+                        <div class="text-3xl font-black text-white mt-2 flex items-baseline gap-2">
+                            <span id="kpiTotalCartons">0</span>
+                            <span class="text-xs font-semibold text-amber-400">cartons</span>
+                        </div>
+                    </div>
+                    <div class="w-13 h-13 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
                 </div>
-                <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl">
-                    <i class="fa-solid fa-cubes-stacked"></i>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-box-open text-amber-400"></i> Colisage usine</span>
+                    <span class="font-bold text-amber-400">Expédiés</span>
                 </div>
             </div>
 
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Transporteur Principal</p>
-                    <p id="kpiTopCarrier" class="text-xl font-bold text-slate-900 mt-1">YAZID</p>
-                    <span class="text-xs text-slate-500 font-medium"><i class="fa-solid fa-truck-moving mr-1"></i>Majorité des départs</span>
+            <!-- Card 4: Top Transporteur -->
+            <div class="relative group overflow-hidden rounded-2xl p-5 bg-gradient-to-b from-slate-800/80 to-slate-900/90 border border-slate-750/70 shadow-xl backdrop-blur-xl hover:border-purple-500/50 transition-all duration-300 transform hover:-translate-y-1">
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Chauffeur / Transport</span>
+                        <div class="text-2xl font-black text-white mt-2 truncate max-w-[160px]" id="kpiTopCarrier">
+                            YAZID
+                        </div>
+                    </div>
+                    <div class="w-13 h-13 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-truck-fast"></i>
+                    </div>
                 </div>
-                <div class="w-12 h-12 bg-sky-50 text-sky-600 rounded-xl flex items-center justify-center text-xl">
-                    <i class="fa-solid fa-truck"></i>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-chart-pie text-purple-400"></i> Majorité des tournées</span>
+                    <span class="font-semibold text-purple-300" id="kpiCarrierShare">Principal</span>
                 </div>
             </div>
+
         </div>
 
-        <!-- Controls, Filters & Actions -->
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <!-- Filter & Control Deck Bar -->
+        <div class="rounded-2xl p-4 bg-slate-900/80 border border-slate-800/90 shadow-2xl backdrop-blur-xl flex flex-col lg:flex-row items-center justify-between gap-4">
             
-            <!-- Filters -->
-            <div class="flex flex-wrap items-center gap-3 flex-1">
-                <div class="relative min-w-[200px] flex-1 max-w-sm">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <i class="fa-solid fa-magnifying-glass text-sm"></i>
+            <!-- Filters Group -->
+            <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto flex-1">
+                
+                <!-- Search Input -->
+                <div class="relative flex-1 min-w-[240px] max-w-md">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass text-xs"></i>
                     </span>
-                    <input type="text" id="searchInput" oninput="applyFilters()" placeholder="Rechercher réf, désignation, client..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
+                    <input type="text" id="searchInput" oninput="applyFilters()" placeholder="Rechercher référence, désignation, client..." class="w-full pl-10 pr-4 py-2.5 bg-slate-950/70 border border-slate-750 text-slate-100 rounded-xl text-xs font-medium placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
                 </div>
 
-                <select id="filterYear" onchange="applyFilters()" class="py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <option value="2027" selected>⭐ Année 2027</option>
-                    <option value="2026">Année 2026</option>
-                    <option value="all">Toutes les années</option>
-                </select>
+                <!-- Year Select -->
+                <div class="relative">
+                    <select id="filterYear" onchange="applyFilters()" class="appearance-none pl-4 pr-9 py-2.5 bg-slate-950/70 border border-slate-750 text-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"><option value="all">🌐 Toutes les années</option></select>
+                    <i class="fa-solid fa-chevron-down absolute right-3 top-3.5 text-[10px] text-slate-400 pointer-events-none"></i>
+                </div>
 
-                <select id="filterCarrier" onchange="applyFilters()" class="py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <option value="all">Tous transporteurs</option>
-                    <option value="YAZID">YAZID</option>
-                    <option value="YALIDINE">YALIDINE</option>
-                    <option value="DJALAL">DJALAL</option>
-                    <option value="CLIENT">CLIENT (Enlèvement)</option>
-                </select>
+                <!-- Carrier Select -->
+                <div class="relative">
+                    <select id="filterCarrier" onchange="applyFilters()" class="appearance-none pl-4 pr-9 py-2.5 bg-slate-950/70 border border-slate-750 text-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+                        <option value="all">🚛 Tous transporteurs</option>
+                        <option value="YAZID">YAZID</option>
+                        <option value="YALIDINE">YALIDINE</option>
+                        <option value="DJALAL">DJALAL</option>
+                        <option value="CLIENT">CLIENT (Enlèvement)</option>
+                    </select>
+                    <i class="fa-solid fa-chevron-down absolute right-3 top-3.5 text-[10px] text-slate-400 pointer-events-none"></i>
+                </div>
 
-                <!-- View switch toggle -->
-                <div class="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-100">
-                    <button id="viewBtnDate" onclick="switchView('date')" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-white text-slate-800 shadow-sm flex items-center space-x-1.5 transition">
-                        <i class="fa-regular fa-calendar"></i>
+                <!-- Destinataire quick filter -->
+                <div class="relative">
+                    <select id="filterDest" onchange="applyFilters()" class="appearance-none pl-4 pr-9 py-2.5 bg-slate-950/70 border border-slate-750 text-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"><option value="all">🏢 Tous destinataires</option></select>
+                    <i class="fa-solid fa-chevron-down absolute right-3 top-3.5 text-[10px] text-slate-400 pointer-events-none"></i>
+                </div>
+            </div>
+
+            <!-- View Switcher & Action Tools -->
+            <div class="flex items-center space-x-3 w-full lg:w-auto justify-end">
+                
+                <!-- Toggle Mode: Accordéons vs Tableau Plat -->
+                <div class="p-1 bg-slate-950/80 border border-slate-800 rounded-xl flex items-center space-x-1">
+                    <button id="viewBtnDate" onclick="switchView('date')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-2 bg-indigo-600 text-white shadow-md shadow-indigo-600/30">
+                        <i class="fa-solid fa-calendar-days text-xs"></i>
                         <span>Par Date</span>
                     </button>
-                    <button id="viewBtnTable" onclick="switchView('table')" class="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-600 hover:text-slate-900 flex items-center space-x-1.5 transition">
-                        <i class="fa-solid fa-table-list"></i>
+                    <button id="viewBtnTable" onclick="switchView('table')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-table-list text-xs"></i>
                         <span>Vue Tableau Plat</span>
                     </button>
                 </div>
-            </div>
 
-            <!-- Action Buttons -->
-            <div class="flex items-center space-x-2">
-                <button onclick="openNewExpeditionModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-md shadow-indigo-600/20 transition flex items-center space-x-2">
-                    <i class="fa-solid fa-plus"></i>
-                    <span>Nouvelle Expédition</span>
+                <!-- Export Excel -->
+                <button onclick="exportToCSV()" class="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all duration-200 flex items-center space-x-2 shadow" title="Exporter en format Excel CSV">
+                    <i class="fa-solid fa-file-excel text-sm"></i>
+                    <span class="hidden sm:inline">Export Excel</span>
                 </button>
-                <button onclick="exportToCSV()" class="p-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition text-sm" title="Exporter en Excel/CSV">
-                    <i class="fa-solid fa-file-excel text-emerald-600"></i>
-                </button>
-                <button onclick="refreshDataFromCloud()" class="p-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition text-sm" title="Actualiser les données">
-                    <i class="fa-solid fa-arrows-rotate text-indigo-600"></i>
+
+                <!-- Bouton Déplier/Replier tout -->
+                <button onclick="toggleAllAccordions()" id="toggleAllBtn" class="px-3 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold transition" title="Déplier / Replier toutes les dates">
+                    <i class="fa-solid fa-up-right-and-down-left-from-center text-xs"></i>
                 </button>
             </div>
         </div>
 
-        <!-- Dynamic Content: By Date View (Accordion Groups) -->
+        <!-- Notification Toast Banner Container -->
+        <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+        <!-- Dynamic Container: Accordion Date View -->
         <div id="dateViewContainer" class="space-y-4">
-            <!-- Populated dynamically -->
+            <!-- Rendered via JS with sleek glass cards -->
         </div>
 
-        <!-- Dynamic Content: Flat Table View -->
-        <div id="tableViewContainer" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <!-- Dynamic Container: Flat Table View -->
+        <div id="tableViewContainer" class="hidden rounded-2xl overflow-hidden bg-slate-900/80 border border-slate-800 shadow-2xl backdrop-blur-xl">
             <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                <table class="w-full text-left border-collapse text-xs">
                     <thead>
-                        <tr class="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
-                            <th class="p-3">Date</th>
-                            <th class="p-3">Bordereau</th>
-                            <th class="p-3">Transporteur</th>
-                            <th class="p-3">Référence</th>
-                            <th class="p-3">Désignation</th>
-                            <th class="p-3">Destinataire</th>
-                            <th class="p-3 text-center">Unité</th>
-                            <th class="p-3 text-right">Quantité</th>
-                            <th class="p-3 text-center">Cartons</th>
-                            <th class="p-3">Observations</th>
+                        <tr class="bg-slate-950/90 text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
+                            <th class="p-3.5 pl-5">Date d'Envoi</th>
+                            <th class="p-3.5">N° BL</th>
+                            <th class="p-3.5">Transporteur</th>
+                            <th class="p-3.5 font-mono-code text-indigo-400">Référence</th>
+                            <th class="p-3.5">Désignation</th>
+                            <th class="p-3.5">Destinataire</th>
+                            <th class="p-3.5 text-center">Unité</th>
+                            <th class="p-3.5 text-right font-mono-code">Quantité</th>
+                            <th class="p-3.5 text-center font-bold text-amber-400">Cartons</th>
+                            <th class="p-3.5 max-w-xs">Observations</th>
                         </tr>
                     </thead>
-                    <tbody id="flatTableBody" class="divide-y divide-slate-100">
+                    <tbody id="flatTableBody" class="divide-y divide-slate-800/60 font-medium">
                         <!-- Populated dynamically -->
                     </tbody>
                 </table>
@@ -196,918 +295,287 @@
 
     </main>
 
-    <!-- Modal: Nouvelle Expédition / Modification -->
-    <div id="expeditionModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+    <!-- MODAL 1: Nouvelle Expédition & Modification -->
+    <div id="expeditionModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md modal-backdrop modal-hidden" style="display: none;">
+        <div class="modal-content bg-slate-900 border border-slate-750 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+            
             <!-- Modal Header -->
-            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-boxes-packing text-indigo-400 text-lg"></i>
-                    <h3 id="expeditionModalTitle" class="font-bold text-base">Enregistrer une Journée d'Expédition</h3>
+            <div class="px-6 py-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-400 flex items-center justify-center">
+                        <i class="fa-solid fa-boxes-packing text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 id="expeditionModalTitle" class="text-base font-extrabold text-white">Nouvel envoi</h3>
+                        <p class="text-xs text-slate-400">Tous les colis et articles rattachés à cette date de départ</p>
+                    </div>
                 </div>
-                <button onclick="closeExpeditionModal()" class="text-slate-400 hover:text-white transition text-lg"><i class="fa-solid fa-xmark"></i></button>
+                <button onclick="closeExpeditionModal()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-rose-950/60 hover:text-rose-400 text-slate-400 border border-slate-700/60 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
             </div>
 
-            <!-- Modal Body -->
-            <div class="p-6 overflow-y-auto space-y-6 custom-scrollbar flex-1">
+            <!-- Modal Body Form -->
+            <div class="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
                 <input type="hidden" id="formExpeditionId">
 
-                <!-- Header Info (Date, BL, Carrier, Notes) -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <!-- Header Fields -->
+                <div class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Date d'Envoi *</label>
-                        <input type="date" id="formDate" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5">Date d'Expédition *</label>
+                        <input type="date" id="formDate" required class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">N° Bordereau / BL</label>
-                        <input type="text" id="formNumeroBL" placeholder="BL-2027-..." class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5">Numéro de Bordereau / BL</label>
+                        <input type="text" id="formNumeroBL" placeholder="BL-AAAA-001" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-indigo-300 font-mono-code focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Transporteur Principal *</label>
-                        <select id="formCarrier" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5">Transporteur Principal *</label>
+                        <select id="formCarrier" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
                             <option value="YAZID">YAZID</option>
                             <option value="YALIDINE">YALIDINE</option>
                             <option value="DJALAL">DJALAL</option>
-                            <option value="CLIENT">CLIENT (Enlèvement)</option>
-                            <option value="AUTRE">AUTRE</option>
+                            <option value="CLIENT">CLIENT (Enlèvement direct)</option>
+                            <option value="AUTRE">AUTRE CHAUFFEUR</option>
                         </select>
                     </div>
                     <div class="sm:col-span-3">
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Observations Générales</label>
-                        <input type="text" id="formObservations" placeholder="Ex: Envoyé avec Yazid pour livraison directe UPW..." class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <label class="block text-xs font-bold text-slate-300 mb-1.5">Observations / Consignes de livraison</label>
+                        <input type="text" id="formObservations" placeholder="Ex: Ramassage prévu à 14h, palettes cerclées avec BL agrafé..." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
                     </div>
                 </div>
 
-                <!-- Items Section -->
-                <div>
-                    <div class="flex items-center justify-between mb-3">
-                        <h4 class="font-bold text-slate-800 text-sm flex items-center space-x-2">
-                            <span>Liste des Articles & Colis de cette date</span>
-                            <span id="itemsCountBadge" class="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full font-bold">1 article</span>
-                        </h4>
-                        <button type="button" onclick="addNewItemRow()" class="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold transition flex items-center space-x-1.5">
+                <!-- Articles Multi-Lines Section -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <h4 class="text-sm font-extrabold text-white">Articles & Colis du départ</h4>
+                            <span id="modalItemsCounter" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">1 article</span>
+                        </div>
+                        <button type="button" onclick="addNewItemRow()" class="px-3.5 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition flex items-center space-x-1.5">
                             <i class="fa-solid fa-plus text-xs"></i>
-                            <span>Ajouter un Article</span>
+                            <span>Ajouter une ligne</span>
                         </button>
                     </div>
 
-                    <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    <!-- Items Table in Modal -->
+                    <div class="rounded-2xl border border-slate-800 overflow-hidden bg-slate-950/70">
                         <table class="w-full text-left text-xs">
-                            <thead class="bg-slate-100 text-slate-700 uppercase font-bold border-b border-slate-200">
+                            <thead class="bg-slate-900/90 text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800">
                                 <tr>
-                                    <th class="p-2 w-32">Référence</th>
-                                    <th class="p-2">Désignation</th>
-                                    <th class="p-2 w-36">Destinataire</th>
-                                    <th class="p-2 w-20 text-center">Unité</th>
-                                    <th class="p-2 w-24 text-right">Quantité</th>
-                                    <th class="p-2 w-20 text-center">Cartons</th>
-                                    <th class="p-2 w-12 text-center">Actions</th>
+                                    <th class="p-2.5 w-36">Référence</th>
+                                    <th class="p-2.5">Désignation</th>
+                                    <th class="p-2.5 w-40">Destinataire</th>
+                                    <th class="p-2.5 w-20 text-center">Unité</th>
+                                    <th class="p-2.5 w-24 text-right">Quantité</th>
+                                    <th class="p-2.5 w-20 text-center">Cartons</th>
+                                    <th class="p-2.5 w-16 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="itemsTableBody" class="divide-y divide-slate-100 bg-white">
+                            <tbody id="itemsTableBody" class="divide-y divide-slate-850">
                                 <!-- Dynamic rows -->
                             </tbody>
                         </table>
                     </div>
                 </div>
+
             </div>
 
             <!-- Modal Footer -->
-            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-                <div class="text-xs text-slate-500 font-medium">
-                    <span id="modalTotalCartons">Total : 0 carton(s)</span>
+            <div class="px-6 py-4 bg-slate-950/90 border-t border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-3 text-xs text-slate-400">
+                    <span class="flex items-center gap-1.5 font-bold text-amber-400">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                        <span id="modalTotalCartons">Total Cartons : 1</span>
+                    </span>
                 </div>
-                <div class="flex items-center space-x-2">
-                    <button type="button" onclick="closeExpeditionModal()" class="px-4 py-2 border border-slate-300 hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-700 transition">Annuler</button>
-                    <button type="button" onclick="saveExpedition()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-600/20 transition flex items-center space-x-1.5">
-                        <i class="fa-solid fa-check"></i>
-                        <span>Enregistrer l'expédition</span>
+                <div class="flex items-center space-x-3">
+                    <button type="button" onclick="closeExpeditionModal()" class="px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-bold transition">
+                        Annuler
+                    </button>
+                    <button type="button" onclick="saveExpedition()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white text-xs font-extrabold uppercase tracking-wider transition-all duration-200 shadow-lg shadow-indigo-600/30 flex items-center space-x-2">
+                        <i class="fa-solid fa-floppy-disk text-sm"></i>
+                        <span>Enregistrer l'Envoi</span>
                     </button>
                 </div>
             </div>
+
         </div>
     </div>
 
-    <!-- Modal: Espace Admin -->
-    <div id="adminModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
-            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-sliders text-indigo-400"></i>
-                    <h3 class="font-bold text-base">Espace Administration & Supabase</h3>
+    <!-- MODAL 2: Espace Administration & Supabase -->
+    <div id="adminModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md modal-backdrop modal-hidden" style="display: none;">
+        <div class="modal-content bg-slate-900 border border-slate-750 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            
+            <div class="px-6 py-5 bg-gradient-to-r from-slate-900 to-indigo-950 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-400 flex items-center justify-center">
+                        <i class="fa-solid fa-sliders text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-white">Paramètres & Connexion Supabase</h3>
+                        <p class="text-xs text-slate-400">Gérez la liaison Cloud PostgreSQL et les préférences</p>
+                    </div>
                 </div>
-                <button onclick="closeAdminModal()" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button onclick="closeAdminModal()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-rose-950/60 hover:text-rose-400 text-slate-400 border border-slate-700/60 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
             </div>
 
-            <div class="p-6 overflow-y-auto space-y-5 flex-1 custom-scrollbar">
+            <div class="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
                 
-                <!-- Supabase config block -->
-                <div class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 space-y-3">
+                <!-- Supabase Cloud Config Card -->
+                <div class="p-5 rounded-2xl bg-slate-950/70 border border-indigo-500/30 space-y-4">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center space-x-1.5">
-                            <i class="fa-solid fa-database text-indigo-600"></i>
-                            <span>Paramètres Supabase (PostgreSQL Cloud)</span>
+                        <span class="text-xs font-black uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+                            <i class="fa-solid fa-database"></i>
+                            Base PostgreSQL Supabase
                         </span>
-                        <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Actif</span>
+                        <span id="adminDbState" class="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Connecté</span>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-slate-700 mb-1">URL Supabase</label>
-                        <input type="text" id="supabaseUrlInput" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Project URL</label>
+                        <input type="text" id="supabaseUrlInput" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono-code text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-slate-700 mb-1">Clé Anon Supabase</label>
-                        <input type="password" id="supabaseKeyInput" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Anon / Public API Key</label>
+                        <input type="password" id="supabaseKeyInput" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono-code text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                     </div>
 
-                    <div class="flex items-center justify-between pt-1">
-                        <button onclick="toggleKeyVisibility()" type="button" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Afficher / Masquer la clé</button>
-                        <button onclick="saveSupabaseSettings()" type="button" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition">
-                            Tester & Sauvegarder
+                    <div class="flex items-center justify-between pt-2">
+                        <button type="button" onclick="toggleKeyVis()" class="text-xs text-slate-400 hover:text-slate-200 font-semibold flex items-center gap-1.5">
+                            <i class="fa-regular fa-eye text-xs"></i>
+                            <span>Afficher / Masquer</span>
+                        </button>
+                        <button type="button" onclick="saveAdminSupabase()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/30">
+                            Tester & Enregistrer
                         </button>
                     </div>
                 </div>
 
-                <!-- Company settings block -->
-                <div class="space-y-3">
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">Coordonnées & En-tête des Bordereaux</span>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-medium text-slate-700 mb-1">Nom Société</label>
-                            <input type="text" id="companyNameInput" value="EUREQUAT ALGERIE" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-700 mb-1">Préfixe N° BL</label>
-                            <input type="text" id="blPrefixInput" value="BL-2027-" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Backup & Reset -->
-                <div class="pt-4 border-t border-slate-200 flex items-center justify-between">
-                    <button onclick="initYear2027Template()" class="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition">
-                        <i class="fa-solid fa-sparkles mr-1"></i> Réinitialiser l'année 2027
-                    </button>
-                    <button onclick="closeAdminModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold transition">
-                        Fermer
+                <!-- Template & Sample Data Init -->
+                <div class="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-3">
+                    <span class="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        Données d'exemple
+                    </span>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Si votre base de données est vide, vous pouvez charger instantanément les départs modèles pour tester l'interface avec des données réelles.
+                    </p>
+                    <button type="button" onclick="loadSample2027Data()" class="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition flex items-center gap-2">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span>Charger les exemples dans Supabase</span>
                     </button>
                 </div>
 
+            </div>
+
+            <div class="px-6 py-4 bg-slate-950/90 border-t border-slate-800 flex justify-end">
+                <button type="button" onclick="closeAdminModal()" class="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition">
+                    Fermer
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="loginModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md modal-backdrop modal-hidden" style="display: none;">
+        <form onsubmit="doLogin(event)" class="modal-content bg-slate-900 border border-slate-750 rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-extrabold text-white">Connexion opérateur</h3>
+                <button type="button" onclick="hideModal('loginModal')" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 hover:text-rose-400" aria-label="Fermer"><i class="fa-solid fa-xmark text-sm"></i></button>
+            </div>
+            <p class="text-xs text-slate-400">Réservé aux opérateurs autorisés. La consultation reste ouverte à tous.</p>
+            <input type="email" id="loginEmail" required autocomplete="username" placeholder="Adresse e-mail" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="Mot de passe" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <p id="loginError" class="text-xs text-rose-400 hidden"></p>
+            <p id="loginInfo" class="text-xs text-emerald-400 hidden"></p>
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs font-extrabold">Se connecter</button>
+            <button type="button" onclick="doSignUp()" class="w-full py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs font-bold">Créer un compte</button>
+            <p class="text-[11px] text-slate-500">Un nouveau compte peut consulter. Il pourra modifier une fois autorisé par un administrateur.</p>
+        </form>
+    </div>
+
+    <div id="opsModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md modal-backdrop modal-hidden" style="display: none;">
+        <div class="modal-content bg-slate-900 border border-slate-750 rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-extrabold text-white">Opérateurs autorisés</h3>
+                    <p class="text-xs text-slate-400">Seules ces adresses peuvent ajouter, modifier ou supprimer des envois.</p>
+                </div>
+                <button type="button" onclick="hideModal('opsModal')" class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 hover:text-rose-400" aria-label="Fermer"><i class="fa-solid fa-xmark text-sm"></i></button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-5">
+                <form onsubmit="addOperator(event)" class="flex flex-wrap gap-2">
+                    <input type="email" id="opEmail" required placeholder="E-mail de la personne" class="flex-1 min-w-[200px] px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <select id="opRole" class="px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-200"><option value="operateur">Opérateur</option><option value="admin">Administrateur</option></select>
+                    <button type="submit" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-xs font-extrabold">Ajouter</button>
+                </form>
+                <div id="opsList" class="divide-y divide-slate-800/60 text-xs"></div>
             </div>
         </div>
     </div>
 
-    <!-- Printable Delivery Slip (Hidden until print) -->
-    <div id="printArea" class="hidden font-sans text-slate-900 bg-white">
-        <div class="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-start">
+    <!-- PRINTABLE DELIVERY SLIP (Only shown during print dialog) -->
+    <div id="printArea" class="hidden font-sans">
+        <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
-                <h1 class="text-2xl font-black uppercase tracking-tight text-slate-900" id="printCompany">EUREQUAT ALGERIE</h1>
-                <p class="text-xs text-slate-600 mt-1">Traçabilité, Étiquetage & Solutions d'Identification</p>
-                <p class="text-xs text-slate-600">Usine Tlemcen - Algérie</p>
+                <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" style="height: 52px; width: auto; display: block;">
+                <p style="font-size: 11px; color: #475569; margin: 4px 0 0 0;">Identification Automatique, Rubans & Étiquettes Adhésives</p>
+                <p style="font-size: 11px; color: #475569; margin: 0;">Usine Zone Industrielle Tlemcen • Algérie</p>
             </div>
-            <div class="text-right">
-                <h2 class="text-lg font-bold text-slate-800 uppercase">Bordereau d'Expédition</h2>
-                <p class="text-sm font-bold text-indigo-700 mt-0.5" id="printBL">BL-2027-001</p>
-                <p class="text-xs text-slate-500" id="printDate">Date : 05/01/2027</p>
-                <p class="text-xs font-semibold text-slate-700 mt-1" id="printCarrier">Transporteur : YAZID</p>
+            <div style="text-align: right;">
+                <h2 style="font-size: 16px; font-weight: 800; text-transform: uppercase; margin: 0; color: #4f46e5;">Bordereau d'Expédition</h2>
+                <div style="font-size: 13px; font-weight: 700; margin-top: 3px;" id="printBL">BL-2027-001</div>
+                <div style="font-size: 11px; color: #64748b;" id="printDate">Date: 2027-01-05</div>
+                <div style="font-size: 11px; font-weight: 700; color: #0f172a; margin-top: 3px;" id="printCarrier">Transporteur: YAZID</div>
             </div>
         </div>
 
-        <table class="w-full text-left text-xs border border-slate-300 mb-6">
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
             <thead>
-                <tr class="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
-                    <th class="p-2 border-r border-slate-300">Réf</th>
-                    <th class="p-2 border-r border-slate-300">Désignation Marchandise</th>
-                    <th class="p-2 border-r border-slate-300">Destinataire</th>
-                    <th class="p-2 border-r border-slate-300 text-center">Unité</th>
-                    <th class="p-2 border-r border-slate-300 text-right">Quantité</th>
-                    <th class="p-2 text-center">Cartons</th>
+                <tr style="background: #f1f5f9; text-align: left; border: 1px solid #cbd5e1;">
+                    <th style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace;">Référence</th>
+                    <th style="padding: 8px; border: 1px solid #cbd5e1;">Désignation Marchandise</th>
+                    <th style="padding: 8px; border: 1px solid #cbd5e1;">Destinataire</th>
+                    <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">Unité</th>
+                    <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: right;">Quantité</th>
+                    <th style="padding: 8px; border: 1px solid #cbd5e1; text-align: center;">Cartons</th>
                 </tr>
             </thead>
-            <tbody id="printItemsBody" class="divide-y divide-slate-200">
+            <tbody id="printTableBody">
                 <!-- Injected via JS -->
             </tbody>
             <tfoot>
-                <tr class="bg-slate-50 font-bold border-t-2 border-slate-400">
-                    <td colspan="5" class="p-2 text-right border-r border-slate-300">Total Cartons Expédiés :</td>
-                    <td id="printTotalCartons" class="p-2 text-center text-sm font-black">0</td>
+                <tr style="background: #f8fafc; font-weight: 800; border: 1px solid #cbd5e1;">
+                    <td colspan="5" style="padding: 8px; text-align: right; border: 1px solid #cbd5e1;">TOTAL CARTONS EXPÉDIÉS :</td>
+                    <td id="printTotalCartons" style="padding: 8px; text-align: center; border: 1px solid #cbd5e1; font-size: 13px;">0</td>
                 </tr>
             </tfoot>
         </table>
 
-        <div class="text-xs text-slate-600 italic mb-8" id="printNotes"></div>
+        <div id="printObs" style="font-size: 11px; color: #334155; margin-bottom: 24px; font-style: italic;"></div>
 
-        <div class="grid grid-cols-3 gap-6 text-center text-xs pt-4 border-t border-slate-200">
-            <div class="h-24 flex flex-col justify-between border border-dashed border-slate-300 rounded p-2">
-                <span class="font-bold text-slate-700">Service Expédition</span>
-                <span class="text-[10px] text-slate-400">Visa & Date</span>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; text-align: center; font-size: 11px; margin-top: 32px;">
+            <div style="border: 1px dashed #94a3b8; height: 90px; padding: 6px; border-radius: 6px;">
+                <strong>Service Expédition Usine</strong>
+                <div style="font-size: 9px; color: #94a3b8; margin-top: 40px;">Visa & Date</div>
             </div>
-            <div class="h-24 flex flex-col justify-between border border-dashed border-slate-300 rounded p-2">
-                <span class="font-bold text-slate-700">Chauffeur / Transporteur</span>
-                <span class="text-[10px] text-slate-400">Nom & Emargement</span>
+            <div style="border: 1px dashed #94a3b8; height: 90px; padding: 6px; border-radius: 6px;">
+                <strong>Transporteur / Chauffeur</strong>
+                <div style="font-size: 9px; color: #94a3b8; margin-top: 40px;">Nom & Émargement</div>
             </div>
-            <div class="h-24 flex flex-col justify-between border border-dashed border-slate-300 rounded p-2">
-                <span class="font-bold text-slate-700">Réceptionnaire / Client</span>
-                <span class="text-[10px] text-slate-400">Date, Cachet & Signature</span>
+            <div style="border: 1px dashed #94a3b8; height: 90px; padding: 6px; border-radius: 6px;">
+                <strong>Réceptionnaire Client</strong>
+                <div style="font-size: 9px; color: #94a3b8; margin-top: 40px;">Cachet & Signature</div>
             </div>
         </div>
     </div>
 
-    <!-- Application Script -->
-    <script>
-        // Supabase configuration
-        const DEFAULT_SUPABASE_URL = "https://hswchbamojtmpystcuea.supabase.co";
-        const DEFAULT_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhzd2NoYmFtb2p0bXB5c3RjdWVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MTc1MzIsImV4cCI6MjEwODE5MzUzMn0.6RUytS5zJEmlK9MBcJuHZ6G32RV63kShes2fNGf0_sU";
-
-        let supabase = null;
-        let expeditionsData = [];
-        let currentView = 'date'; // 'date' or 'table'
-
-        // Sample initial datasets for 2027
-        const initial2027Data = [
-            {
-                id: 'exp-2027-01',
-                date_envoi: '2027-01-05',
-                numero_bl: 'BL-2027-001',
-                transporteur: 'YAZID',
-                observations: 'Départ direct usine vers UPW',
-                statut: 'Expédié',
-                items: [
-                    { id: 'item-1', reference: 'E02CL38B1', designation: 'ETIQUETTE TT 105*148', destinataire: 'UPW BENI ABBES', unite: 'ID', quantite: '15000', cartons: '1' }
-                ]
-            },
-            {
-                id: 'exp-2027-02',
-                date_envoi: '2027-01-07',
-                numero_bl: 'BL-2027-002',
-                transporteur: 'YAZID',
-                observations: 'Livraison Smartware + réapprovisionnement Stock',
-                statut: 'Expédié',
-                items: [
-                    { id: 'item-2', reference: 'R2A045300BN', designation: 'RUBAN CIRE 45*300', destinataire: 'SMARTWARE', unite: 'UN', quantite: '644', cartons: '11' },
-                    { id: 'item-3', reference: 'R2C110300BO', designation: 'RUBAN RESINE 110*300', destinataire: 'STOCK', unite: 'UN', quantite: '44', cartons: '1' },
-                    { id: 'item-4', reference: 'E06CL25B1', designation: 'ETIQUETTE PET M /S 105*30', destinataire: 'STOCK', unite: 'UN', quantite: '40', cartons: '3' },
-                    { id: 'item-5', reference: 'PVC-100', designation: 'CARTE PVC BLANCHE', destinataire: 'STOCK', unite: 'UN', quantite: '47', cartons: '2' }
-                ]
-            }
-        ];
-
-        // Init on load
-        window.addEventListener('DOMContentLoaded', () => {
-            initSupabaseClient();
-            loadExpeditions();
-        });
-
-        function initSupabaseClient() {
-            const url = localStorage.getItem('supabase_url') || DEFAULT_SUPABASE_URL;
-            const key = localStorage.getItem('supabase_key') || DEFAULT_SUPABASE_KEY;
-
-            document.getElementById('supabaseUrlInput').value = url;
-            document.getElementById('supabaseKeyInput').value = key;
-
-            try {
-                if (window.supabase) {
-                    supabase = window.supabase.createClient(url, key);
-                    updateDbStatus(true, "Supabase Connecté");
-                }
-            } catch (err) {
-                console.warn("Supabase init error:", err);
-                updateDbStatus(false, "Mode Local (Hors ligne)");
-            }
-        }
-
-        function updateDbStatus(isConnected, message) {
-            const badge = document.getElementById('dbStatusBadge');
-            const txt = document.getElementById('dbStatusText');
-            if (isConnected) {
-                badge.className = "flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-full text-xs font-semibold";
-                txt.textContent = message;
-            } else {
-                badge.className = "flex items-center space-x-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-3 py-1.5 rounded-full text-xs font-semibold";
-                txt.textContent = message;
-            }
-        }
-
-        async function loadExpeditions() {
-            let dataLoaded = false;
-
-            if (supabase) {
-                try {
-                    // Query expeditions and joined lines
-                    const { data: exps, error: expErr } = await supabase
-                        .from('expeditions')
-                        .select('*, lignes_expedition(*) ')
-                        .order('date_envoi', { ascending: false });
-
-                    if (!expErr && exps && exps.length > 0) {
-                        expeditionsData = exps.map(e => ({
-                            id: e.id,
-                            date_envoi: e.date_envoi,
-                            numero_bl: e.numero_bl || '',
-                            transporteur: e.transporteur || 'YAZID',
-                            observations: e.observations || '',
-                            statut: e.statut || 'Expédié',
-                            items: (e.lignes_expedition || []).map(li => ({
-                                id: li.id,
-                                reference: li.reference || '',
-                                designation: li.designation || '',
-                                destinataire: li.destinataire || 'STOCK',
-                                unite: li.unite || 'UN',
-                                quantite: li.quantite || '0',
-                                cartons: li.cartons || '1',
-                                observations: li.observations || ''
-                            }))
-                        }));
-                        dataLoaded = true;
-                    }
-                } catch (e) {
-                    console.warn("Cloud load fallback:", e);
-                }
-            }
-
-            if (!dataLoaded) {
-                // Fallback to localStorage or default
-                const local = localStorage.getItem('eurequat_expeditions_2027');
-                if (local) {
-                    expeditionsData = JSON.parse(local);
-                } else {
-                    expeditionsData = [...initial2027Data];
-                    saveLocalData();
-                }
-            }
-
-            applyFilters();
-            updateKPIs();
-        }
-
-        function saveLocalData() {
-            localStorage.setItem('eurequat_expeditions_2027', JSON.stringify(expeditionsData));
-        }
-
-        function updateKPIs() {
-            let totalCartons = 0;
-            let totalItems = 0;
-            const carrierCounts = {};
-
-            expeditionsData.forEach(exp => {
-                const c = exp.transporteur || 'AUTRE';
-                carrierCounts[c] = (carrierCounts[c] || 0) + 1;
-
-                (exp.items || []).forEach(it => {
-                    totalItems++;
-                    const cVal = parseInt(it.cartons) || 1;
-                    totalCartons += cVal;
-                });
-            });
-
-            document.getElementById('kpiShipmentDays').textContent = expeditionsData.length;
-            document.getElementById('kpiTotalItems').textContent = totalItems;
-            document.getElementById('kpiTotalCartons').textContent = totalCartons;
-
-            // Find top carrier
-            let topCarrier = 'YAZID';
-            let maxCount = 0;
-            for (const [carrier, count] of Object.entries(carrierCounts)) {
-                if (count > maxCount) {
-                    maxCount = count;
-                    topCarrier = carrier;
-                }
-            }
-            document.getElementById('kpiTopCarrier').textContent = topCarrier;
-        }
-
-        function applyFilters() {
-            const search = document.getElementById('searchInput').value.toLowerCase().trim();
-            const year = document.getElementById('filterYear').value;
-            const carrier = document.getElementById('filterCarrier').value;
-
-            const filtered = expeditionsData.filter(exp => {
-                // Year filter
-                if (year !== 'all') {
-                    if (!exp.date_envoi.startsWith(year)) return false;
-                }
-                // Carrier filter
-                if (carrier !== 'all') {
-                    if (exp.transporteur !== carrier) return false;
-                }
-                // Search filter (searches date, BL, notes or items)
-                if (search) {
-                    const matchHeader = (exp.date_envoi || '').toLowerCase().includes(search) ||
-                                        (exp.numero_bl || '').toLowerCase().includes(search) ||
-                                        (exp.transporteur || '').toLowerCase().includes(search) ||
-                                        (exp.observations || '').toLowerCase().includes(search);
-                    if (matchHeader) return true;
-
-                    const matchItem = (exp.items || []).some(it => 
-                        (it.reference || '').toLowerCase().includes(search) ||
-                        (it.designation || '').toLowerCase().includes(search) ||
-                        (it.destinataire || '').toLowerCase().includes(search)
-                    );
-                    return matchItem;
-                }
-                return true;
-            });
-
-            renderDateView(filtered);
-            renderTableView(filtered);
-        }
-
-        function switchView(view) {
-            currentView = view;
-            const dateCont = document.getElementById('dateViewContainer');
-            const tableCont = document.getElementById('tableViewContainer');
-            const btnDate = document.getElementById('viewBtnDate');
-            const btnTable = document.getElementById('viewBtnTable');
-
-            if (view === 'date') {
-                dateCont.classList.remove('hidden');
-                tableCont.classList.add('hidden');
-                btnDate.className = "px-3 py-1.5 text-xs font-semibold rounded-md bg-white text-slate-800 shadow-sm flex items-center space-x-1.5 transition";
-                btnTable.className = "px-3 py-1.5 text-xs font-semibold rounded-md text-slate-600 hover:text-slate-900 flex items-center space-x-1.5 transition";
-            } else {
-                dateCont.classList.add('hidden');
-                tableCont.classList.remove('hidden');
-                btnTable.className = "px-3 py-1.5 text-xs font-semibold rounded-md bg-white text-slate-800 shadow-sm flex items-center space-x-1.5 transition";
-                btnDate.className = "px-3 py-1.5 text-xs font-semibold rounded-md text-slate-600 hover:text-slate-900 flex items-center space-x-1.5 transition";
-            }
-        }
-
-        function renderDateView(dataList) {
-            const container = document.getElementById('dateViewContainer');
-            if (dataList.length === 0) {
-                container.innerHTML = `
-                    <div class="p-12 text-center bg-white rounded-2xl border border-slate-200">
-                        <i class="fa-regular fa-folder-open text-4xl text-slate-300 mb-3"></i>
-                        <p class="text-sm font-semibold text-slate-600">Aucune expédition trouvée pour ces filtres.</p>
-                        <p class="text-xs text-slate-400 mt-1">Créez un nouvel envoi ou réinitialisez la recherche.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = dataList.map(exp => {
-                const totalExpCartons = (exp.items || []).reduce((acc, it) => acc + (parseInt(it.cartons) || 1), 0);
-                const itemsCount = (exp.items || []).length;
-
-                return `
-                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition hover:border-slate-300">
-                        <!-- Date Card Header -->
-                        <div class="p-4 bg-slate-50/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 rounded-lg bg-indigo-600 text-white flex flex-col items-center justify-center shadow-sm">
-                                    <span class="text-[10px] uppercase font-bold leading-none">${formatDateDay(exp.date_envoi)}</span>
-                                    <span class="text-sm font-black leading-none mt-0.5">${formatDateDate(exp.date_envoi)}</span>
-                                </div>
-                                <div>
-                                    <div class="flex items-center space-x-2">
-                                        <h3 class="font-bold text-slate-900 text-sm">${exp.date_envoi}</h3>
-                                        <span class="px-2 py-0.5 bg-slate-200 text-slate-700 text-[11px] font-bold rounded">${exp.numero_bl || 'SANS BL'}</span>
-                                    </div>
-                                    <div class="flex items-center space-x-2 mt-0.5 text-xs text-slate-500">
-                                        <span><i class="fa-solid fa-truck text-slate-400 mr-1"></i>${exp.transporteur}</span>
-                                        <span>•</span>
-                                        <span><i class="fa-solid fa-box text-slate-400 mr-1"></i>${totalExpCartons} carton(s)</span>
-                                        <span>•</span>
-                                        <span>${itemsCount} article(s)</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center space-x-2">
-                                <button onclick="printDeliverySlip('${exp.id}')" class="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-700 transition flex items-center space-x-1" title="Imprimer le bon de livraison">
-                                    <i class="fa-solid fa-print text-indigo-600"></i>
-                                    <span class="hidden sm:inline">Imprimer BL</span>
-                                </button>
-                                <button onclick="editExpedition('${exp.id}')" class="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-700 transition" title="Modifier cette journée">
-                                    <i class="fa-solid fa-pen-to-square text-amber-600"></i>
-                                </button>
-                                <button onclick="deleteExpedition('${exp.id}')" class="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-rose-50 text-rose-600 rounded-lg text-xs font-semibold transition" title="Supprimer">
-                                    <i class="fa-regular fa-trash-can"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Observations if present -->
-                        ${exp.observations ? `
-                            <div class="px-4 py-2 bg-indigo-50/40 text-xs text-indigo-900 border-b border-indigo-100/50 flex items-center space-x-2">
-                                <i class="fa-solid fa-circle-info text-indigo-500"></i>
-                                <span>${exp.observations}</span>
-                            </div>
-                        ` : ''}
-
-                        <!-- Items Table -->
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-xs">
-                                <thead>
-                                    <tr class="bg-white text-slate-400 uppercase font-semibold text-[11px] border-b border-slate-100">
-                                        <th class="p-3 font-semibold">Référence</th>
-                                        <th class="p-3 font-semibold">Désignation</th>
-                                        <th class="p-3 font-semibold">Destinataire</th>
-                                        <th class="p-3 font-semibold text-center">Unité</th>
-                                        <th class="p-3 font-semibold text-right">Quantité</th>
-                                        <th class="p-3 font-semibold text-center">Cartons</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 font-medium">
-                                    ${(exp.items || []).map(it => `
-                                        <tr class="hover:bg-slate-50/70 transition">
-                                            <td class="p-3 font-mono text-indigo-700 font-bold">${it.reference || '-'}</td>
-                                            <td class="p-3 text-slate-800">${it.designation || '-'}</td>
-                                            <td class="p-3">
-                                                <span class="inline-block px-2 py-0.5 rounded text-[11px] font-bold ${it.destinataire === 'STOCK' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">
-                                                    ${it.destinataire || 'STOCK'}
-                                                </span>
-                                            </td>
-                                            <td class="p-3 text-center text-slate-500">${it.unite || 'UN'}</td>
-                                            <td class="p-3 text-right font-bold text-slate-900">${formatNumber(it.qte)}</td>
-                                            <td class="p-3 text-center font-bold text-slate-700">${it.cartons || '1'}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function renderTableView(dataList) {
-            const tbody = document.getElementById('flatTableBody');
-            let rowsHtml = '';
-
-            dataList.forEach(exp => {
-                (exp.items || []).forEach(it => {
-                    rowsHtml += `
-                        <tr class="hover:bg-slate-50 transition">
-                            <td class="p-3 font-semibold text-slate-800 whitespace-nowrap">${exp.date_envoi}</td>
-                            <td class="p-3 font-mono text-xs text-slate-600">${exp.numero_bl || '-'}</td>
-                            <td class="p-3 font-semibold text-indigo-700">${exp.transporteur}</td>
-                            <td class="p-3 font-mono font-bold text-slate-900">${it.reference || '-'}</td>
-                            <td class="p-3 text-slate-700">${it.designation || '-'}</td>
-                            <td class="p-3">
-                                <span class="px-2 py-0.5 rounded text-[11px] font-bold ${it.destinataire === 'STOCK' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">
-                                    ${it.destinataire || 'STOCK'}
-                                </span>
-                            </td>
-                            <td class="p-3 text-center text-slate-500">${it.unite || 'UN'}</td>
-                            <td class="p-3 text-right font-bold text-slate-900">${formatNumber(it.qte)}</td>
-                            <td class="p-3 text-center font-bold">${it.cartons || '1'}</td>
-                            <td class="p-3 text-xs text-slate-500 max-w-xs truncate">${exp.observations || '-'}</td>
-                        </tr>
-                    `;
-                });
-            });
-
-            tbody.innerHTML = rowsHtml || `<tr><td colspan="10" class="p-8 text-center text-slate-400">Aucune donnée trouvée</td></tr>`;
-        }
-
-        // Modal Form Actions
-        function openNewExpeditionModal() {
-            document.getElementById('formExpeditionId').value = '';
-            document.getElementById('expeditionModalTitle').textContent = "Enregistrer une Journée d'Expédition";
-            document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('formNumeroBL').value = 'BL-2027-' + String(expeditionsData.length + 1).padStart(3, '0');
-            document.getElementById('formCarrier').value = 'YAZID';
-            document.getElementById('formObservations').value = '';
-
-            // Clean rows and add one empty row
-            document.getElementById('itemsTableBody').innerHTML = '';
-            addNewItemRow();
-
-            document.getElementById('expeditionModal').classList.remove('hidden');
-        }
-
-        function closeExpeditionModal() {
-            document.getElementById('expeditionModal').classList.add('hidden');
-        }
-
-        function addNewItemRow(item = null) {
-            const tbody = document.getElementById('itemsTableBody');
-            const rowId = 'row_' + Math.random().toString(36).substring(2, 9);
-            const tr = document.createElement('tr');
-            tr.id = rowId;
-            tr.className = "hover:bg-slate-50";
-
-            tr.innerHTML = `
-                <td class="p-2">
-                    <input type="text" value="${item ? item.reference : ''}" placeholder="Réf (ex: E02CL38B1)" class="row-ref w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                </td>
-                <td class="p-2">
-                    <input type="text" value="${item ? item.designation : ''}" placeholder="Désignation de la marchandise" class="row-des w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                </td>
-                <td class="p-2">
-                    <input type="text" list="destinatairesList" value="${item ? item.destinataire : 'STOCK'}" placeholder="Client ou STOCK" class="row-dest w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs font-bold focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                </td>
-                <td class="p-2 text-center">
-                    <select class="row-unit w-full px-1 py-1 bg-white border border-slate-300 rounded text-xs text-center">
-                        <option value="UN" ${item && item.unite === 'UN' ? 'selected' : ''}>UN</option>
-                        <option value="ID" ${item && item.unite === 'ID' ? 'selected' : ''}>ID</option>
-                        <option value="BOBINE" ${item && item.unite === 'BOBINE' ? 'selected' : ''}>BOBINE</option>
-                    </select>
-                </td>
-                <td class="p-2">
-                    <input type="text" value="${item ? item.quantite : '100'}" placeholder="0" class="row-qte w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs text-right font-bold focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                </td>
-                <td class="p-2 text-center">
-                    <input type="number" min="1" value="${item ? item.cartons : '1'}" oninput="updateModalTotals()" class="row-cartons w-full px-1 py-1 bg-white border border-slate-300 rounded text-xs text-center font-bold focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                </td>
-                <td class="p-2 text-center">
-                    <button type="button" onclick="removeRow('${rowId}')" class="text-rose-500 hover:text-rose-700 transition p-1"><i class="fa-solid fa-xmark"></i></button>
-                </td>
-            `;
-
-            tbody.appendChild(tr);
-            updateModalTotals();
-        }
-
-        function removeRow(rowId) {
-            const row = document.getElementById(rowId);
-            if (row) row.remove();
-            updateModalTotals();
-        }
-
-        function updateModalTotals() {
-            const cartonInputs = document.querySelectorAll('.row-cartons');
-            let total = 0;
-            cartonInputs.forEach(inp => total += parseInt(inp.value) || 0);
-            document.getElementById('modalTotalCartons').textContent = `Total : ${total} carton(s)`;
-            document.getElementById('itemsCountBadge').textContent = `${cartonInputs.length} article(s)`;
-        }
-
-        async function saveExpedition() {
-            const expId = document.getElementById('formExpeditionId').value;
-            const dateVal = document.getElementById('formDate').value;
-            const blVal = document.getElementById('formNumeroBL').value;
-            const carrierVal = document.getElementById('formCarrier').value;
-            const obsVal = document.getElementById('formObservations').value;
-
-            if (!dateVal) {
-                alert("Veuillez sélectionner une date.");
-                return;
-            }
-
-            // Gather items
-            const rows = document.querySelectorAll('#itemsTableBody tr');
-            const items = [];
-            rows.forEach(tr => {
-                const ref = tr.querySelector('.row-ref').value.trim();
-                const des = tr.querySelector('.row-des').value.trim();
-                const dest = tr.querySelector('.row-dest').value.trim();
-                const unit = tr.querySelector('.row-unit').value;
-                const qte = tr.querySelector('.row-qte').value.trim();
-                const cartons = tr.querySelector('.row-cartons').value.trim();
-
-                if (ref || des || dest) {
-                    items.push({
-                        id: 'item_' + Math.random().toString(36).substring(2, 9),
-                        reference: ref,
-                        designation: des,
-                        destinataire: dest || 'STOCK',
-                        unite: unit,
-                        quantite: qte || '0',
-                        cartons: cartons || '1'
-                    });
-                }
-            });
-
-            if (items.length === 0) {
-                alert("Veuillez ajouter au moins un article.");
-                return;
-            }
-
-            const payload = {
-                id: expId || ('exp_' + Date.now()),
-                date_envoi: dateVal,
-                numero_bl: blVal,
-                transporteur: carrierVal,
-                observations: obsVal,
-                statut: 'Expédié',
-                items: items
-            };
-
-            // Save to Supabase if connected
-            if (supabase) {
-                try {
-                    // Upsert expedition
-                    const { data: expRow, error: eErr } = await supabase
-                        .from('expeditions')
-                        .upsert({
-                            id: expId ? expId : undefined,
-                            date_envoi: dateVal,
-                            numero_bl: blVal,
-                            transporteur: carrierVal,
-                            observations: obsVal,
-                            statut: 'Expédié'
-                        })
-                        .select()
-                        .single();
-
-                    if (!eErr && expRow) {
-                        const newExpId = expRow.id;
-                        // Delete old items then reinsert
-                        await supabase.from('lignes_expedition').delete().eq('expedition_id', newExpId);
-
-                        const linesPayload = items.map(it => ({
-                            expedition_id: newExpId,
-                            reference: it.reference,
-                            designation: it.designation,
-                            destinataire: it.destinataire,
-                            unite: it.unite,
-                            quantite: it.quantite,
-                            cartons: it.cartons
-                        }));
-                        await supabase.from('lignes_expedition').insert(linesPayload);
-                        payload.id = newExpId;
-                    }
-                } catch (err) {
-                    console.error("Erreur sauvegarde Supabase:", err);
-                }
-            }
-
-            // Update local memory
-            if (expId) {
-                const idx = expeditionsData.findIndex(e => e.id === expId);
-                if (idx !== -1) expeditionsData[idx] = payload;
-            } else {
-                expeditionsData.unshift(payload);
-            }
-
-            saveLocalData();
-            closeExpeditionModal();
-            applyFilters();
-            updateKPIs();
-        }
-
-        function editExpedition(id) {
-            const exp = expeditionsData.find(e => e.id === id);
-            if (!exp) return;
-
-            document.getElementById('formExpeditionId').value = exp.id;
-            document.getElementById('expeditionModalTitle').textContent = "Modifier l'Expédition du " + exp.date_envoi;
-            document.getElementById('formDate').value = exp.date_envoi;
-            document.getElementById('formNumeroBL').value = exp.numero_bl || '';
-            document.getElementById('formCarrier').value = exp.transporteur || 'YAZID';
-            document.getElementById('formObservations').value = exp.observations || '';
-
-            const tbody = document.getElementById('itemsTableBody');
-            tbody.innerHTML = '';
-            (exp.items || []).forEach(it => addNewItemRow(it));
-
-            document.getElementById('expeditionModal').classList.remove('hidden');
-        }
-
-        async function deleteExpedition(id) {
-            if (!confirm("Voulez-vous vraiment supprimer cet envoi et l'ensemble de ses colis ?")) return;
-
-            if (supabase) {
-                try {
-                    await supabase.from('expeditions').delete().eq('id', id);
-                } catch (e) {
-                    console.error("Erreur suppression cloud:", e);
-                }
-            }
-
-            expeditionsData = expeditionsData.filter(e => e.id !== id);
-            saveLocalData();
-            applyFilters();
-            updateKPIs();
-        }
-
-        // Print Delivery Slip
-        function printDeliverySlip(id) {
-            const exp = expeditionsData.find(e => e.id === id);
-            if (!exp) return;
-
-            document.getElementById('printBL').textContent = exp.numero_bl || 'BL-2027';
-            document.getElementById('printDate').textContent = 'Date : ' + exp.date_envoi;
-            document.getElementById('printCarrier').textContent = 'Transporteur : ' + exp.transporteur;
-            document.getElementById('printNotes').textContent = exp.observations ? 'Note : ' + exp.observations : '';
-
-            let totalCartons = 0;
-            const tbody = document.getElementById('printItemsBody');
-            tbody.innerHTML = (exp.items || []).map(it => {
-                const cVal = parseInt(it.cartons) || 1;
-                totalCartons += cVal;
-                return `
-                    <tr>
-                        <td class="p-2 border-r border-slate-300 font-mono font-bold">${it.reference || '-'}</td>
-                        <td class="p-2 border-r border-slate-300">${it.designation || '-'}</td>
-                        <td class="p-2 border-r border-slate-300 font-bold">${it.destinataire || 'STOCK'}</td>
-                        <td class="p-2 border-r border-slate-300 text-center">${it.unite || 'UN'}</td>
-                        <td class="p-2 border-r border-slate-300 text-right font-bold">${formatNumber(it.qte)}</td>
-                        <td class="p-2 text-center font-bold">${it.cartons || '1'}</td>
-                    </tr>
-                `;
-            }).join('');
-
-            document.getElementById('printTotalCartons').textContent = totalCartons;
-
-            const printArea = document.getElementById('printArea');
-            printArea.classList.remove('hidden');
-            window.print();
-            printArea.classList.add('hidden');
-        }
-
-        // Export to CSV
-        function exportToCSV() {
-            let csv = '﻿'; // UTF-8 BOM
-            csv += 'Date;Bordereau;Transporteur;Reference;Designation;Destinataire;Unite;Quantite;Cartons;Observations\n';
-
-            expeditionsData.forEach(exp => {
-                (exp.items || []).forEach(it => {
-                    const row = [
-                        exp.date_envoi,
-                        exp.numero_bl || '',
-                        exp.transporteur || '',
-                        it.reference || '',
-                        it.designation || '',
-                        it.destinataire || '',
-                        it.unite || 'UN',
-                        it.qte || '0',
-                        it.cartons || '1',
-                        (exp.observations || '').replace(/;/g, ',')
-                    ];
-                    csv += row.join(';') + '\n';
-                });
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `Envois_Marchandises_2027_${new Date().toISOString().split('T')[0]}.csv`;
-            link.click();
-        }
-
-        // Admin Modal & Settings
-        function openAdminModal() {
-            document.getElementById('adminModal').classList.remove('hidden');
-        }
-
-        function closeAdminModal() {
-            document.getElementById('adminModal').classList.add('hidden');
-        }
-
-        function toggleKeyVisibility() {
-            const inp = document.getElementById('supabaseKeyInput');
-            inp.type = inp.type === 'password' ? 'text' : 'password';
-        }
-
-        function saveSupabaseSettings() {
-            const url = document.getElementById('supabaseUrlInput').value.trim();
-            const key = document.getElementById('supabaseKeyInput').value.trim();
-
-            if (!url || !key) {
-                alert("Veuillez renseigner l'URL et la clé Supabase.");
-                return;
-            }
-
-            localStorage.setItem('supabase_url', url);
-            localStorage.setItem('supabase_key', key);
-            initSupabaseClient();
-            loadExpeditions();
-            alert("Connexion Supabase enregistrée !");
-            closeAdminModal();
-        }
-
-        function refreshDataFromCloud() {
-            loadExpeditions();
-            alert("Données rafraîchies depuis le cloud Supabase.");
-        }
-
-        function initYear2027Template() {
-            if (confirm("Réinitialiser l'année 2027 avec les données modèles de départ ?")) {
-                expeditionsData = [...initial2027Data];
-                saveLocalData();
-                applyFilters();
-                updateKPIs();
-                closeAdminModal();
-            }
-        }
-
-        // Format helpers
-        function formatDateDay(dStr) {
-            try {
-                const date = new Date(dStr);
-                return date.toLocaleDateString('fr-FR', { weekday: 'short' });
-            } catch { return 'J'; }
-        }
-
-        function formatDateDate(dStr) {
-            try {
-                const parts = dStr.split('-');
-                return parts[2] + '/' + parts[1];
-            } catch { return dStr; }
-        }
-
-        function formatNumber(num) {
-            if (!num) return '0';
-            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-        }
-    </script>
-
-    <!-- Datalist for autocomplete -->
-    <datalist id="destinatairesList">
+    <!-- Datalist Autocomplete Helpers -->
+    <datalist id="clientsList">
         <option value="STOCK">
         <option value="SMARTWARE">
         <option value="UPW BENI ABBES">
@@ -1117,7 +585,21 @@
         <option value="AFAK BUREAUTIQUE">
         <option value="SOLINF">
         <option value="SNTP">
+        <option value="AL ANDALUS SERVICES">
     </datalist>
 
+    <datalist id="productsList">
+        <option value="R2A045300BN">RUBAN CIRE 45*300</option>
+        <option value="R2C110300BO">RUBAN RESINE 110*300</option>
+        <option value="RXC060300BN">RUBAN RESINE EXTRA 60*300</option>
+        <option value="E02CL38B1">ETIQUETTE TT 105*148</option>
+        <option value="E06CL25B1">ETIQUETTE PET M /S 105*30</option>
+        <option value="PVC-100">CARTE PVC BLANCHE</option>
+        <option value="PVC-100-AC">PVC ADHESIVE CARD</option>
+    </datalist>
+
+    <!-- CORE JAVASCRIPT LOGIC -->
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
