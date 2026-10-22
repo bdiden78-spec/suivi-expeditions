@@ -1,0 +1,97 @@
+body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .font-mono-code {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 7px; height: 7px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #404040; border-radius: 9999px; border: 1px solid #171717; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+        /* Smooth glass effect */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .glass-card-dark {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(51, 65, 85, 0.6);
+        }
+
+        /* Printable ticket layout */
+        @media print {
+            img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body * { visibility: hidden !important; }
+            #printArea, #printArea * { visibility: visible !important; }
+            #printArea { position: fixed; left: 0; top: 0; width: 100%; margin: 0; padding: 24px; background: white !important; color: black !important; z-index: 999999; }
+            .no-print { display: none !important; }
+        }
+
+
+        html { color-scheme: dark; } html.light { color-scheme: light; }
+        html.light body { background: #f5f5f4 !important; background-image: none !important; color: #171717 !important; }
+        html.light .bg-orbs { display: none; }
+        html.light [class*="from-slate"], html.light [class*="via-slate"], html.light [class*="to-slate"] { background-image: none !important; background-color: #fff !important; }
+        html.light [class*="bg-slate-9"] { background-color: #fff !important; }
+        html.light [class*="bg-slate-950"] { background-color: #fafaf9 !important; }
+        html.light [class*="bg-slate-8"], html.light [class*="bg-slate-7"] { background-color: #f5f5f4 !important; }
+        html.light [class*="hover:bg-slate-7"]:hover, html.light [class*="hover:bg-slate-8"]:hover { background-color: #e7e5e4 !important; }
+        html.light .modal-backdrop { background-color: rgba(10,10,10,.5) !important; }
+        html.light [class*="border-slate-"] { border-color: #e7e5e4 !important; }
+        html.light [class*="divide-slate"] > * + * { border-color: #e7e5e4 !important; }
+        html.light [class*="ring-white"] { --tw-ring-color: #e7e5e4 !important; }
+        html.light [class~="text-white"]:not([class*="indigo-"]):not([class*="purple-"]):not([class*="emerald-6"]) { color: #0a0a0a !important; }
+        html.light [class*="text-slate-1"], html.light [class*="text-slate-2"] { color: #171717 !important; }
+        html.light [class*="text-slate-3"] { color: #404040 !important; }
+        html.light [class*="text-slate-4"], html.light [class*="text-slate-5"] { color: #737373 !important; }
+        html.light [class*="text-indigo-2"], html.light [class*="text-indigo-3"], html.light [class*="text-indigo-4"] { color: #c2410c !important; }
+        html.light [class*="text-cyan-"] { color: #263a8a !important; }
+        html.light [class*="text-amber-"] { color: #b45309 !important; }
+        html.light [class*="text-emerald-"] { color: #047857 !important; }
+        html.light [class*="text-rose-"] { color: #be123c !important; }
+        html.light [class*="text-purple-"] { color: #c2410c !important; }
+        html.light [class*="text-blue-"] { color: #263a8a !important; }
+        html.light [class*="indigo-950"] { background-color: #fff7ed !important; }
+        html.light [class*="emerald-950"] { background-color: #ecfdf5 !important; }
+        html.light [class*="amber-950"] { background-color: #fffbeb !important; }
+        html.light [class*="rose-950"] { background-color: #fff1f2 !important; }
+        html.light [class*="bg-clip-text"] { background-image: linear-gradient(to right, #ea580c, #263a8a) !important; }
+        html.light [class*="shadow-black"] { --tw-shadow-color: rgba(15,23,42,.08) !important; }
+        html.light ::-webkit-scrollbar-track { background: #f5f5f4; }
+        html.light ::-webkit-scrollbar-thumb { background: #d6d3d1; border-color: #f5f5f4; }
+        body:not(.is-operator) .op-only { display: none !important; }
+        body.is-operator #visitorBar { display: none; }
+        :focus-visible { outline: 2px solid #f97316; outline-offset: 2px; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+        /* Modal animations */
+        .modal-backdrop {
+            transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .modal-content {
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .modal-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .modal-hidden .modal-content {
+            transform: scale(0.95) translateY(12px);
+        }
+    
+        /* En-tête noir (identité Eurequat) dans les deux thèmes */
+        html.light header { background: #0a0a0a !important; border-color: #27272a !important; }
+        html.light header [class*="from-slate"], html.light header [class*="bg-slate-8"] { background-color: #27272a !important; }
+        html.light header [class~="text-white"] { color: #fff !important; }
+        html.light header [class*="text-slate-"] { color: #d4d4d8 !important; }
+        html.light header [class*="border-slate-"] { border-color: #3f3f46 !important; }
+        html.light header [class*="text-indigo-"] { color: #fb923c !important; }
+        html.light header [class*="bg-clip-text"] { background-image: linear-gradient(to right, #fb923c, #8fa0dc) !important; }
+        html.light header [class*="hover:bg-slate-7"]:hover { background-color: #3f3f46 !important; }
+        /* Rôles */
+        body:not(.is-admin) .adm-only { display: none !important; }
