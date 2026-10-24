@@ -18,7 +18,7 @@ let refMemory = {};
 let onlineChannel = null;
 let onlineUsers = [];
 
-let chartTransporter = null;
+let chartCategories = null;
 let chartClients = null;
 let chartProducts = null;
 
@@ -360,6 +360,7 @@ function render() {
             </div>
           </div>
           <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+            <a href="colisage.html?id=${encodeURIComponent(e.id)}" class="btn-icon" title="Fiche de colisage"><i class="fa-solid fa-boxes-packing text-amber-500"></i></a>
             <button onclick="printExpedition('${esc(e.id)}')" class="btn-icon" title="Imprimer BL"><i class="fa-solid fa-print text-indigo-400"></i></button>
             ${editBtn}
             <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:var(--bg-hover); color:var(--text-muted)"><i id="icon-${esc(e.id)}" class="fa-solid fa-chevron-down text-xs transition-transform ${isExpanded?'rotate-180':''}"></i></div>
@@ -387,106 +388,64 @@ function render() {
 }
 
 // --- Mise à jour des Graphiques ---
+function makeHBar(canvasId, entries, label, color, fontSize, textColor, gridColor) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return null;
+  return new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: entries.map(d => d[0]),
+      datasets: [{ label, data: entries.map(d => d[1]), backgroundColor: color, borderRadius: 6 }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: textColor }, grid: { color: gridColor } },
+        y: { ticks: { color: textColor, font: { size: fontSize } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 function updateCharts() {
   const isLight = document.documentElement.classList.contains('light');
   const textColor = isLight ? '#475569' : '#94a3b8';
   const gridColor = isLight ? '#e2e8f0' : '#334155';
-  
+
   const colors = {
-    indigo: 'rgba(99, 102, 241, 0.8)',
+    purple: 'rgba(139, 92, 246, 0.8)',
     cyan: 'rgba(6, 182, 212, 0.8)',
+    emerald: 'rgba(16, 185, 129, 0.8)',
     amber: 'rgba(245, 158, 11, 0.8)',
   };
 
-  const transporterData = {};
-  const clientData = {};
+  const categoryData = {};
+  const clientData = {};   // clients hors STOCK
   const productData = {};
 
+  // Tout est basé sur la quantité réelle
   state.filtered.forEach(e => {
-    const t = e.transporteur || 'AUTRE';
-    transporterData[t] = (transporterData[t] || 0);
-    
     (e.items || []).forEach(it => {
       const q = parseQty(it.quantite);
-      const c = parseInt(it.cartons) || 1;
-      const dest = it.destinataire || 'STOCK';
+      const dest = String(it.destinataire || 'STOCK').trim().toUpperCase();
+      const cat = String(it.categorie || '').trim().toUpperCase();
       const prodName = (it.reference ? it.reference + ' - ' : '') + (it.designation || 'SANS NOM');
-      
-      // 1. Transporteur : basé sur le nombre de cartons (demande utilisateur)
-      transporterData[t] += c;
-      
-      // 2. Clients & Produits : basé sur la quantité réelle
-      clientData[dest] = (clientData[dest] || 0) + q;
+
+      if (dest !== 'STOCK') clientData[dest] = (clientData[dest] || 0) + q;   // on ne compte pas le STOCK
+      if (cat) categoryData[cat] = (categoryData[cat] || 0) + q;   // lignes sans catégorie ignorées
       productData[prodName] = (productData[prodName] || 0) + q;
     });
   });
 
-  const sortedTransporter = Object.entries(transporterData).sort((a,b) => b[1]-a[1]);
-  const sortedClients = Object.entries(clientData).sort((a,b) => b[1]-a[1]).slice(0, 5);
-  const sortedProducts = Object.entries(productData).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  const top = (obj, n) => Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, n);
 
-  if (chartTransporter) chartTransporter.destroy();
-  if (chartClients) chartClients.destroy();
-  if (chartProducts) chartProducts.destroy();
+  [chartCategories, chartClients, chartProducts].forEach(c => { if (c) c.destroy(); });
 
-  const ctxTransporter = document.getElementById('chartTransporter');
-  if (ctxTransporter) {
-    chartTransporter = new Chart(ctxTransporter, {
-      type: 'bar',
-      data: {
-        labels: sortedTransporter.map(d => d[0]),
-        datasets: [{ label: 'Cartons', data: sortedTransporter.map(d => d[1]), backgroundColor: colors.indigo, borderRadius: 6 }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: textColor }, grid: { display: false } },
-          y: { ticks: { color: textColor }, grid: { color: gridColor } }
-        }
-      }
-    });
-  }
-
-  const ctxClients = document.getElementById('chartClients');
-  if (ctxClients) {
-    chartClients = new Chart(ctxClients, {
-      type: 'bar',
-      data: {
-        labels: sortedClients.map(d => d[0]),
-        datasets: [{ label: 'Quantité', data: sortedClients.map(d => d[1]), backgroundColor: colors.cyan, borderRadius: 6 }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: textColor }, grid: { color: gridColor } },
-          y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
-        }
-      }
-    });
-  }
-
-  const ctxProducts = document.getElementById('chartProducts');
-  if (ctxProducts) {
-    chartProducts = new Chart(ctxProducts, {
-      type: 'bar',
-      data: {
-        labels: sortedProducts.map(d => d[0]),
-        datasets: [{ label: 'Quantité', data: sortedProducts.map(d => d[1]), backgroundColor: colors.amber, borderRadius: 6 }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: textColor }, grid: { color: gridColor } },
-          y: { ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } }
-        }
-      }
-    });
-  }
+  chartCategories     = makeHBar('chartCategories',     top(categoryData, 3),      'Quantité', colors.purple,  11, textColor, gridColor);
+  chartClients        = makeHBar('chartClients',        top(clientData, 5),        'Quantité', colors.emerald, 10, textColor, gridColor);
+  chartProducts       = makeHBar('chartProducts',       top(productData, 10),      'Quantité', colors.amber,    9, textColor, gridColor);
 }
 
 function toggleAccordion(id) {
@@ -554,11 +513,17 @@ function addItemRow(item = {}) {
     <td class="p-2"><input class="inp input-uppercase" data-field="designation" value="${esc(item.designation||'')}" placeholder="Désignation"></td>
     <td class="p-2"><input class="inp input-uppercase" data-field="destinataire" list="clientsList" value="${esc(item.destinataire||'STOCK')}"></td>
     <td class="p-2"><input class="inp text-center input-uppercase" data-field="unite" list="unitsList" value="${esc(item.unite||'UN')}"></td>
-    <td class="p-2"><input class="inp text-right font-mono-code" data-field="quantite" value="${esc(item.quantite||'0')}"></td>
+    <td class="p-2"><input class="inp text-right font-mono-code" data-field="quantite" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="9" placeholder="0" title="Nombre entier uniquement (sans virgule)" value="${esc(digitsOnly(item.quantite))}"></td>
     <td class="p-2"><input class="inp text-center font-bold text-amber-400" data-field="cartons" type="number" min="1" value="${esc(item.cartons||'1')}"></td>
     <td class="p-2 text-center"><button type="button" class="btn-icon" data-remove aria-label="Supprimer"><i class="fa-solid fa-xmark text-rose-400 text-xs"></i></button></td>`;
   $('#itemsBody').appendChild(tr);
   tr.querySelector('[data-field="cartons"]').addEventListener('input', updateModalTotals);
+  const qtyInput = tr.querySelector('[data-field="quantite"]');
+  qtyInput.addEventListener('input', () => {
+    const clean = digitsOnly(qtyInput.value);
+    if (clean !== qtyInput.value) { qtyInput.value = clean; flashError(qtyInput); }
+    qtyInput.classList.remove('inp-error');
+  });
   tr.querySelector('[data-remove]').addEventListener('click', () => { tr.remove(); updateModalTotals(); });
   
   const refInput = tr.querySelector('[data-field="reference"]');
@@ -578,6 +543,25 @@ function addItemRow(item = {}) {
 
   updateModalTotals();
 }
+// Garde uniquement les chiffres (supprime virgules, points, espaces, lettres, signes) et les zéros en tête
+function digitsOnly(v) {
+  const d = String(v ?? '').replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+  return d;
+}
+function flashError(input) {
+  input.classList.add('inp-error');
+  setTimeout(() => input.classList.remove('inp-error'), 700);
+}
+// Renvoie le premier champ quantité invalide (vide ou 0) parmi les lignes remplies
+function firstBadQuantity() {
+  for (const tr of $$('#itemsBody tr')) {
+    const val = f => tr.querySelector(`[data-field="${f}"]`).value.trim();
+    if (!val('reference') && !val('designation')) continue;
+    const q = tr.querySelector('[data-field="quantite"]');
+    if (!/^[0-9]+$/.test(q.value) || parseInt(q.value, 10) < 1) return q;
+  }
+  return null;
+}
 function updateModalTotals() {
   const rows = $$('#itemsBody tr'); let total = 0; rows.forEach(tr => total += parseInt(tr.querySelector('[data-field="cartons"]').value) || 1);
   $('#modalTotal').textContent = `Total : ${total} carton(s)`; $('#itemsCount').textContent = `${rows.length}`;
@@ -585,13 +569,15 @@ function updateModalTotals() {
 function collectItems() {
   return $$('#itemsBody tr').map(tr => {
     const get = f => tr.querySelector(`[data-field="${f}"]`).value.trim().toUpperCase();
-    return { reference: get('reference'), categorie: get('categorie'), designation: get('designation'), destinataire: get('destinataire') || 'STOCK', unite: get('unite') || 'UN', quantite: get('quantite') || '0', cartons: parseInt(get('cartons')) || 1 };
+    return { reference: get('reference'), categorie: get('categorie'), designation: get('designation'), destinataire: get('destinataire') || 'STOCK', unite: get('unite') || 'UN', quantite: String(parseInt(digitsOnly(get('quantite')), 10) || 0), cartons: parseInt(get('cartons')) || 1 };
   }).filter(it => it.reference || it.designation);
 }
 async function saveExpedition() {
   if (!requireOperator()) return;
   const dateVal = $('#formDate').value; if (!dateVal) return toast("Date d'expédition requise.", "error");
   const items = collectItems(); if (!items.length) return toast("Renseignez au moins un article.", "error");
+  const badQty = firstBadQuantity();
+  if (badQty) { badQty.classList.add('inp-error'); badQty.focus(); return toast("Quantité invalide : saisissez un nombre entier supérieur à 0 (sans virgule).", "error"); }
   
   const payload = { 
     p_id: $('#expId').value || null, 
