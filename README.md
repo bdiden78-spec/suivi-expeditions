@@ -7,6 +7,7 @@ Suivi des expéditions de l'usine de Tlemcen. Tout le monde peut consulter ; seu
 - `colisage.html` : la page de colisage (fiche de colisage numérotée et imprimable, ouverte depuis le bouton « Colisage »)
 - `css/style.css` : styles et thème (noir, orange, bleu du logo ; clair par défaut)
 - `js/app.js` : le fonctionnement de la page
+- `js/scanner.js` : le scan de la case Référence avec l'appareil photo (code-barres, DataMatrix, QR)
 - `js/config.js` : adresse et clé publique de votre projet Supabase
 - `js/tailwind-config.js` : couleurs de la charte
 - `assets/logo-eurequat.png` : le logo
@@ -31,3 +32,6 @@ Pour retirer un accès : **Opérateurs > Retirer**.
 - Les données sont dans Supabase ; la page garde une copie locale en lecture si la connexion tombe.
 - La sécurité repose sur les règles de `sql/setup.sql`, pas sur l'affichage des boutons.
 - Si les inscriptions libres vous gênent : Supabase > Authentication > Sign In / Providers > *Allow new users to sign up*. Désactivées, il faudra créer les comptes à la main.
+
+## Scan avec l'appareil photo
+Dans « Nouvel envoi », touchez une case **Référence vide** : la caméra s'ouvre et le code lu remplit uniquement cette case. Les autres cases se remplissent à la main. La caméra ne fonctionne que si la page est ouverte en **https** (site publié) ; sur ordinateur, en local, cela fonctionne aussi. Pour saisir au clavier, utilisez le bouton « Saisir au clavier ».
