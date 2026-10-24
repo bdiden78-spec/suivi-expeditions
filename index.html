@@ -23,6 +23,35 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    .list-hero{padding:4px 2px 0}
+    .list-hero-icon{width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;background:linear-gradient(135deg,#6366f1,#3b82f6);box-shadow:0 8px 24px -6px rgba(99,102,241,.55)}
+    .list-focus{border:1px solid rgba(99,102,241,.45)!important;box-shadow:0 0 0 3px rgba(99,102,241,.12),0 10px 30px -12px rgba(99,102,241,.45)}
+
+    /* ---- Menu Statistiques : panneau qui pousse la page vers la gauche ---- */
+    body{transition:padding-right .35s cubic-bezier(.22,.8,.3,1)}
+    #statsDrawer{position:fixed;top:0;right:0;bottom:0;z-index:71;width:min(480px,100vw);background:var(--bg);border-left:1px solid var(--border);box-shadow:-18px 0 40px -24px rgba(0,0,0,.55);transform:translateX(100%);visibility:hidden;transition:transform .35s cubic-bezier(.22,.8,.3,1),visibility .35s;display:flex;flex-direction:column}
+    #statsDrawer.open{transform:translateX(0);visibility:visible}
+    #statsDrawer .stats-body{overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;flex:1}
+    #statsDrawer .stat-card{position:relative;border-radius:18px;padding:18px 18px 14px;background:var(--bg-input);border:1px solid var(--border);overflow:hidden}
+    #statsDrawer .stat-card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--c1),var(--c2))}
+    #statsDrawer .stat-card h4{font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px}
+    #statsDrawer .stat-card p{font-size:11px;color:var(--text-muted);margin:2px 0 12px}
+    #statsDrawer .stat-dot{width:26px;height:26px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2))}
+    #statsDrawer .chart-box{position:relative;height:240px}
+    #statsDrawer .chart-box.tall{height:340px}
+    #statsDrawer .chart-box.short{height:170px}
+    #statsOverlay{position:fixed;inset:0;z-index:70;background:rgba(2,6,23,.55);opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s}
+    @media (min-width:1024px){
+      body.stats-open{padding-right:480px}
+      #statsOverlay{display:none}
+    }
+    @media (max-width:1023px){
+      #statsOverlay.open{opacity:1;visibility:visible}
+    }
+    #statsBtn.active{background:rgba(99,102,241,.18);border-color:rgba(99,102,241,.6)}
+    @media print{#statsOverlay,#statsDrawer{display:none!important} body.stats-open{padding-right:0!important}}
+  </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased">
 
@@ -38,10 +67,10 @@
         <div class="h-12 px-3 rounded-2xl bg-white flex items-center flex-shrink-0 shadow-lg ring-1 ring-black/10">
           <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" class="block" style="height:32px;width:auto;max-width:180px;object-fit:contain">
         </div>
-        <div class="min-w-0 hidden sm:block">
-          <h1 class="text-xl font-extrabold tracking-tight"><span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-blue-400">LogiTrak</span></h1>
-          <p class="text-xs font-medium truncate" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
-        </div>
+        <h1 class="hidden sm:flex items-center h-12 px-3 rounded-2xl bg-white flex-shrink-0 shadow-lg ring-1 ring-black/10" title="LogiTrak — Envoi &amp; Traçabilité">
+          <img src="assets/logitrak-logo.png" alt="LogiTrak — Envoi &amp; Traçabilité" class="block" style="height:36px;width:auto;max-width:190px;object-fit:contain">
+        </h1>
+        <p class="text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
 
       <div class="flex items-center gap-2">
@@ -121,23 +150,26 @@
       </div>
     </section>
 
-    <!-- Section Graphiques -->
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div class="panel p-5">
-        <h3 class="text-sm font-extrabold mb-4"><i class="fa-solid fa-chart-simple text-indigo-400 mr-2"></i>Cartons par Transporteur</h3>
-        <div class="chart-container"><canvas id="chartTransporter"></canvas></div>
+    <!-- Titre mis en évidence de la liste d'envoi -->
+    <div class="list-hero flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-3">
+        <div class="list-hero-icon"><i class="fa-solid fa-truck-ramp-box"></i></div>
+        <div>
+          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Liste des envois</h2>
+          <p class="text-xs" style="color:var(--text-muted)">Recherchez, filtrez et consultez toutes les expéditions</p>
+        </div>
       </div>
-      <div class="panel p-5">
-        <h3 class="text-sm font-extrabold mb-4"><i class="fa-solid fa-users text-cyan-400 mr-2"></i>Top 5 Clients (Quantité)</h3>
-        <div class="chart-container"><canvas id="chartClients"></canvas></div>
+      <div class="flex items-center gap-2">
+        <a href="colisage.html" class="btn btn-secondary" title="Page de colisage">
+          <i class="fa-solid fa-boxes-packing text-amber-500"></i><span>Colisage</span>
+        </a>
+        <button id="statsBtn" onclick="toggleStats()" class="btn btn-secondary" title="Ouvrir / fermer le menu Statistiques">
+          <i class="fa-solid fa-chart-pie text-indigo-400"></i><span>Statistiques</span>
+        </button>
       </div>
-      <div class="panel p-5">
-        <h3 class="text-sm font-extrabold mb-4"><i class="fa-solid fa-boxes-stacked text-amber-400 mr-2"></i>Top 10 Produits (Quantité)</h3>
-        <div class="chart-container"><canvas id="chartProducts"></canvas></div>
-      </div>
-    </section>
+    </div>
 
-    <section class="panel p-3 sm:p-4 flex flex-col lg:flex-row gap-3">
+    <section class="panel list-focus p-3 sm:p-4 flex flex-col lg:flex-row gap-3">
       <div class="flex flex-wrap items-center gap-2 flex-1">
         <div class="relative flex-1 min-w-[200px]">
           <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
@@ -177,6 +209,53 @@
       </div>
     </section>
   </main>
+
+  <!-- Menu spécial : Statistiques (pousse la page vers la gauche) -->
+  <div id="statsOverlay" class="no-print" onclick="closeStats()"></div>
+  <aside id="statsDrawer" class="no-print" role="dialog" aria-label="Statistiques" aria-hidden="true">
+    <div class="flex items-center justify-between px-5 h-16 border-b flex-shrink-0" style="border-color:var(--border)">
+      <h3 class="text-base font-extrabold"><i class="fa-solid fa-chart-pie text-indigo-400 mr-2"></i>Statistiques</h3>
+      <button onclick="closeStats()" class="btn-icon" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="stats-body">
+      <div class="stat-card" style="--c1:#8b5cf6;--c2:#c084fc">
+        <h4><span class="stat-dot"><i class="fa-solid fa-tags"></i></span>Top 3 Catégories (Quantité)</h4>
+        <p>Les catégories les plus expédiées</p>
+        <div class="chart-box short"><canvas id="chartCategories"></canvas></div>
+      </div>
+      <div class="stat-card" style="--c1:#10b981;--c2:#34d399">
+        <h4><span class="stat-dot"><i class="fa-solid fa-user-check"></i></span>Top 5 Clients (Quantité)</h4>
+        <p>Sans compter les envois vers le stock</p>
+        <div class="chart-box"><canvas id="chartClients"></canvas></div>
+      </div>
+      <div class="stat-card" style="--c1:#f59e0b;--c2:#f472b6">
+        <h4><span class="stat-dot"><i class="fa-solid fa-boxes-stacked"></i></span>Top 10 Produits (Quantité)</h4>
+        <p>Les références les plus expédiées</p>
+        <div class="chart-box tall"><canvas id="chartProducts"></canvas></div>
+      </div>
+    </div>
+  </aside>
+
+  <script>
+    function openStats(){
+      document.body.classList.add('stats-open');
+      document.getElementById('statsOverlay').classList.add('open');
+      var d=document.getElementById('statsDrawer'); d.classList.add('open'); d.setAttribute('aria-hidden','false');
+      var b=document.getElementById('statsBtn'); if(b) b.classList.add('active');
+      setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 380);
+    }
+    function closeStats(){
+      document.body.classList.remove('stats-open');
+      document.getElementById('statsOverlay').classList.remove('open');
+      var d=document.getElementById('statsDrawer'); d.classList.remove('open'); d.setAttribute('aria-hidden','true');
+      var b=document.getElementById('statsBtn'); if(b) b.classList.remove('active');
+      setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 380);
+    }
+    function toggleStats(){
+      document.getElementById('statsDrawer').classList.contains('open') ? closeStats() : openStats();
+    }
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeStats(); });
+  </script>
 
   <div id="toasts" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
 
@@ -342,6 +421,90 @@
   <datalist id="unitsList">
     <option value="UN"><option value="ID"><option value="BOBINE">
   </datalist>
+
+  <!-- Style fin et moderne pour les 3 graphiques des statistiques -->
+  <script>
+  (function(){
+    if(!window.Chart) return;
+    var IDS=['chartCategories','chartClients','chartProducts'];
+    // Une couleur (dégradé) par graphique : violet / vert / ambre
+    var COLORS={ chartCategories:['#8b5cf6','#c4b5fd'], chartClients:['#10b981','#6ee7b7'], chartProducts:['#f59e0b','#fcd34d'] };
+    function css(v,f){ try{ return getComputedStyle(document.documentElement).getPropertyValue(v).trim()||f; }catch(e){ return f; } }
+    function fmt(v){ try{ return Number(v).toLocaleString('fr-FR'); }catch(e){ return String(v); } }
+    function cut(t,n){ t=String(t); return t.length>n ? t.slice(0,n-1)+'…' : t; }
+
+    Chart.defaults.font.family="'Plus Jakarta Sans',system-ui,sans-serif";
+    Chart.defaults.font.size=11;
+    Chart.defaults.animation.duration=900;
+    Chart.defaults.animation.easing='easeOutQuart';
+    var tt=Chart.defaults.plugins.tooltip;
+    tt.backgroundColor='rgba(15,23,42,.96)'; tt.titleColor='#fff'; tt.bodyColor='#cbd5e1';
+    tt.padding=10; tt.cornerRadius=10; tt.boxPadding=4;
+    tt.borderColor='rgba(99,102,241,.45)'; tt.borderWidth=1;
+
+    function style(chart){
+      if(!chart.canvas || IDS.indexOf(chart.canvas.id)<0) return;
+      var id=chart.canvas.id, cfg=chart.config;
+      var o=cfg.options=cfg.options||{};
+      var horiz=(o.indexAxis==='y');
+      var muted=css('--text-muted','#94a3b8');
+      var pair=COLORS[id];
+
+      o.responsive=true; o.maintainAspectRatio=false;
+      // marge à droite / en haut pour laisser la place aux chiffres au bout des barres
+      o.layout={ padding: horiz ? {top:4,right:46,bottom:2,left:2} : {top:22,right:6,bottom:2,left:2} };
+      o.plugins=o.plugins||{};
+      o.plugins.legend={display:false};
+
+      o.scales=o.scales||{};
+      ['x','y'].forEach(function(k){
+        var sc=o.scales[k]=o.scales[k]||{};
+        var isCategory=((k==='x')!==horiz);
+        sc.border={display:false,dash:[4,4]};
+        sc.beginAtZero=true;
+        sc.ticks=Object.assign({},sc.ticks,{color:muted,padding:8,font:{size:isCategory&&horiz?10:11,weight:'600'}});
+        if(isCategory && horiz){
+          // noms longs : on coupe l'étiquette (le nom complet reste visible dans l'infobulle)
+          sc.ticks.callback=function(v){ return cut(this.getLabelForValue(v), 24); };
+        }
+        sc.grid=isCategory ? {display:false} : {color:'rgba(148,163,184,.16)',drawTicks:false};
+      });
+
+      (cfg.data.datasets||[]).forEach(function(ds){
+        ds.borderRadius=10; ds.borderSkipped=false; ds.borderWidth=0;
+        ds.maxBarThickness=horiz?14:30; ds.categoryPercentage=.75; ds.barPercentage=.8;
+        ds.backgroundColor=function(c){
+          var a=c.chart.chartArea; if(!a) return pair[0];
+          var g=horiz ? c.chart.ctx.createLinearGradient(a.left,0,a.right,0)
+                      : c.chart.ctx.createLinearGradient(0,a.bottom,0,a.top);
+          g.addColorStop(0,pair[0]); g.addColorStop(1,pair[1]); return g;
+        };
+        ds.hoverBackgroundColor=pair[1];
+      });
+    }
+
+    // Affiche la valeur au bout de chaque barre
+    function valueLabels(chart){
+      if(!chart.canvas || IDS.indexOf(chart.canvas.id)<0) return;
+      var horiz=(chart.options.indexAxis==='y');
+      var ctx=chart.ctx;
+      ctx.save();
+      ctx.font="700 11px 'Plus Jakarta Sans',system-ui,sans-serif";
+      ctx.fillStyle=css('--text','#e2e8f0');
+      ctx.textBaseline='middle';
+      ctx.textAlign=horiz?'left':'center';
+      chart.getDatasetMeta(0).data.forEach(function(bar,i){
+        var v=chart.data.datasets[0].data[i];
+        if(v==null) return;
+        if(horiz) ctx.fillText(fmt(v), bar.x+8, bar.y);
+        else      ctx.fillText(fmt(v), bar.x, bar.y-10);
+      });
+      ctx.restore();
+    }
+
+    Chart.register({ id:'logitrakStyle', beforeInit:style, beforeUpdate:style, afterDatasetsDraw:valueLabels });
+  })();
+  </script>
 
   <script src="js/config.js"></script>
   <script src="js/app.js"></script>

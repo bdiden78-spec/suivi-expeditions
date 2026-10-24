@@ -4,6 +4,7 @@ Suivi des expéditions de l'usine de Tlemcen. Tout le monde peut consulter ; seu
 
 ## Contenu du dossier
 - `index.html` : la page (ouvrez ce fichier, ou publiez tout le dossier tel quel)
+- `colisage.html` : la page de colisage (fiche de colisage numérotée et imprimable, ouverte depuis le bouton « Colisage »)
 - `css/style.css` : styles et thème (noir, orange, bleu du logo ; clair par défaut)
 - `js/app.js` : le fonctionnement de la page
 - `js/config.js` : adresse et clé publique de votre projet Supabase

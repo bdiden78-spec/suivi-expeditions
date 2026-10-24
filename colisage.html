@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="LogiTrak — Fiche de colisage Eurequat Algérie">
+  <link rel="icon" type="image/png" href="assets/logo-eurequat.png">
+  <title>Colisage • LogiTrak Eurequat Algérie</title>
+
+  <script>
+    try {
+      if (localStorage.getItem('logitrak_theme') === 'light')
+        document.documentElement.classList.add('light');
+    } catch(e) {}
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="css/style.css">
+
+  <style>
+    .kpi{padding:14px 16px}
+    .kpi small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim)}
+    .kpi b{display:block;font-size:22px;font-weight:900;margin-top:2px}
+    .colis-range{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;background:rgba(245,158,11,.14);color:#d97706;border:1px solid rgba(245,158,11,.35);white-space:nowrap}
+    .group-row td{background:var(--bg-hover);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+    .seg{padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text-muted);transition:all .15s}
+    .seg.active{background:#4f46e5;color:#fff}
+
+    /* ---- Feuille imprimable ---- */
+    #sheet{display:none}
+    @media print{
+      @page{size:A4;margin:12mm}
+      body > *:not(#sheet){display:none !important}
+      body{background:#fff !important;color:#000 !important;height:auto}
+      #sheet{display:block !important;color:#000;font-family:'Plus Jakarta Sans',sans-serif}
+      #sheet table{width:100%;border-collapse:collapse;font-size:11px}
+      #sheet th,#sheet td{border:1px solid #cbd5e1;padding:6px 8px;vertical-align:middle}
+      #sheet thead{background:#f1f5f9}
+      #sheet tr{page-break-inside:avoid}
+      #sheet .grp td{background:#f8fafc;font-weight:800;text-transform:uppercase;font-size:10px}
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+  <header class="relative z-30 sticky top-0 backdrop-blur-xl border-b no-print" style="background:color-mix(in srgb, var(--bg) 88%, transparent); border-color:var(--border);">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="h-12 px-3 rounded-2xl bg-white flex items-center flex-shrink-0 shadow-lg ring-1 ring-black/10">
+          <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" class="block" style="height:32px;width:auto;max-width:180px;object-fit:contain">
+        </div>
+        <div class="min-w-0 hidden sm:block">
+          <h1 class="text-xl font-extrabold tracking-tight"><span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-blue-400">Colisage</span></h1>
+          <p class="text-xs font-medium truncate" style="color:var(--text-muted)"><i class="fa-solid fa-boxes-packing text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Fiche de colisage</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="dbBadge" class="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold" style="background:var(--bg-soft);border:1px solid var(--border)">
+          <span id="dbDot" class="inline-flex rounded-full h-2 w-2 bg-slate-400"></span><span id="dbText">Chargement…</span>
+        </span>
+        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
+        <a href="index.html" class="btn btn-secondary"><i class="fa-solid fa-arrow-left text-xs"></i><span class="hidden sm:inline">Retour aux envois</span></a>
+        <button onclick="printSheet()" class="btn btn-primary"><i class="fa-solid fa-print"></i><span class="hidden sm:inline">Imprimer</span></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6 no-print">
+
+    <!-- Titre -->
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl text-white" style="background:linear-gradient(135deg,#6366f1,#3b82f6);box-shadow:0 8px 24px -6px rgba(99,102,241,.55)"><i class="fa-solid fa-boxes-packing"></i></div>
+      <div>
+        <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Fiche de colisage</h2>
+        <p class="text-xs" style="color:var(--text-muted)">Choisissez un envoi : les colis sont numérotés automatiquement</p>
+      </div>
+    </div>
+
+    <!-- Choix de l'envoi -->
+    <section class="panel p-3 sm:p-4 flex flex-col lg:flex-row gap-3" style="border:1px solid rgba(99,102,241,.45);box-shadow:0 0 0 3px rgba(99,102,241,.12)">
+      <div class="flex flex-wrap items-center gap-2 flex-1">
+        <div class="relative flex-1 min-w-[200px]">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
+          <input id="search" type="text" oninput="fillSelect()" placeholder="Rechercher un N° d'envoi, un transporteur, une date…" class="inp pl-9" aria-label="Rechercher">
+        </div>
+        <select id="expSelect" onchange="onPick()" class="inp" style="flex:2;min-width:260px" aria-label="Choisir un envoi"></select>
+      </div>
+      <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
+        <button id="modeLine" class="seg active" onclick="setMode('line')"><i class="fa-solid fa-list mr-1"></i>Par ligne</button>
+        <button id="modeDest" class="seg" onclick="setMode('dest')"><i class="fa-solid fa-user-group mr-1"></i>Par destinataire</button>
+      </div>
+    </section>
+
+    <div id="content"></div>
+  </main>
+
+  <!-- Feuille imprimable (A4) -->
+  <div id="sheet"></div>
+
+  <div id="toasts" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none no-print"></div>
+
+  <script src="js/config.js"></script>
+  <script>
+    const THEME_KEY = 'logitrak_theme', LOCAL_KEY = 'eurequat_expeditions_v1';
+    const state = { expeditions: [], current: null, mode: 'line' };
+
+    const $ = s => document.querySelector(s);
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+    const fmtDate = d => { if (!d) return '—'; const [y,m,day] = d.split('-'); return `${day}/${m}/${y}`; };
+    const fmtNum = n => Number(n || 0).toLocaleString('fr-FR');
+    const parseQty = v => parseInt(String(v ?? '').replace(/[^0-9]/g, ''), 10) || 0;
+    const cartonsOf = it => parseInt(it.cartons) || 1;
+
+    /* ----- Thème ----- */
+    function syncThemeIcon() { $('#themeIcon').className = 'fa-solid text-sm ' + (document.documentElement.classList.contains('light') ? 'fa-moon' : 'fa-sun'); }
+    function toggleTheme() {
+      const light = document.documentElement.classList.toggle('light');
+      try { localStorage.setItem(THEME_KEY, light ? 'light' : 'dark'); } catch {}
+      syncThemeIcon();
+    }
+
+    /* ----- Données (mêmes sources que la page des envois) ----- */
+    function setBadge(ok, text) {
+      $('#dbDot').className = 'inline-flex rounded-full h-2 w-2 ' + (ok ? 'bg-emerald-400' : 'bg-rose-400');
+      $('#dbText').textContent = text;
+    }
+    async function loadData() {
+      let loaded = false;
+      try {
+        const url = lsGet('supabase_url') || SUPABASE_URL, key = lsGet('supabase_key') || SUPABASE_ANON;
+        if (!window.supabase) throw new Error('SDK non chargé');
+        const sb = window.supabase.createClient(url, key);
+        const [exps, lines] = await Promise.all([
+          sb.from('expeditions').select('*').order('date_envoi', { ascending: false }),
+          sb.from('lignes_expedition').select('*').order('created_at', { ascending: true }),
+        ]);
+        if (exps.error) throw exps.error; if (lines.error) throw lines.error;
+        state.expeditions = (exps.data || []).map(e => ({
+          id: e.id, date_envoi: e.date_envoi, numero_bl: e.numero_bl || '', transporteur: e.transporteur || 'AUTRE',
+          observations: e.observations || '',
+          items: (lines.data || []).filter(l => l.expedition_id === e.id).map(l => ({
+            reference: l.reference || '', categorie: l.categorie || '', designation: l.designation || '',
+            destinataire: l.destinataire || 'STOCK', unite: l.unite || 'UN', quantite: l.quantite || '0', cartons: l.cartons || 1,
+          })),
+        }));
+        loaded = true; setBadge(true, 'Connecté');
+      } catch (e) { setBadge(false, 'Hors ligne'); }
+      if (!loaded) { try { state.expeditions = JSON.parse(lsGet(LOCAL_KEY) || '[]'); } catch { state.expeditions = []; } }
+      state.expeditions.sort((a, b) => (b.date_envoi || '').localeCompare(a.date_envoi || ''));
+    }
+
+    /* ----- Sélecteur ----- */
+    function label(e) {
+      const c = (e.items || []).reduce((s, it) => s + cartonsOf(it), 0);
+      return `${fmtDate(e.date_envoi)} — ${e.numero_bl || 'SANS NUM'} — ${e.transporteur} — ${c} colis`;
+    }
+    function fillSelect() {
+      const q = $('#search').value.trim().toLowerCase();
+      const list = state.expeditions.filter(e => !q || (label(e) + ' ' + (e.observations || '')).toLowerCase().includes(q));
+      const sel = $('#expSelect'), keep = state.current?.id;
+      sel.innerHTML = list.length
+        ? list.map(e => `<option value="${esc(e.id)}">${esc(label(e))}</option>`).join('')
+        : '<option value="">Aucun envoi trouvé</option>';
+      if (keep && list.some(e => e.id === keep)) sel.value = keep;
+      onPick();
+    }
+    function onPick() {
+      const id = $('#expSelect').value;
+      state.current = state.expeditions.find(e => e.id === id) || null;
+      render();
+    }
+    function setMode(m) {
+      state.mode = m;
+      $('#modeLine').classList.toggle('active', m === 'line');
+      $('#modeDest').classList.toggle('active', m === 'dest');
+      render();
+    }
+
+    /* ----- Calcul du colisage ----- */
+    // Numérote les colis dans l'ordre affiché : une ligne de 3 cartons -> colis 1 à 3, la suivante démarre au 4.
+    function buildRows(e) {
+      let items = (e.items || []).map(it => ({ ...it }));
+      if (state.mode === 'dest') {
+        items = items
+          .map((it, i) => ({ it, i }))
+          .sort((a, b) => String(a.it.destinataire).localeCompare(String(b.it.destinataire), 'fr') || a.i - b.i)
+          .map(x => x.it);
+      }
+      let n = 1;
+      items.forEach(it => {
+        const c = cartonsOf(it), q = parseQty(it.quantite);
+        it.c = c; it.q = q;
+        it.from = n; it.to = n + c - 1; n += c;
+        const per = q / c;
+        it.per = Number.isInteger(per) ? fmtNum(per) : '≈ ' + fmtNum(Math.round(per));
+      });
+      return { items, totalColis: n - 1 };
+    }
+    const rangeTxt = it => it.from === it.to ? `${it.from}` : `${it.from} – ${it.to}`;
+
+    /* ----- Affichage ----- */
+    function render() {
+      const box = $('#content');
+      const e = state.current;
+      if (!e) {
+        box.innerHTML = `<div class="panel p-12 text-center" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-4xl mb-3 block" style="color:var(--text-dim)"></i><h4 class="text-base font-bold" style="color:var(--text)">Aucun envoi à afficher</h4><p class="text-xs mt-1">Créez d'abord un envoi dans la page des envois.</p></div>`;
+        $('#sheet').innerHTML = '';
+        return;
+      }
+      const { items, totalColis } = buildRows(e);
+      const totalQty = items.reduce((s, it) => s + it.q, 0);
+
+      let rows = '', lastDest = null;
+      items.forEach(it => {
+        if (state.mode === 'dest' && it.destinataire !== lastDest) {
+          lastDest = it.destinataire;
+          const sub = items.filter(x => x.destinataire === lastDest);
+          const cs = sub.reduce((s, x) => s + x.c, 0);
+          rows += `<tr class="group-row"><td colspan="7" class="p-3 pl-5"><i class="fa-solid fa-location-dot text-indigo-400 mr-2"></i>${esc(lastDest)} <span style="color:var(--text-muted);font-weight:600">— ${cs} colis</span></td></tr>`;
+        }
+        rows += `<tr class="hover:bg-[var(--bg-hover)] transition">
+          <td class="p-3 pl-5"><span class="colis-range">${rangeTxt(it)}</span></td>
+          <td class="p-3 font-mono-code font-bold text-indigo-400">${esc(it.reference || '-')}</td>
+          <td class="p-3 font-semibold">${esc(it.designation || '-')}</td>
+          <td class="p-3">${esc(it.destinataire)}</td>
+          <td class="p-3 text-center">${esc(it.unite)}</td>
+          <td class="p-3 text-right font-bold">${fmtNum(it.q)}</td>
+          <td class="p-3 text-center font-bold text-amber-500">${it.c}</td>
+          <td class="p-3 pr-5 text-right" style="color:var(--text-muted)">${it.per}</td>
+        </tr>`;
+      });
+
+      box.innerHTML = `
+        <section class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <div class="panel kpi"><small>Date</small><b>${esc(fmtDate(e.date_envoi))}</b></div>
+          <div class="panel kpi"><small>N° d'envoi</small><b class="font-mono-code" style="font-size:18px">${esc(e.numero_bl || 'SANS NUM')}</b></div>
+          <div class="panel kpi"><small>Transporteur</small><b style="font-size:18px">${esc(e.transporteur)}</b></div>
+          <div class="panel kpi"><small>Total colis</small><b class="text-amber-500">${totalColis}</b></div>
+          <div class="panel kpi"><small>Quantité totale</small><b>${fmtNum(totalQty)}</b></div>
+        </section>
+        ${e.observations ? `<div class="px-4 py-2.5 text-xs flex items-center gap-2 rounded-xl" style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25)"><i class="fa-solid fa-circle-info text-indigo-400"></i><span>${esc(e.observations)}</span></div>` : ''}
+        <section class="panel overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead style="background:var(--bg-input)"><tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
+                <th class="p-3 pl-5">N° colis</th><th class="p-3">Référence</th><th class="p-3">Désignation</th><th class="p-3">Destinataire</th>
+                <th class="p-3 text-center">Unité</th><th class="p-3 text-right">Quantité</th><th class="p-3 text-center">Colis</th><th class="p-3 pr-5 text-right">Qté / colis</th>
+              </tr></thead>
+              <tbody class="divide-y" style="border-color:var(--border)">${rows || '<tr><td colspan="8" class="p-8 text-center" style="color:var(--text-muted)">Cet envoi ne contient aucune ligne.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </section>
+        <p class="text-[11px]" style="color:var(--text-dim)"><i class="fa-solid fa-circle-info mr-1"></i>« Qté / colis » est la quantité de la ligne divisée par son nombre de colis (« ≈ » quand la division ne tombe pas juste).</p>`;
+
+      buildSheet(e, items, totalColis, totalQty);
+    }
+
+    /* ----- Feuille A4 à imprimer ----- */
+    function buildSheet(e, items, totalColis, totalQty) {
+      let rows = '', lastDest = null;
+      items.forEach(it => {
+        if (state.mode === 'dest' && it.destinataire !== lastDest) {
+          lastDest = it.destinataire;
+          const cs = items.filter(x => x.destinataire === lastDest).reduce((s, x) => s + x.c, 0);
+          rows += `<tr class="grp"><td colspan="7">${esc(lastDest)} — ${cs} colis</td></tr>`;
+        }
+        rows += `<tr>
+          <td style="text-align:center;font-weight:800;white-space:nowrap">${rangeTxt(it)}</td>
+          <td style="font-family:monospace;font-weight:bold">${esc(it.reference || '-')}</td>
+          <td>${esc(it.designation || '-')}</td>
+          <td style="font-weight:bold">${esc(it.destinataire)}</td>
+          <td style="text-align:center">${esc(it.unite)}</td>
+          <td style="text-align:right;font-weight:bold">${fmtNum(it.q)}</td>
+          <td style="text-align:center;font-weight:bold">${it.c}</td>
+        </tr>`;
+      });
+      $('#sheet').innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:14px">
+          <div>
+            <img src="assets/logo-eurequat.png" alt="Eurequat" style="height:48px;width:auto;display:block">
+            <p style="font-size:10px;color:#475569;margin:4px 0 0">Identification Automatique, Rubans &amp; Étiquettes</p>
+            <p style="font-size:10px;color:#475569;margin:0">Zone Industrielle Tlemcen • Algérie</p>
+          </div>
+          <div style="text-align:right">
+            <h2 style="font-size:15px;font-weight:800;text-transform:uppercase;margin:0;color:#4f46e5">Fiche de colisage</h2>
+            <div style="font-size:12px;font-weight:700;margin-top:3px">${esc(e.numero_bl || 'SANS NUM')}</div>
+            <div style="font-size:10px;color:#64748b">Date : ${esc(fmtDate(e.date_envoi))}</div>
+            <div style="font-size:11px;font-weight:700;margin-top:3px">Transporteur : ${esc(e.transporteur)}</div>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th style="text-align:center">N° colis</th><th>Référence</th><th>Désignation</th><th>Destinataire</th><th style="text-align:center">Unité</th><th style="text-align:right">Quantité</th><th style="text-align:center">Colis</th></tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr style="background:#f8fafc;font-weight:800">
+            <td colspan="5" style="text-align:right">TOTAL :</td>
+            <td style="text-align:right">${fmtNum(totalQty)}</td>
+            <td style="text-align:center">${totalColis}</td>
+          </tr></tfoot>
+        </table>
+        ${e.observations ? `<p style="font-size:10px;color:#334155;margin:14px 0;font-style:italic">Note : ${esc(e.observations)}</p>` : ''}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:24px;font-size:10px;text-align:center">
+          <div style="border:1px dashed #94a3b8;height:80px;padding:6px;border-radius:6px"><strong>Service Expédition</strong><div style="color:#94a3b8;margin-top:32px">Visa &amp; Date</div></div>
+          <div style="border:1px dashed #94a3b8;height:80px;padding:6px;border-radius:6px"><strong>Transporteur</strong><div style="color:#94a3b8;margin-top:32px">Nom &amp; Émargement</div></div>
+          <div style="border:1px dashed #94a3b8;height:80px;padding:6px;border-radius:6px"><strong>Réceptionnaire</strong><div style="color:#94a3b8;margin-top:32px">Cachet &amp; Signature</div></div>
+        </div>`;
+    }
+    function printSheet() {
+      if (!state.current) return;
+      window.print();
+    }
+
+    /* ----- Démarrage ----- */
+    (async function init() {
+      syncThemeIcon();
+      await loadData();
+      fillSelect();
+      // ?id=... permet d'ouvrir directement un envoi précis
+      const wanted = new URLSearchParams(location.search).get('id');
+      if (wanted && state.expeditions.some(e => e.id === wanted)) { $('#expSelect').value = wanted; onPick(); }
+    })();
+  </script>
+</body>
+</html>
