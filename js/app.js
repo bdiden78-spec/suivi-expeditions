@@ -633,14 +633,39 @@ async function loadOperators() {
     <div class="py-2.5 flex items-center justify-between gap-2"><div class="min-w-0"><p class="font-semibold truncate">${esc(o.username)}</p><p class="text-[11px]" style="color:var(--text-muted)">${o.role === 'admin' ? 'Administrateur' : 'Opérateur'}</p></div>
     ${o.username === me ? '<span class="text-[11px]" style="color:var(--text-dim)">vous</span>' : `<button onclick="removeOperator('${esc(o.username)}')" class="btn btn-secondary"><i class="fa-solid fa-trash text-rose-400"></i>Retirer</button>`}</div>`).join('') || '<p class="py-3 text-xs" style="color:var(--text-muted)">Aucun opérateur.</p>';
 }
+
 async function addOperator(e) {
   e.preventDefault();
-  const username = $('#opUsername').value.trim().toLowerCase(), password = $('#opPassword').value, role = $('#opRole').value;
+  const username = $('#opUsername').value.trim().toLowerCase();
+  const password = $('#opPassword').value;
+  const role = $('#opRole').value;
+
   if (password.length < 6) return toast("Le mot de passe doit faire 6 caractères minimum.", "error");
-  const { error } = await state.supabase.rpc('create_operator', { p_username: username, p_password: password, p_role: role });
-  if (error) return toast('Création impossible : ' + error.message, 'error');
-  $('#opUsername').value = ''; $('#opPassword').value = ''; toast('Compte opérateur créé.', 'success'); await loadOperators();
+
+  const email = username + '@logitrak.internal';
+
+  // 1. Création de l'utilisateur dans Auth via la Edge Function
+  const { data: fnData, error: fnError } = await state.supabase.functions.invoke('create-operator', {
+    body: { email: email, password: password }
+  });
+
+  if (fnError) return toast('Création impossible : ' + fnError.message, 'error');
+  if (fnData && fnData.error) return toast('Erreur : ' + fnData.error, 'error');
+
+  // 2. Ajout de l'utilisateur dans ta table "operateurs"
+  const { error: dbError } = await state.supabase.from('operateurs').insert({
+    username: username,
+    role: role
+  });
+
+  if (dbError) return toast('Compte créé mais erreur table : ' + dbError.message, 'error');
+
+  $('#opUsername').value = ''; 
+  $('#opPassword').value = ''; 
+  toast('Compte opérateur créé.', 'success'); 
+  await loadOperators();
 }
+
 async function removeOperator(username) {
   if (!await confirmDialog(`Retirer l'accès à ${username} ?`)) return;
   const { error } = await state.supabase.from('operateurs').delete().eq('username', username);
