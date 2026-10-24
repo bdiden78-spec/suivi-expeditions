@@ -1,991 +1,691 @@
-// --- Filets de sécurité : une erreur s'affiche en rouge en bas de la page au lieu de tout bloquer
-function showFatal(msg) {
-    let b = document.getElementById('fatalBar');
-    if (!b) { b = document.createElement('div'); b.id = 'fatalBar'; b.className = 'fixed bottom-0 inset-x-0 z-[60] bg-rose-700 text-white text-xs p-3 text-center'; document.body.appendChild(b); }
-    b.textContent = 'Erreur : ' + msg;
+const THEME_KEY  = 'logitrak_theme';
+const LOCAL_KEY  = 'eurequat_expeditions_v1';
+const CFG_URL    = 'supabase_url';
+const CFG_KEY    = 'supabase_key';
+
+const state = {
+  supabase:   null,
+  session:    null,
+  isOperator: false,
+  isAdmin:    false,
+  expeditions: [],
+  filtered:   [],
+  expanded:   new Set(),
+  view:       'date',
+};
+
+let refMemory = {}; 
+let onlineChannel = null;
+let onlineUsers = [];
+
+let chartTransporter = null;
+let chartClients = null;
+let chartProducts = null;
+
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k,v) => { try { localStorage.setItem(k,v); } catch {} };
+
+function fmtDate(d) { if (!d) return '—'; const [y,m,day] = d.split('-'); return `${day}/${m}/${y}`; }
+function dayName(d) { try { return new Date(d+'T00:00').toLocaleDateString('fr-FR',{weekday:'short'}); } catch { return ''; } }
+function dayNumber(d) { try { const p = d.split('-'); return p[2]+'/'+p[1]; } catch { return d; } }
+function fmtNum(n) { return String(n ?? '0').replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+
+// Nettoie et extrait le nombre d'une chaîne ("1 500" -> 1500)
+function parseQty(val) {
+  if (!val) return 0;
+  return parseInt(String(val).replace(/[^0-9]/g, ''), 10) || 0;
 }
-window.addEventListener('error', e => showFatal(e.message));
-window.addEventListener('unhandledrejection', e => showFatal((e.reason && e.reason.message) || e.reason));
-function withTimeout(p, ms) { return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('délai dépassé')), ms))]); }
-function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 
-let supabaseClient = null;
-        let allExpeditions = [];
-        let currentView = 'date';
-        let allAccordionsExpanded = true;
-        let isOperator = false;
-        function syncThemeIcon() {
-            const l = document.documentElement.classList.contains('light');
-            document.getElementById('themeIcon').className = 'fa-solid text-sm text-indigo-400 ' + (l ? 'fa-moon' : 'fa-sun');
-        }
-        function toggleTheme() {
-            const l = document.documentElement.classList.toggle('light');
-            try { localStorage.setItem('logitrak_theme', l ? 'light' : 'dark'); } catch (e) {}
-            syncThemeIcon();
-        }
-        function explain(e) {
-            const m = (e && e.message) || 'erreur inconnue';
-            return /row-level security|permission denied/i.test(m) ? "permission refusée (les règles RLS de Supabase ne sont pas configurées pour les opérateurs)" : m;
-        }
-        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        function esc(v) {
-            return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-        }
-        let isAdmin = false, currentSession = null;
-        async function refreshRole(session) {
-            currentSession = session; isOperator = false; isAdmin = false;
-            if (session && supabaseClient) {
-                const { data, error } = await supabaseClient.from('operateurs').select('role').eq('email', (session.user.email || '').toLowerCase()).maybeSingle();
-                if (error) showToast("Rôles indisponibles : exécutez sql/setup.sql dans Supabase.", "error");
-                else if (data) { isOperator = true; isAdmin = data.role === 'admin'; }
-                else showToast("Compte connecté, mais pas encore autorisé : demandez à un administrateur de vous ajouter.", "warning");
-            }
-            document.body.classList.toggle('is-operator', isOperator);
-            document.body.classList.toggle('is-admin', isAdmin);
-            document.getElementById('authBtnText').textContent = session ? 'Déconnexion' : 'Espace opérateur';
-            document.getElementById('authBtn').title = session ? (session.user.email || '') : 'Espace opérateur';
-        }
-        async function initAuth() {
-            if (!supabaseClient) return;
-            const { data } = await supabaseClient.auth.getSession();
-            await refreshRole(data.session);
-            supabaseClient.auth.onAuthStateChange((_evt, sess) => setTimeout(() => refreshRole(sess), 0));
-        }
-        function authAction() {
-            if (isOperator) { if (confirm('Se déconnecter ?')) supabaseClient.auth.signOut(); }
-            else showModal('loginModal');
-        }
-        async function doLogin(ev) {
-            ev.preventDefault();
-            const err = document.getElementById('loginError');
-            err.classList.add('hidden');
-            if (!supabaseClient) { err.textContent = 'Base indisponible.'; err.classList.remove('hidden'); return; }
-            const { error } = await supabaseClient.auth.signInWithPassword({
-                email: document.getElementById('loginEmail').value.trim(),
-                password: document.getElementById('loginPassword').value
-            });
-            if (error) {
-                const m = (error.message || '').toLowerCase();
-                err.textContent = m.includes('confirm') ? "E-mail non confirmé : dans Supabase > Authentication > Users, confirmez ce compte."
-                    : m.includes('invalid login') ? "E-mail ou mot de passe incorrect, ou ce compte n'existe pas encore dans Supabase."
-                    : "Connexion impossible : " + error.message;
-                err.classList.remove('hidden'); return;
-            }
-            document.getElementById('loginPassword').value = '';
-            hideModal('loginModal');
-            showToast('Connexion réussie.', 'success');
-        }
-        async function doSignUp() {
-            const err = document.getElementById('loginError'), info = document.getElementById('loginInfo');
-            err.classList.add('hidden'); info.classList.add('hidden');
-            const email = document.getElementById('loginEmail').value.trim().toLowerCase();
-            const password = document.getElementById('loginPassword').value;
-            if (!email || password.length < 6) { err.textContent = 'Saisissez un e-mail et un mot de passe de 6 caractères minimum.'; err.classList.remove('hidden'); return; }
-            if (!supabaseClient) { err.textContent = 'Base indisponible.'; err.classList.remove('hidden'); return; }
-            const { error } = await supabaseClient.auth.signUp({ email, password });
-            if (error) { err.textContent = 'Création impossible : ' + error.message; err.classList.remove('hidden'); return; }
-            info.textContent = "Compte créé. Confirmez votre e-mail si on vous le demande, puis faites-vous autoriser par un administrateur.";
-            info.classList.remove('hidden');
-        }
-        function requireOperator() {
-            if (isOperator && supabaseClient) return true;
-            showToast(currentSession ? "Votre compte n'est pas encore autorisé à modifier." : "Réservé aux opérateurs : connectez-vous.", "warning");
-            if (!currentSession) showModal('loginModal');
-            return false;
-        }
-        async function openOperators() {
-            if (!isAdmin) return;
-            showModal('opsModal');
-            await loadOperators();
-        }
-        async function loadOperators() {
-            const box = document.getElementById('opsList');
-            const { data, error } = await supabaseClient.from('operateurs').select('*').order('created_at', { ascending: true });
-            if (error) { box.innerHTML = `<p class="py-3 text-rose-400">${esc(explain(error))}</p>`; return; }
-            const me = (currentSession.user.email || '').toLowerCase();
-            box.innerHTML = (data || []).map(o => `
-                <div class="py-3 flex items-center justify-between gap-3">
-                    <div class="min-w-0"><div class="font-semibold text-slate-200 truncate">${esc(o.email)}</div>
-                    <div class="text-slate-400">${o.role === 'admin' ? 'Administrateur' : 'Opérateur'}</div></div>
-                    ${o.email === me ? '<span class="text-slate-500">vous</span>' : `<button data-email="${esc(o.email)}" onclick="removeOperator(this.dataset.email)" class="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold">Retirer</button>`}
-                </div>`).join('') || '<p class="py-3 text-slate-400">Aucun opérateur.</p>';
-        }
-        async function addOperator(ev) {
-            ev.preventDefault();
-            const email = document.getElementById('opEmail').value.trim().toLowerCase();
-            const role = document.getElementById('opRole').value;
-            const { error } = await supabaseClient.from('operateurs').upsert({ email, role });
-            if (error) { showToast("Ajout impossible : " + explain(error), "error"); return; }
-            document.getElementById('opEmail').value = '';
-            showToast("Autorisation enregistrée.", "success");
-            await loadOperators();
-        }
-        async function removeOperator(email) {
-            if (!confirm("Retirer l'accès en modification à " + email + " ?")) return;
-            const { error } = await supabaseClient.from('operateurs').delete().eq('email', email);
-            if (error) { showToast("Retrait impossible : " + explain(error), "error"); return; }
-            showToast("Accès retiré.", "success");
-            await loadOperators();
-        }
-        function nextBL(d) {
-            const y = (d || '').slice(0, 4) || String(new Date().getFullYear());
-            const re = new RegExp('^BL-' + y + '-(\\d+)$');
-            let m = 0;
-            allExpeditions.forEach(e => { const r = re.exec(e.numero_bl || ''); if (r) m = Math.max(m, +r[1]); });
-            return 'BL-' + y + '-' + String(m + 1).padStart(3, '0');
-        }
-        function fillFilterOptions() {
-            const years = [...new Set(allExpeditions.map(e => (e.date_envoi || '').slice(0, 4)).filter(Boolean))].sort().reverse();
-            const dests = [...new Set(allExpeditions.flatMap(e => (e.items || []).map(i => (i.destinataire || '').trim().toUpperCase())).filter(Boolean))].sort();
-            const fill = (id, first, vals) => {
-                const sel = document.getElementById(id), cur = sel.value;
-                sel.innerHTML = `<option value="all">${first}</option>` + vals.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
-                sel.value = vals.includes(cur) ? cur : 'all';
-            };
-            fill('filterYear', '🌐 Toutes les années', years);
-            fill('filterDest', '🏢 Tous destinataires', dests);
-        }
+function toast(msg, type='info') {
+  const cfg = {
+    success: { bg:'rgba(16,185,129,.15)', bd:'rgba(16,185,129,.4)', cl:'#34d399', ic:'fa-circle-check' },
+    error:   { bg:'rgba(244,63,94,.15)',  bd:'rgba(244,63,94,.4)',  cl:'#fb7185', ic:'fa-circle-exclamation' },
+    warning: { bg:'rgba(245,158,11,.15)', bd:'rgba(245,158,11,.4)', cl:'#fbbf24', ic:'fa-triangle-exclamation' },
+    info:    { bg:'rgba(99,102,241,.15)', bd:'rgba(99,102,241,.4)', cl:'#a5b4fc', ic:'fa-circle-info' },
+  }[type] || {};
+  const el = document.createElement('div');
+  el.className = 'pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl text-xs font-semibold transition-all duration-300 translate-y-4 opacity-0';
+  el.style.cssText += `background:${cfg.bg};border:1px solid ${cfg.bd};color:${cfg.cl};backdrop-filter:blur(12px)`;
+  el.innerHTML = `<i class="fa-solid ${cfg.ic}"></i><span>${esc(msg)}</span>`;
+  $('#toasts').appendChild(el);
+  requestAnimationFrame(() => el.classList.remove('translate-y-4','opacity-0'));
+  setTimeout(() => { el.classList.add('translate-y-4','opacity-0'); setTimeout(() => el.remove(), 300); }, 3500);
+}
 
-        // Sample starting records for 2027
-        const defaultSamples2027 = [
-            {
-                id: 'exp-sample-01',
-                date_envoi: '2027-01-05',
-                numero_bl: 'BL-2027-001',
-                transporteur: 'YAZID',
-                observations: 'Départ direct usine vers UPW Beni Abbes (Lot d\'étiquettes)',
-                statut: 'Expédié',
-                items: [
-                    { id: 'it-1', reference: 'E02CL38B1', designation: 'ETIQUETTE TT 105*148 (RR 3EX)', destinataire: 'UPW BENI ABBES', unite: 'ID', quantite: '15000', cartons: '1' }
-                ]
-            },
-            {
-                id: 'exp-sample-02',
-                date_envoi: '2027-01-07',
-                numero_bl: 'BL-2027-002',
-                transporteur: 'YAZID',
-                observations: 'Livraison Smartware + retour en stock atelier',
-                statut: 'Expédié',
-                items: [
-                    { id: 'it-2', reference: 'R2A045300BN', designation: 'RUBAN CIRE 45*300', destinataire: 'SMARTWARE', unite: 'UN', quantite: '644', cartons: '11' },
-                    { id: 'it-3', reference: 'R2C110300BO', designation: 'RUBAN RESINE 110*300', destinataire: 'STOCK', unite: 'UN', quantite: '44', cartons: '1' },
-                    { id: 'it-4', reference: 'RXC060300BN', designation: 'RUBAN RESINE EXTRA 60*300', destinataire: 'STOCK', unite: 'UN', quantite: '16', cartons: '1' },
-                    { id: 'it-5', reference: 'E06CL25B1', designation: 'ETIQUETTE PET M /S 105*30', destinataire: 'STOCK', unite: 'UN', quantite: '40', cartons: '3' },
-                    { id: 'it-6', reference: 'PVC-100', designation: 'CARTE PVC BLANCHE 0.75mm', destinataire: 'STOCK', unite: 'UN', quantite: '47', cartons: '2' }
-                ]
-            },
-            {
-                id: 'exp-sample-03',
-                date_envoi: '2027-01-15',
-                numero_bl: 'BL-2027-003',
-                transporteur: 'YALIDINE',
-                observations: 'Colis express Yalidine - Livraison Alger',
-                statut: 'Expédié',
-                items: [
-                    { id: 'it-7', reference: 'PVC-100-AC', designation: 'PVC ADHESIVE CARD', destinataire: 'SOLINF', unite: 'UN', quantite: '19', cartons: '1' },
-                    { id: 'it-8', reference: 'E06CH13D1', designation: 'ETIQUETTE PET M /S 70*30', destinataire: 'TOSYALI', unite: 'UN', quantite: '30', cartons: '2' }
-                ]
-            }
-        ];
+function openModal(id) { const m = document.getElementById(id); if (m) { m.classList.add('open'); setTimeout(() => m.querySelector('input,button')?.focus(), 50); } }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+function confirmDialog(msg) {
+  return new Promise(resolve => {
+    const m = $('#confirmModal'); m.querySelector('[data-msg]').textContent = msg;
+    const yes = m.querySelector('[data-yes]'), no = m.querySelector('[data-no]');
+    const done = v => { yes.removeEventListener('click', onYes); no.removeEventListener('click', onNo); closeModal('confirmModal'); resolve(v); };
+    const onYes = () => done(true), onNo = () => done(false);
+    yes.addEventListener('click', onYes); no.addEventListener('click', onNo); openModal('confirmModal');
+  });
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $$('.modal-backdrop.open').forEach(m => m.classList.remove('open')); });
+$$('.modal-backdrop').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
 
-        // Safe Initialization
-        window.addEventListener('DOMContentLoaded', async () => {
-            const step = async (nom, fn) => { try { await fn(); } catch (e) { console.error(nom, e); showFatal(nom + ' : ' + (e.message || e)); } };
-            await step('thème', syncThemeIcon);
-            await step('connexion', initSupabase);
-            await step('données', fetchData);
-            await step('compte', () => withTimeout(initAuth(), 8000));
+function syncThemeIcon() { $('#themeIcon').className = `fa-solid text-sm ${document.documentElement.classList.contains('light') ? 'fa-moon' : 'fa-sun'}`; }
+function toggleTheme() { 
+  const isLight = document.documentElement.classList.toggle('light'); 
+  lsSet(THEME_KEY, isLight ? 'light' : 'dark'); 
+  syncThemeIcon(); 
+  if (state.expeditions.length) updateCharts();
+}
+
+function initSupabase() {
+  const url = lsGet(CFG_URL) || SUPABASE_URL, key = lsGet(CFG_KEY) || SUPABASE_ANON;
+  if ($('#sbUrl')) $('#sbUrl').value = url;
+  if ($('#sbKey')) $('#sbKey').value = key;
+  try {
+    if (!window.supabase) throw new Error('SDK non chargé');
+    state.supabase = window.supabase.createClient(url, key);
+    setDbBadge('ok', 'Connecté');
+  } catch (e) { setDbBadge('off', 'Hors ligne'); }
+}
+function setDbBadge(status, text) {
+  const badge = $('#dbBadge'), dot = $('#dbDot'), ping = $('#dbPing'), txt = $('#dbText');
+  if (!badge) return; 
+  if (status === 'ok') { dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500'; ping.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75'; badge.style.color = '#34d399'; badge.style.borderColor = 'rgba(16,185,129,.4)'; }
+  else if (status === 'syncing') { dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-amber-500'; ping.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75'; badge.style.color = '#fbbf24'; badge.style.borderColor = 'rgba(245,158,11,.4)'; }
+  else { dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-slate-500'; ping.className = 'hidden'; badge.style.color = 'var(--text-muted)'; badge.style.borderColor = 'var(--border)'; }
+  if (!state.isOperator) {
+      txt.textContent = text;
+  }
+}
+
+async function initAuth() {
+  if (!state.supabase) return;
+  const { data } = await state.supabase.auth.getSession();
+  await refreshRole(data.session);
+  state.supabase.auth.onAuthStateChange((_e, s) => setTimeout(() => refreshRole(s), 0));
+}
+async function refreshRole(session) {
+  state.session = session; state.isOperator = false; state.isAdmin = false;
+  if (session?.user?.email && state.supabase) {
+    const username = session.user.email.split('@')[0];
+    const { data, error } = await state.supabase.from('operateurs').select('role').eq('username', username).maybeSingle();
+    if (data) { state.isOperator = true; state.isAdmin = data.role === 'admin'; }
+  }
+  document.body.classList.toggle('is-operator', state.isOperator);
+  document.body.classList.toggle('is-admin', state.isAdmin);
+  $('#authLabel').textContent = session ? session.user.email.split('@')[0] : 'Connexion';
+  $('#authLabel').className = session ? 'hidden md:inline font-bold text-indigo-400' : 'hidden md:inline';
+  if (state.expeditions.length) render();
+  
+  if (state.isOperator) {
+    initPresence();
+  } else if (onlineChannel) {
+    state.supabase.removeChannel(onlineChannel);
+    onlineChannel = null;
+    $('#dbText').textContent = `Connecté`;
+    $('#onlineUsersDropdown').classList.remove('open');
+  }
+}
+
+function authAction() {
+  if (state.session) { 
+    confirmDialog('Se déconnecter ?').then(yes => { 
+      if (yes) {
+        if (onlineChannel) { state.supabase.removeChannel(onlineChannel); onlineChannel = null; }
+        state.supabase.auth.signOut(); 
+      }
+    }); 
+  }
+  else { $('#loginMsg').classList.add('hidden'); openModal('loginModal'); }
+}
+async function doLogin(e) {
+  e.preventDefault(); const msg = $('#loginMsg'); msg.classList.add('hidden');
+  if (!state.supabase) return toast('Base indisponible', 'error');
+  
+  const username = $('#loginUsername').value.trim().toLowerCase();
+  const email = username + '@logitrak.internal';
+
+  const { error } = await state.supabase.auth.signInWithPassword({ email, password: $('#loginPassword').value });
+  if (error) { msg.textContent = 'Pseudo ou mot de passe incorrect.'; msg.className = 'text-xs text-rose-400'; msg.classList.remove('hidden'); return; }
+  
+  $('#loginPassword').value = ''; closeModal('loginModal'); toast('Connexion réussie.', 'success');
+}
+
+function requireOperator() {
+  if (state.isOperator && state.supabase) return true;
+  toast("Connectez-vous pour effectuer cette action.", "warning");
+  $('#loginMsg').classList.add('hidden'); openModal('loginModal');
+  return false;
+}
+
+// --- GESTION DES UTILISATEURS EN LIGNE (PRESENCE) ---
+function initPresence() {
+  if (!state.supabase || !state.session) return;
+  if (onlineChannel) { state.supabase.removeChannel(onlineChannel); onlineChannel = null; }
+
+  const username = state.session.user.email.split('@')[0];
+  onlineChannel = state.supabase.channel('online-users');
+
+  onlineChannel
+    .on('presence', { event: 'sync' }, () => {
+      const newState = onlineChannel.presenceState();
+      onlineUsers = [];
+      for (const id in newState) {
+        newState[id].forEach(presence => {
+          if (!onlineUsers.some(u => u.username === presence.username)) {
+            onlineUsers.push(presence);
+          }
         });
+      }
+      $('#dbText').textContent = `👥 ${onlineUsers.length} en ligne`;
+      renderOnlineUsersList();
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await onlineChannel.track({ username: username, online_at: new Date().toISOString() });
+      }
+    });
+}
 
-        function initSupabase() {
-            const url = lsGet('supabase_url') || SUPABASE_URL;
-            const key = lsGet('supabase_key') || SUPABASE_ANON;
+function toggleOnlineUsers(e) {
+  e.stopPropagation();
+  const dd = $('#onlineUsersDropdown');
+  if (dd) dd.classList.toggle('open');
+}
 
-            document.getElementById('supabaseUrlInput').value = url;
-            document.getElementById('supabaseKeyInput').value = key;
+document.addEventListener('click', (e) => {
+  const dd = $('#onlineUsersDropdown');
+  if (dd && dd.classList.contains('open') && !e.target.closest('#dbBadge') && !e.target.closest('#onlineUsersDropdown')) {
+    dd.classList.remove('open');
+  }
+});
 
-            try {
-                if (window.supabase) {
-                    supabaseClient = window.supabase.createClient(url, key);
-                    setDbBadge(true, "Supabase Connecté");
-                } else {
-                    setDbBadge(false, "SDK en attente");
-                }
-            } catch (err) {
-                console.error("Supabase init error:", err);
-                setDbBadge(false, "Erreur Connexion");
-            }
+function renderOnlineUsersList() {
+  const list = $('#onlineUsersList');
+  if (!list) return;
+  
+  if (!onlineUsers.length) {
+    list.innerHTML = `<p class="text-xs text-center py-4 px-2" style="color:var(--text-muted)">Aucun autre utilisateur en ligne.</p>`;
+  } else {
+    list.innerHTML = onlineUsers.map(u => `
+      <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--bg-hover)] transition">
+        <div class="w-7 h-7 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
+          ${esc(u.username.charAt(0).toUpperCase())}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-bold truncate">${esc(u.username)}</p>
+        </div>
+        <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></div>
+      </div>
+    `).join('');
+  }
+}
+// ----------------------------------------------------
+
+async function fetchData() {
+  let loaded = false; setDbBadge('syncing', 'Synchro…');
+  if (state.supabase) {
+    try {
+      const [exps, lines] = await Promise.all([
+        state.supabase.from('expeditions').select('*').order('date_envoi', { ascending: false }),
+        state.supabase.from('lignes_expedition').select('*').order('created_at', { ascending: true }),
+      ]);
+      if (exps.error) throw exps.error; if (lines.error) throw lines.error;
+      state.expeditions = (exps.data || []).map(e => ({
+        id: e.id, date_envoi: e.date_envoi, numero_bl: e.numero_bl || '', transporteur: e.transporteur || 'AUTRE',
+        observations: e.observations || '', statut: e.statut || 'Expédié', created_at: e.created_at,
+        items: (lines.data || []).filter(l => l.expedition_id === e.id).map(l => ({
+          id: l.id, reference: l.reference || '', categorie: l.categorie || '', designation: l.designation || '', destinataire: l.destinataire || 'STOCK',
+          unite: l.unite || 'UN', quantite: l.quantite || '0', cartons: l.cartons || 1,
+        })),
+      }));
+      saveLocal(); setDbBadge('ok', `Connecté`); loaded = true;
+
+      refMemory = {};
+      const clients = new Set(['STOCK']);
+      const carriers = new Set(['YAZID', 'YALIDINE', 'DJALAL', 'CLIENT', 'AUTRE']);
+      const units = new Set(['UN', 'ID', 'BOBINE']);
+      const categories = new Set(); // Nouveau : dictionnaire des catégories
+      
+      state.expeditions.forEach(e => {
+        if (e.transporteur) carriers.add(e.transporteur.toUpperCase());
+        (e.items||[]).forEach(it => {
+          const ref = it.reference?.toUpperCase();
+          const des = it.designation?.toUpperCase();
+          const uni = it.unite?.toUpperCase();
+          const cat = it.categorie?.toUpperCase();
+          
+          if (ref && des) refMemory[ref] = { designation: des, unite: uni || 'UN', categorie: cat || '' };
+          if (it.destinataire) clients.add(it.destinataire.toUpperCase());
+          if (uni) units.add(uni);
+          if (cat) categories.add(cat); // Ajout à la liste des catégories
+        });
+      });
+      
+      if ($('#clientsList')) $('#clientsList').innerHTML = [...clients].map(c => `<option value="${esc(c)}">`).join('');
+      if ($('#productsList')) $('#productsList').innerHTML = Object.keys(refMemory).map(r => `<option value="${esc(r)}" label="${esc(refMemory[r].designation)}">`).join('');
+      if ($('#carriersList')) $('#carriersList').innerHTML = [...carriers].map(c => `<option value="${esc(c)}">`).join('');
+      if ($('#unitsList')) $('#unitsList').innerHTML = [...units].map(u => `<option value="${esc(u)}">`).join('');
+      if ($('#categoriesList')) $('#categoriesList').innerHTML = [...categories].map(c => `<option value="${esc(c)}">`).join(''); // Remplissage catégories
+
+    } catch (e) { setDbBadge('off', 'Hors ligne'); }
+  } else { setDbBadge('off', 'Hors ligne'); }
+  if (!loaded) { try { state.expeditions = JSON.parse(lsGet(LOCAL_KEY) || '[]'); } catch { state.expeditions = []; } }
+  fillFilters(); applyFilters();
+}
+function saveLocal() { try { lsSet(LOCAL_KEY, JSON.stringify(state.expeditions)); } catch {} }
+
+function fillFilters() {
+  const years = [...new Set(state.expeditions.map(e => (e.date_envoi||'').slice(0,4)).filter(Boolean))].sort().reverse();
+  const dests = [...new Set(state.expeditions.flatMap(e => (e.items||[]).map(i => (i.destinataire||'').toUpperCase())))].filter(Boolean).sort();
+  const carriers = [...new Set(state.expeditions.map(e => e.transporteur))].filter(Boolean).sort();
+  
+  const fill = (id, first, vals) => {
+    const sel = document.getElementById(id); if (!sel) return; const cur = sel.value;
+    sel.innerHTML = `<option value="all">${first}</option>` + vals.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    sel.value = vals.includes(cur) ? cur : 'all';
+  };
+  fill('filterYear', '🌐 Toutes années', years); 
+  fill('filterDest', '🏢 Tous destinataires', dests);
+  fill('filterCarrier', '🚛 Tous transporteurs', carriers);
+}
+
+// --- RECHERCHE DYNAMIQUE ---
+function applyFilters() {
+  const q = ($('#searchInput').value || '').toLowerCase().trim();
+  const year = $('#filterYear').value;
+  const carr = $('#filterCarrier').value;
+  const dest = $('#filterDest').value;
+
+  state.filtered = state.expeditions.filter(e => {
+    if (year !== 'all' && !(e.date_envoi||'').startsWith(year)) return false;
+    if (carr !== 'all' && e.transporteur !== carr) return false;
+    if (dest !== 'all' && !(e.items||[]).some(it => (it.destinataire||'').toUpperCase().includes(dest))) return false;
+    
+    // Recherche textuelle
+    if (q) {
+      const inHead = [e.date_envoi, e.numero_bl, e.transporteur, e.observations].some(v => (v||'').toLowerCase().includes(q));
+      if (inHead) return true;
+      
+      // Inclure la catégorie dans la recherche
+      return (e.items||[]).some(it => 
+        [it.reference, it.categorie, it.designation, it.destinataire].some(v => (v||'').toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
+  
+  state.expanded = new Set(state.filtered.map(e => e.id));
+  render();
+}
+
+function render() {
+  // --- Mise à jour des KPIs ---
+  let cartons = 0, items = 0; const carriers = {};
+  state.filtered.forEach(e => { carriers[e.transporteur] = (carriers[e.transporteur]||0) + 1; (e.items||[]).forEach(it => { items++; cartons += parseInt(it.cartons) || 1; }); });
+  const top = Object.entries(carriers).sort((a,b) => b[1]-a[1])[0] || ['—', 0];
+  $('#kpiDays').textContent = state.filtered.length; $('#kpiItems').textContent = items; $('#kpiCartons').textContent = cartons;
+  $('#kpiCarrier').textContent = top[0]; $('#kpiCarrierShare').textContent = `${top[1]} départ(s)`;
+  const y = $('#filterYear').value; $('#kpiYear').textContent = y === 'all' ? 'Toutes années' : y;
+
+  updateCharts();
+
+  const box = $('#dateView');
+  if (!state.filtered.length) {
+    box.innerHTML = `<div class="panel p-12 text-center" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-4xl mb-3 block" style="color:var(--text-dim)"></i><h4 class="text-base font-bold" style="color:var(--text)">Aucun départ trouvé</h4><p class="text-xs mt-1">Aucune expédition ne correspond à vos filtres.</p><button onclick="resetFilters()" class="btn btn-primary mt-4"><i class="fa-solid fa-rotate-left"></i>Réinitialiser</button></div>`;
+    return;
+  }
+  
+  box.innerHTML = state.filtered.map(e => {
+    const cartons = (e.items||[]).reduce((s,it) => s + (parseInt(it.cartons)||1), 0);
+    const count = (e.items||[]).length, isExpanded = state.expanded.has(e.id);
+    
+    const isExpired = (new Date() - new Date(e.created_at)) > 48 * 3600 * 1000;
+    const canEdit = state.isAdmin || !isExpired;
+    const editBtn = canEdit 
+      ? `<button onclick="openExpeditionModal('${esc(e.id)}')" class="op-only btn-icon" title="Modifier"><i class="fa-solid fa-pen-to-square text-amber-400"></i></button>
+         <button onclick="deleteExpedition('${esc(e.id)}')" class="op-only btn-icon" title="Supprimer"><i class="fa-regular fa-trash-can text-rose-400"></i></button>`
+      : `<button onclick="toast('Délai de 48h dépassé. Seul un admin peut modifier.','warning')" class="op-only btn-icon" title="Délai dépassé"><i class="fa-solid fa-lock text-slate-500"></i></button>`;
+
+    return `
+      <article class="panel overflow-hidden">
+        <header class="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none" onclick="toggleAccordion('${esc(e.id)}')">
+          <div class="flex items-center gap-4 min-w-0">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex flex-col items-center justify-center flex-shrink-0">
+              <span class="text-[9px] font-black uppercase leading-none">${esc(dayName(e.date_envoi))}</span><span class="text-sm font-black leading-none mt-1">${esc(dayNumber(e.date_envoi))}</span>
+            </div>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2"><h3 class="font-extrabold text-sm sm:text-base">${esc(fmtDate(e.date_envoi))}</h3><span class="badge font-mono-code" style="background:rgba(99,102,241,.15);color:#a5b4fc;border-color:rgba(99,102,241,.3)">${esc(e.numero_bl || 'SANS NUM')}</span></div>
+              <div class="flex flex-wrap items-center gap-2 mt-1 text-xs" style="color:var(--text-muted)"><span class="inline-flex items-center gap-1 font-semibold" style="color:var(--text)"><i class="fa-solid fa-truck text-indigo-400 text-[11px]"></i>${esc(e.transporteur)}</span><span>•</span><span class="font-bold text-amber-400"><i class="fa-solid fa-box text-[11px]"></i> ${cartons} carton(s)</span><span>•</span><span>${count} article(s)</span></div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+            <button onclick="printExpedition('${esc(e.id)}')" class="btn-icon" title="Imprimer BL"><i class="fa-solid fa-print text-indigo-400"></i></button>
+            ${editBtn}
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:var(--bg-hover); color:var(--text-muted)"><i id="icon-${esc(e.id)}" class="fa-solid fa-chevron-down text-xs transition-transform ${isExpanded?'rotate-180':''}"></i></div>
+          </div>
+        </header>
+        <div id="content-${esc(e.id)}" class="${isExpanded?'':'hidden'} border-t" style="border-color:var(--border)">
+          ${e.observations ? `<div class="px-5 py-2.5 text-xs flex items-center gap-2" style="background:rgba(99,102,241,.08);border-bottom:1px solid rgba(99,102,241,.2);color:#a5b4fc"><i class="fa-solid fa-circle-info"></i><span>${esc(e.observations)}</span></div>` : ''}
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead style="background:var(--bg-input)"><tr class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--text-muted)"><th class="p-3 pl-5 text-left">Référence</th><th class="p-3 text-left">Catégorie</th><th class="p-3 text-left">Désignation</th><th class="p-3 text-left">Destinataire</th><th class="p-3 text-center">Unité</th><th class="p-3 text-right">Quantité</th><th class="p-3 text-center">Cartons</th></tr></thead>
+              <tbody class="divide-y" style="border-color:var(--border)">
+                ${(e.items||[]).map(it => `<tr class="hover:bg-[var(--bg-hover)] transition"><td class="p-3 pl-5 font-mono-code font-bold text-indigo-400">${esc(it.reference || '-')}</td><td class="p-3 text-slate-400 font-semibold text-xs uppercase">${esc(it.categorie || '-')}</td><td class="p-3 font-semibold">${esc(it.designation || '-')}</td><td class="p-3"><span class="badge ${it.destinataire==='STOCK'?'badge-stock':'badge-client'}">${esc(it.destinataire || 'STOCK')}</span></td><td class="p-3 text-center font-mono-code" style="color:var(--text-muted)">${esc(it.unite || 'UN')}</td><td class="p-3 text-right font-mono-code font-bold">${fmtNum(it.quantite)}</td><td class="p-3 text-center font-bold text-amber-400">${esc(it.cartons || '1')}</td></tr>`).join('') || '<tr><td colspan="7" class="p-4 text-center text-xs" style="color:var(--text-muted)">Aucun article</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>`;
+  }).join('');
+
+  const body = $('#tableBody'); let html = '';
+  state.filtered.forEach(e => (e.items||[]).forEach(it => {
+    html += `<tr class="hover:bg-[var(--bg-hover)] transition"><td class="p-3 pl-5 font-bold whitespace-nowrap">${esc(fmtDate(e.date_envoi))}</td><td class="p-3 font-mono-code text-indigo-400">${esc(e.numero_bl || '-')}</td><td class="p-3 font-semibold">${esc(e.transporteur)}</td><td class="p-3 font-mono-code font-bold text-indigo-400">${esc(it.reference || '-')}</td><td class="p-3 font-semibold text-slate-400 text-xs uppercase">${esc(it.categorie || '-')}</td><td class="p-3">${esc(it.designation || '-')}</td><td class="p-3"><span class="badge ${it.destinataire==='STOCK'?'badge-stock':'badge-client'}">${esc(it.destinataire || 'STOCK')}</span></td><td class="p-3 text-center" style="color:var(--text-muted)">${esc(it.unite || 'UN')}</td><td class="p-3 text-right font-mono-code font-bold">${fmtNum(it.quantite)}</td><td class="p-3 text-center font-bold text-amber-400">${esc(it.cartons || '1')}</td><td class="p-3 text-xs truncate max-w-xs" style="color:var(--text-muted)">${esc(e.observations || '-')}</td></tr>`;
+  }));
+  body.innerHTML = html || `<tr><td colspan="11" class="p-8 text-center text-xs" style="color:var(--text-muted)">Aucune expédition</td></tr>`;
+}
+
+// --- Mise à jour des Graphiques ---
+function updateCharts() {
+  const isLight = document.documentElement.classList.contains('light');
+  const textColor = isLight ? '#475569' : '#94a3b8';
+  const gridColor = isLight ? '#e2e8f0' : '#334155';
+  
+  const colors = {
+    indigo: 'rgba(99, 102, 241, 0.8)',
+    cyan: 'rgba(6, 182, 212, 0.8)',
+    amber: 'rgba(245, 158, 11, 0.8)',
+  };
+
+  const transporterData = {};
+  const clientData = {};
+  const productData = {};
+
+  state.filtered.forEach(e => {
+    const t = e.transporteur || 'AUTRE';
+    transporterData[t] = (transporterData[t] || 0);
+    
+    (e.items || []).forEach(it => {
+      const q = parseQty(it.quantite);
+      const c = parseInt(it.cartons) || 1;
+      const dest = it.destinataire || 'STOCK';
+      const prodName = (it.reference ? it.reference + ' - ' : '') + (it.designation || 'SANS NOM');
+      
+      // 1. Transporteur : basé sur le nombre de cartons (demande utilisateur)
+      transporterData[t] += c;
+      
+      // 2. Clients & Produits : basé sur la quantité réelle
+      clientData[dest] = (clientData[dest] || 0) + q;
+      productData[prodName] = (productData[prodName] || 0) + q;
+    });
+  });
+
+  const sortedTransporter = Object.entries(transporterData).sort((a,b) => b[1]-a[1]);
+  const sortedClients = Object.entries(clientData).sort((a,b) => b[1]-a[1]).slice(0, 5);
+  const sortedProducts = Object.entries(productData).sort((a,b) => b[1]-a[1]).slice(0, 10);
+
+  if (chartTransporter) chartTransporter.destroy();
+  if (chartClients) chartClients.destroy();
+  if (chartProducts) chartProducts.destroy();
+
+  const ctxTransporter = document.getElementById('chartTransporter');
+  if (ctxTransporter) {
+    chartTransporter = new Chart(ctxTransporter, {
+      type: 'bar',
+      data: {
+        labels: sortedTransporter.map(d => d[0]),
+        datasets: [{ label: 'Cartons', data: sortedTransporter.map(d => d[1]), backgroundColor: colors.indigo, borderRadius: 6 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: textColor }, grid: { display: false } },
+          y: { ticks: { color: textColor }, grid: { color: gridColor } }
         }
+      }
+    });
+  }
 
-        function setDbBadge(isOnline, text) {
-            const badge = document.getElementById('dbStatusBadge');
-            const txt = document.getElementById('dbStatusText');
-            const ping = document.getElementById('dbPing');
-            const dot = document.getElementById('dbDot');
-            const adminState = document.getElementById('adminDbState');
-
-            txt.textContent = text;
-            if (isOnline) {
-                badge.className = "flex items-center space-x-2 bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-emerald-950/50 backdrop-blur-md cursor-pointer hover:border-emerald-400 transition";
-                ping.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
-                dot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
-                if (adminState) {
-                    adminState.className = "px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-                    adminState.textContent = "Connecté & Actif";
-                }
-            } else {
-                badge.className = "flex items-center space-x-2 bg-amber-950/60 text-amber-400 border border-amber-500/30 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-amber-950/50 backdrop-blur-md cursor-pointer hover:border-amber-400 transition";
-                ping.className = "hidden";
-                dot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500";
-                if (adminState) {
-                    adminState.className = "px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30";
-                    adminState.textContent = "Mode Local (Hors ligne)";
-                }
-            }
+  const ctxClients = document.getElementById('chartClients');
+  if (ctxClients) {
+    chartClients = new Chart(ctxClients, {
+      type: 'bar',
+      data: {
+        labels: sortedClients.map(d => d[0]),
+        datasets: [{ label: 'Quantité', data: sortedClients.map(d => d[1]), backgroundColor: colors.cyan, borderRadius: 6 }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: textColor }, grid: { color: gridColor } },
+          y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
         }
+      }
+    });
+  }
 
-        // Fetch Data from Supabase with graceful fallback
-        async function fetchData() {
-            let loaded = false;
-            if (supabaseClient) {
-                try {
-                    const { data: exps, error: expErr } = await supabaseClient.from('expeditions').select('*').order('date_envoi', { ascending: false });
-                    if (expErr) throw expErr;
-                    let r = await supabaseClient.from('lignes_expedition').select('*').order('created_at', { ascending: true });
-                    if (r.error) r = await supabaseClient.from('lignes_expedition').select('*');
-                    if (r.error) throw r.error;
-                    const lines = r.data || [];
-                    allExpeditions = (exps || []).map(e => ({
-                        id: e.id, date_envoi: e.date_envoi, numero_bl: e.numero_bl || '',
-                        transporteur: e.transporteur || 'AUTRE', observations: e.observations || '',
-                        statut: e.statut || 'Expédié',
-                        items: lines.filter(l => l.expedition_id === e.id).map(rl => ({
-                            id: rl.id, reference: rl.reference || '', designation: rl.designation || '',
-                            destinataire: rl.destinataire || 'STOCK', unite: rl.unite || 'UN',
-                            quantite: rl.quantite || '0', cartons: rl.cartons || '1'
-                        }))
-                    }));
-                    loaded = true;
-                    saveToLocalStorage();
-                    setDbBadge(true, "En ligne (" + allExpeditions.length + ")");
-                } catch (e) {
-                    console.warn("Lecture Supabase impossible :", e);
-                    setDbBadge(false, "Hors ligne • copie locale");
-                }
-            } else {
-                setDbBadge(false, "Hors ligne • copie locale");
-            }
-            if (!loaded) {
-                try { allExpeditions = JSON.parse(lsGet('eurequat_expeditions_v2027') || '[]'); }
-                catch (e) { allExpeditions = []; }
-            }
-            fillFilterOptions();
-            applyFilters();
+  const ctxProducts = document.getElementById('chartProducts');
+  if (ctxProducts) {
+    chartProducts = new Chart(ctxProducts, {
+      type: 'bar',
+      data: {
+        labels: sortedProducts.map(d => d[0]),
+        datasets: [{ label: 'Quantité', data: sortedProducts.map(d => d[1]), backgroundColor: colors.amber, borderRadius: 6 }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: textColor }, grid: { color: gridColor } },
+          y: { ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } }
         }
-
-        function saveToLocalStorage() {
-            try { localStorage.setItem('eurequat_expeditions_v2027', JSON.stringify(allExpeditions)); } catch (e) {}
-        }
-
-        // Update top KPI cards
-        function updateKPIs() {
-            let totalCartons = 0;
-            let totalItems = 0;
-            const carrierCount = {};
-
-            (window._filtered || allExpeditions).forEach(exp => {
-                const c = exp.transporteur || 'AUTRE';
-                carrierCount[c] = (carrierCount[c] || 0) + 1;
-
-                (exp.items || []).forEach(it => {
-                    totalItems++;
-                    const cNum = parseInt(it.cartons) || 1;
-                    totalCartons += cNum;
-                });
-            });
-
-            document.getElementById('kpiShipmentDays').textContent = (window._filtered || allExpeditions).length;
-            document.getElementById('kpiTotalItems').textContent = totalItems;
-            document.getElementById('kpiTotalCartons').textContent = totalCartons;
-
-            let topCarrier = '—';
-            let maxC = 0;
-            for (const [k, v] of Object.entries(carrierCount)) {
-                if (v > maxC) {
-                    maxC = v;
-                    topCarrier = k;
-                }
-            }
-            const yv = document.getElementById('filterYear').value;
-            document.getElementById('kpiCurrentYearLabel').textContent = yv === 'all' ? 'Toutes années' : yv;
-            document.getElementById('kpiTopCarrier').textContent = topCarrier;
-            document.getElementById('kpiCarrierShare').textContent = maxC + " départs";
-        }
-
-        // Apply filters
-        function applyFilters() {
-            const query = (document.getElementById('searchInput').value || '').toLowerCase().trim();
-            const year = document.getElementById('filterYear').value;
-            const carrier = document.getElementById('filterCarrier').value;
-            const destFilter = document.getElementById('filterDest').value;
-
-            const filtered = allExpeditions.filter(exp => {
-                // Year filter
-                if (year !== 'all') {
-                    if (!exp.date_envoi || !exp.date_envoi.startsWith(year)) return false;
-                }
-                // Carrier filter
-                if (carrier !== 'all') {
-                    if (exp.transporteur !== carrier) return false;
-                }
-                // Destination filter
-                if (destFilter !== 'all') {
-                    const hasDest = (exp.items || []).some(it => (it.destinataire || '').toUpperCase().includes(destFilter));
-                    if (!hasDest) return false;
-                }
-                // Search query
-                if (query) {
-                    const inHeader = (exp.date_envoi || '').toLowerCase().includes(query) ||
-                                     (exp.numero_bl || '').toLowerCase().includes(query) ||
-                                     (exp.transporteur || '').toLowerCase().includes(query) ||
-                                     (exp.observations || '').toLowerCase().includes(query);
-                    if (inHeader) return true;
-
-                    const inItems = (exp.items || []).some(it => 
-                        (it.reference || '').toLowerCase().includes(query) ||
-                        (it.designation || '').toLowerCase().includes(query) ||
-                        (it.destinataire || '').toLowerCase().includes(query)
-                    );
-                    return inItems;
-                }
-                return true;
-            });
-
-            window._filtered = filtered;
-            renderAccordionView(filtered);
-            updateKPIs();
-            renderTableView(filtered);
-        }
-
-        // Render Accordion Date Cards
-        function renderAccordionView(data) {
-            const container = document.getElementById('dateViewContainer');
-            
-            if (data.length === 0) {
-                container.innerHTML = `
-                    <div class="p-12 text-center rounded-3xl bg-slate-900/60 border border-slate-800 text-slate-400">
-                        <i class="fa-regular fa-folder-open text-5xl text-slate-600 mb-3 block"></i>
-                        <h4 class="text-base font-bold text-slate-200">Aucun départ trouvé</h4>
-                        <p class="text-xs text-slate-500 mt-1">Aucune expédition ne correspond à vos filtres de recherche.</p>
-                        <button onclick="resetFilters()" class="mt-4 px-4 py-2 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white rounded-xl text-xs font-bold transition">
-                            Réinitialiser les filtres
-                        </button>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = data.map(exp => {
-                const totalCartons = (exp.items || []).reduce((acc, it) => acc + (parseInt(it.cartons) || 1), 0);
-                const itemsCount = (exp.items || []).length;
-                const isExpanded = allAccordionsExpanded;
-
-                return `
-                    <div class="rounded-2xl bg-slate-900/90 border border-slate-800/90 shadow-xl overflow-hidden transition-all duration-300 hover:border-slate-700">
-                        
-                        <!-- Accordion Header -->
-                        <div class="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 cursor-pointer select-none bg-gradient-to-r from-slate-900/90 via-slate-850 to-slate-900/90" onclick="toggleAccordion('content-${esc(exp.id)}', 'icon-${esc(exp.id)}')">
-                            
-                            <!-- Date & BL Info -->
-                            <div class="flex items-center space-x-4">
-                                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex flex-col items-center justify-center shadow-lg shadow-indigo-500/20">
-                                    <span class="text-[9px] font-black uppercase tracking-widest leading-none">${formatDayName(exp.date_envoi)}</span>
-                                    <span class="text-sm font-black leading-none mt-1">${formatDayNumber(exp.date_envoi)}</span>
-                                </div>
-
-                                <div>
-                                    <div class="flex items-center space-x-2.5">
-                                        <h3 class="font-extrabold text-sm sm:text-base text-white tracking-tight">${esc(exp.date_envoi)}</h3>
-                                        <span class="px-2.5 py-0.5 rounded-lg text-xs font-black font-mono-code bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                                            ${esc(exp.numero_bl || 'BL')}
-                                        </span>
-                                    </div>
-
-                                    <div class="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-400">
-                                        <span class="inline-flex items-center gap-1 font-semibold text-slate-200">
-                                            <i class="fa-solid fa-truck text-indigo-400 text-[11px]"></i>
-                                            ${esc(exp.transporteur)}
-                                        </span>
-                                        <span>•</span>
-                                        <span class="inline-flex items-center gap-1 font-bold text-amber-400">
-                                            <i class="fa-solid fa-box text-amber-500 text-[11px]"></i>
-                                            ${totalCartons} carton(s)
-                                        </span>
-                                        <span>•</span>
-                                        <span class="text-slate-400">${itemsCount} article(s)</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Right Controls -->
-                            <div class="flex items-center space-x-2" onclick="event.stopPropagation()">
-                                <button onclick="printSlip('${esc(exp.id)}')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 text-xs font-bold transition flex items-center space-x-1.5" title="Imprimer le bon de livraison">
-                                    <i class="fa-solid fa-print"></i>
-                                    <span class="hidden sm:inline">Imprimer BL</span>
-                                </button>
-                                
-                                <button onclick="editExp('${esc(exp.id)}')" class="op-only p-2 rounded-xl bg-slate-800 hover:bg-amber-950/60 hover:text-amber-300 text-slate-300 border border-slate-700 transition" title="Modifier cette journée">
-                                    <i class="fa-solid fa-pen-to-square text-xs"></i>
-                                </button>
-
-                                <button onclick="deleteExp('${esc(exp.id)}')" class="op-only p-2 rounded-xl bg-slate-800 hover:bg-rose-950/60 hover:text-rose-400 text-slate-400 border border-slate-700 transition" title="Supprimer">
-                                    <i class="fa-regular fa-trash-can text-xs"></i>
-                                </button>
-
-                                <div class="w-8 h-8 rounded-xl bg-slate-800/60 flex items-center justify-center text-slate-400 ml-1">
-                                    <i id="icon-${esc(exp.id)}" class="fa-solid fa-chevron-down text-xs transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}"></i>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        <!-- Accordion Expandable Content -->
-                        <div id="content-${esc(exp.id)}" class="${isExpanded ? '' : 'hidden'} border-t border-slate-800">
-                            
-                            <!-- Observations note banner -->
-                            ${exp.observations ? `
-                                <div class="px-5 py-2.5 bg-indigo-950/30 border-b border-indigo-900/30 flex items-center space-x-2 text-xs text-indigo-300">
-                                    <i class="fa-solid fa-circle-info text-indigo-400"></i>
-                                    <span>${esc(exp.observations)}</span>
-                                </div>
-                            ` : ''}
-
-                            <!-- Nested Items Table -->
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left text-xs">
-                                    <thead>
-                                        <tr class="bg-slate-950/60 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-800">
-                                            <th class="p-3 pl-5">Référence</th>
-                                            <th class="p-3">Désignation</th>
-                                            <th class="p-3">Destinataire</th>
-                                            <th class="p-3 text-center">Unité</th>
-                                            <th class="p-3 text-right">Quantité</th>
-                                            <th class="p-3 text-center">Nombre Cartons</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-800/40">
-                                        ${(exp.items || []).map(it => `
-                                            <tr class="hover:bg-slate-800/40 transition">
-                                                <td class="p-3 pl-5 font-mono-code font-bold text-indigo-400">${esc(it.reference || '-')}</td>
-                                                <td class="p-3 font-semibold text-slate-200">${esc(it.designation || '-')}</td>
-                                                <td class="p-3">
-                                                    <span class="inline-block px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${it.destinataire === 'STOCK' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'}">
-                                                        ${esc(it.destinataire || 'STOCK')}
-                                                    </span>
-                                                </td>
-                                                <td class="p-3 text-center text-slate-400 font-mono-code">${esc(it.unite || 'UN')}</td>
-                                                <td class="p-3 text-right font-mono-code font-bold text-slate-100">${formatDigits(it.quantite)}</td>
-                                                <td class="p-3 text-center font-bold text-amber-400">${esc(it.cartons || '1')}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                        </div>
-
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Render Flat Table
-        function renderTableView(data) {
-            const tbody = document.getElementById('flatTableBody');
-            let rowsHtml = '';
-
-            data.forEach(exp => {
-                (exp.items || []).forEach(it => {
-                    rowsHtml += `
-                        <tr class="hover:bg-slate-800/40 transition">
-                            <td class="p-3.5 pl-5 font-bold text-white whitespace-nowrap">${esc(exp.date_envoi)}</td>
-                            <td class="p-3.5 font-mono-code text-indigo-300 text-xs">${esc(exp.numero_bl || '-')}</td>
-                            <td class="p-3.5 font-semibold text-slate-300">${esc(exp.transporteur)}</td>
-                            <td class="p-3.5 font-mono-code font-bold text-indigo-400">${esc(it.reference || '-')}</td>
-                            <td class="p-3.5 text-slate-200 font-medium">${esc(it.designation || '-')}</td>
-                            <td class="p-3.5">
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${it.destinataire === 'STOCK' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'}">
-                                    ${esc(it.destinataire || 'STOCK')}
-                                </span>
-                            </td>
-                            <td class="p-3.5 text-center text-slate-400">${esc(it.unite || 'UN')}</td>
-                            <td class="p-3.5 text-right font-mono-code font-bold text-slate-100">${formatDigits(it.quantite)}</td>
-                            <td class="p-3.5 text-center font-bold text-amber-400">${esc(it.cartons || '1')}</td>
-                            <td class="p-3.5 text-slate-400 text-xs truncate max-w-xs">${esc(exp.observations || '-')}</td>
-                        </tr>
-                    `;
-                });
-            });
-
-            tbody.innerHTML = rowsHtml || `<tr><td colspan="10" class="p-8 text-center text-slate-500">Aucune expédition enregistrée</td></tr>`;
-        }
-
-        // Toggle Accordion Item
-        function toggleAccordion(contentId, iconId) {
-            const content = document.getElementById(contentId);
-            const icon = document.getElementById(iconId);
-            if (content.classList.contains('hidden')) {
-                content.classList.remove('hidden');
-                if (icon) icon.classList.add('rotate-180');
-            } else {
-                content.classList.add('hidden');
-                if (icon) icon.classList.remove('rotate-180');
-            }
-        }
-
-        function toggleAllAccordions() {
-            allAccordionsExpanded = !allAccordionsExpanded;
-            applyFilters();
-            showToast(allAccordionsExpanded ? "Toutes les dates dépliées" : "Toutes les dates repliées", "info");
-        }
-
-        // Switch View (Par Date vs Table)
-        function switchView(view) {
-            currentView = view;
-            const dateCont = document.getElementById('dateViewContainer');
-            const tableCont = document.getElementById('tableViewContainer');
-            const btnDate = document.getElementById('viewBtnDate');
-            const btnTable = document.getElementById('viewBtnTable');
-
-            if (view === 'date') {
-                dateCont.classList.remove('hidden');
-                tableCont.classList.add('hidden');
-                btnDate.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-2 bg-indigo-600 text-white shadow-md shadow-indigo-600/30";
-                btnTable.className = "px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all flex items-center space-x-2";
-            } else {
-                dateCont.classList.add('hidden');
-                tableCont.classList.remove('hidden');
-                btnTable.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-2 bg-indigo-600 text-white shadow-md shadow-indigo-600/30";
-                btnDate.className = "px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all flex items-center space-x-2";
-            }
-        }
-
-        // Modal: Nouvelle Expédition Form Handlers
-        function openNewExpeditionModal() {
-            if (!requireOperator()) return;
-            document.getElementById('formExpeditionId').value = '';
-            document.getElementById('expeditionModalTitle').textContent = "Nouvel envoi de marchandises";
-            document.getElementById('formDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('formNumeroBL').value = nextBL(document.getElementById('formDate').value);
-            document.getElementById('formCarrier').value = 'YAZID';
-            document.getElementById('formObservations').value = '';
-
-            document.getElementById('itemsTableBody').innerHTML = '';
-            addNewItemRow();
-
-            showModal('expeditionModal');
-        }
-
-        function closeExpeditionModal() {
-            hideModal('expeditionModal');
-        }
-
-        function addNewItemRow(item = null) {
-            const tbody = document.getElementById('itemsTableBody');
-            const rowId = 'row_' + Math.random().toString(36).substring(2, 9);
-            const tr = document.createElement('tr');
-            tr.id = rowId;
-            tr.className = "hover:bg-slate-900 transition";
-
-            tr.innerHTML = `
-                <td class="p-2">
-                    <input type="text" list="productsList" value="${esc(item ? item.reference : '')}" placeholder="Réf (ex: E02CL38B1)" class="row-ref w-full px-2.5 py-1.5 bg-slate-900 border border-slate-750 text-indigo-300 rounded-lg text-xs font-mono-code focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                </td>
-                <td class="p-2">
-                    <input type="text" value="${esc(item ? item.designation : '')}" placeholder="Désignation marchandise" class="row-des w-full px-2.5 py-1.5 bg-slate-900 border border-slate-750 text-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                </td>
-                <td class="p-2">
-                    <input type="text" list="clientsList" value="${esc(item ? item.destinataire : 'STOCK')}" placeholder="Client ou STOCK" class="row-dest w-full px-2.5 py-1.5 bg-slate-900 border border-slate-750 text-white rounded-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                </td>
-                <td class="p-2 text-center">
-                    <select class="row-unit w-full px-1 py-1.5 bg-slate-900 border border-slate-750 text-slate-300 rounded-lg text-xs text-center focus:outline-none">
-                        <option value="UN" ${item && item.unite === 'UN' ? 'selected' : ''}>UN</option>
-                        <option value="ID" ${item && item.unite === 'ID' ? 'selected' : ''}>ID</option>
-                        <option value="BOBINE" ${item && item.unite === 'BOBINE' ? 'selected' : ''}>BOBINE</option>
-                    </select>
-                </td>
-                <td class="p-2 text-right">
-                    <input type="text" value="${esc(item ? item.quantite : '100')}" placeholder="0" class="row-qte w-full px-2.5 py-1.5 bg-slate-900 border border-slate-750 text-slate-100 rounded-lg text-xs text-right font-mono-code font-bold focus:outline-none">
-                </td>
-                <td class="p-2 text-center">
-                    <input type="number" min="1" value="${esc(item ? item.cartons : '1')}" oninput="updateModalTotals()" class="row-cartons w-full px-1 py-1.5 bg-slate-900 border border-slate-750 text-amber-400 rounded-lg text-xs text-center font-bold focus:outline-none">
-                </td>
-                <td class="p-2 text-center">
-                    <button type="button" onclick="removeRow('${rowId}')" class="w-7 h-7 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition" title="Supprimer la ligne">
-                        <i class="fa-solid fa-xmark text-xs"></i>
-                    </button>
-                </td>
-            `;
-
-            tbody.appendChild(tr);
-            updateModalTotals();
-        }
-
-        function removeRow(rowId) {
-            const el = document.getElementById(rowId);
-            if (el) el.remove();
-            updateModalTotals();
-        }
-
-        function updateModalTotals() {
-            const cartons = document.querySelectorAll('.row-cartons');
-            let total = 0;
-            cartons.forEach(c => total += parseInt(c.value) || 1);
-            document.getElementById('modalTotalCartons').textContent = `Total Cartons : ${total}`;
-            document.getElementById('modalItemsCounter').textContent = `${cartons.length} article(s)`;
-        }
-
-        // Save Expedition (Supabase + Local)
-        async function saveExpedition() {
-            if (!requireOperator()) return;
-            const expId = document.getElementById('formExpeditionId').value;
-            const dateVal = document.getElementById('formDate').value;
-            const blVal = document.getElementById('formNumeroBL').value;
-            const carrierVal = document.getElementById('formCarrier').value;
-            const obsVal = document.getElementById('formObservations').value;
-
-            if (!dateVal) {
-                showToast("Veuillez choisir une date d'expédition valide.", "error");
-                return;
-            }
-
-            const rows = document.querySelectorAll('#itemsTableBody tr');
-            const items = [];
-            rows.forEach(tr => {
-                const ref = tr.querySelector('.row-ref').value.trim();
-                const des = tr.querySelector('.row-des').value.trim();
-                const dest = tr.querySelector('.row-dest').value.trim();
-                const unit = tr.querySelector('.row-unit').value;
-                const qte = tr.querySelector('.row-qte').value.trim();
-                const cartons = tr.querySelector('.row-cartons').value.trim();
-
-                if (ref || des || dest) {
-                    items.push({
-                        id: 'item_' + Math.random().toString(36).substring(2, 9),
-                        reference: ref,
-                        designation: des,
-                        destinataire: dest || 'STOCK',
-                        unite: unit || 'UN',
-                        quantite: qte || '0',
-                        cartons: cartons || '1'
-                    });
-                }
-            });
-
-            if (items.length === 0) {
-                showToast("Veuillez renseigner au moins un article.", "error");
-                return;
-            }
-
-            const record = {
-                id: expId || ('exp_' + Date.now()),
-                date_envoi: dateVal,
-                numero_bl: blVal,
-                transporteur: carrierVal,
-                observations: obsVal,
-                statut: 'Expédié',
-                items: items
-            };
-
-            try {
-                const upsertData = { date_envoi: dateVal, numero_bl: blVal, transporteur: carrierVal, observations: obsVal, statut: 'Expédié' };
-                if (UUID_RE.test(record.id)) upsertData.id = record.id;
-                const { data: expRow, error: eErr } = await supabaseClient.from('expeditions').upsert(upsertData).select().single();
-                if (eErr) throw eErr;
-                record.id = expRow.id;
-                const { error: dErr } = await supabaseClient.from('lignes_expedition').delete().eq('expedition_id', expRow.id);
-                if (dErr) throw dErr;
-                const { error: iErr } = await supabaseClient.from('lignes_expedition').insert(items.map(it => ({
-                    expedition_id: expRow.id, reference: it.reference, designation: it.designation,
-                    destinataire: it.destinataire, unite: it.unite, quantite: it.quantite, cartons: it.cartons
-                })));
-                if (iErr) throw iErr;
-                showToast("Envoi enregistré.", "success");
-            } catch (err) {
-                console.error(err);
-                showToast("Échec de l'enregistrement : " + explain(err), "error");
-                await fetchData();
-                return;
-            }
-
-            // Update in-memory and local storage
-            if (expId) {
-                const idx = allExpeditions.findIndex(e => e.id === expId);
-                if (idx !== -1) allExpeditions[idx] = record;
-            } else {
-                allExpeditions.unshift(record);
-            }
-
-            saveToLocalStorage();
-            closeExpeditionModal();
-            fillFilterOptions();
-            const ys = document.getElementById('filterYear');
-            if (ys.value !== 'all' && ys.value !== dateVal.slice(0, 4)) ys.value = 'all';
-            applyFilters();
-            updateKPIs();
-        }
-
-        // Edit
-        function editExp(id) {
-            if (!requireOperator()) return;
-            const exp = allExpeditions.find(e => e.id === id);
-            if (!exp) return;
-
-            document.getElementById('formExpeditionId').value = exp.id;
-            document.getElementById('expeditionModalTitle').textContent = "Modifier l'Envoi du " + exp.date_envoi;
-            document.getElementById('formDate').value = exp.date_envoi;
-            document.getElementById('formNumeroBL').value = exp.numero_bl || '';
-            document.getElementById('formCarrier').value = exp.transporteur || 'YAZID';
-            document.getElementById('formObservations').value = exp.observations || '';
-
-            const tbody = document.getElementById('itemsTableBody');
-            tbody.innerHTML = '';
-            (exp.items || []).forEach(it => addNewItemRow(it));
-
-            showModal('expeditionModal');
-        }
-
-        // Delete
-        async function deleteExp(id) {
-            if (!requireOperator()) return;
-            if (!confirm("Voulez-vous vraiment supprimer cet envoi et l'ensemble de ses colis ?")) return;
-            try {
-                if (UUID_RE.test(id)) {
-                    const r1 = await supabaseClient.from('lignes_expedition').delete().eq('expedition_id', id);
-                    if (r1.error) throw r1.error;
-                    const r2 = await supabaseClient.from('expeditions').delete().eq('id', id);
-                    if (r2.error) throw r2.error;
-                }
-            } catch (e) {
-                showToast("Suppression impossible : " + explain(e), "error");
-                return;
-            }
-            allExpeditions = allExpeditions.filter(e => e.id !== id);
-            saveToLocalStorage();
-            fillFilterOptions();
-            applyFilters();
-            showToast("Envoi supprimé.", "success");
-        }
-
-        // Print Slip
-        function printSlip(id) {
-            const exp = allExpeditions.find(e => e.id === id);
-            if (!exp) return;
-
-            document.getElementById('printBL').textContent = exp.numero_bl || 'BL';
-            document.getElementById('printDate').textContent = 'Date: ' + exp.date_envoi;
-            document.getElementById('printCarrier').textContent = 'Transporteur: ' + exp.transporteur;
-            document.getElementById('printObs').textContent = exp.observations ? 'Note: ' + exp.observations : '';
-
-            let totalCartons = 0;
-            const tbody = document.getElementById('printTableBody');
-            tbody.innerHTML = (exp.items || []).map(it => {
-                const cNum = parseInt(it.cartons) || 1;
-                totalCartons += cNum;
-                return `
-                    <tr style="border: 1px solid #cbd5e1;">
-                        <td style="padding: 6px 8px; border: 1px solid #cbd5e1; font-family: monospace; font-weight: bold;">${esc(it.reference || '-')}</td>
-                        <td style="padding: 6px 8px; border: 1px solid #cbd5e1;">${esc(it.designation || '-')}</td>
-                        <td style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: bold;">${esc(it.destinataire || 'STOCK')}</td>
-                        <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: center;">${esc(it.unite || 'UN')}</td>
-                        <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">${formatDigits(it.quantite)}</td>
-                        <td style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold;">${esc(it.cartons || '1')}</td>
-                    </tr>
-                `;
-            }).join('');
-
-            document.getElementById('printTotalCartons').textContent = totalCartons;
-
-            const printArea = document.getElementById('printArea');
-            printArea.classList.remove('hidden');
-            window.print();
-            printArea.classList.add('hidden');
-        }
-
-        // Export to CSV
-        function exportToCSV() {
-            let csv = '\uFEFF';
-            csv += 'Date;Bordereau;Transporteur;Reference;Designation;Destinataire;Unite;Quantite;Cartons;Observations\n';
-
-            allExpeditions.forEach(exp => {
-                (exp.items || []).forEach(it => {
-                    const row = [
-                        exp.date_envoi,
-                        exp.numero_bl || '',
-                        exp.transporteur || '',
-                        it.reference || '',
-                        it.designation || '',
-                        it.destinataire || '',
-                        it.unite || 'UN',
-                        it.quantite || '0',
-                        it.cartons || '1',
-                        (exp.observations || '').replace(/;/g, ',')
-                    ];
-                    csv += row.join(';') + '\n';
-                });
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `Expeditions_${new Date().toISOString().split('T')[0]}.csv`;
-            link.click();
-            showToast("Fichier Excel exporté avec succès !", "success");
-        }
-
-        // Admin & Config modal
-        function openAdminModal() {
-            showModal('adminModal');
-        }
-
-        function closeAdminModal() {
-            hideModal('adminModal');
-        }
-
-        function toggleKeyVis() {
-            const inp = document.getElementById('supabaseKeyInput');
-            inp.type = inp.type === 'password' ? 'text' : 'password';
-        }
-
-        function saveAdminSupabase() {
-            if (!requireOperator()) return;
-            const url = document.getElementById('supabaseUrlInput').value.trim();
-            const key = document.getElementById('supabaseKeyInput').value.trim();
-
-            if (!url || !key) {
-                showToast("Veuillez renseigner l'URL et la clé.", "error");
-                return;
-            }
-
-            localStorage.setItem('supabase_url', url);
-            localStorage.setItem('supabase_key', key);
-            initSupabase();
-            initAuth();
-            fetchData();
-            showToast("Paramètres Supabase enregistrés !", "success");
-            closeAdminModal();
-        }
-
-        async function loadSample2027Data() {
-            if (!requireOperator()) return;
-            if (!confirm("Charger 3 envois d'exemple dans la base ?")) return;
-            try {
-                for (const smp of defaultSamples2027) {
-                    const { data: expRow, error } = await supabaseClient.from('expeditions').insert({
-                        date_envoi: smp.date_envoi, numero_bl: smp.numero_bl, transporteur: smp.transporteur,
-                        observations: smp.observations, statut: smp.statut
-                    }).select().single();
-                    if (error) throw error;
-                    const { error: lErr } = await supabaseClient.from('lignes_expedition').insert(smp.items.map(it => ({
-                        expedition_id: expRow.id, reference: it.reference, designation: it.designation,
-                        destinataire: it.destinataire, unite: it.unite, quantite: it.quantite, cartons: it.cartons
-                    })));
-                    if (lErr) throw lErr;
-                }
-                showToast("Exemples ajoutés.", "success");
-                await fetchData();
-                closeAdminModal();
-            } catch (e) {
-                showToast("Échec : " + explain(e), "error");
-            }
-        }
-
-        async function manualSync() {
-            const btn = document.getElementById('syncBtn');
-            btn.classList.add('animate-spin');
-            await fetchData();
-            setTimeout(() => {
-                btn.classList.remove('animate-spin');
-                showToast("Synchronisation terminée !", "success");
-            }, 600);
-        }
-
-        function resetFilters() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('filterYear').value = 'all';
-            document.getElementById('filterCarrier').value = 'all';
-            document.getElementById('filterDest').value = 'all';
-            applyFilters();
-        }
-
-        // Modal open/close animation helpers
-        function showModal(id) {
-            const modal = document.getElementById(id);
-            modal.style.display = 'flex';
-            setTimeout(() => {
-                modal.classList.remove('modal-hidden');
-            }, 10);
-        }
-
-        function hideModal(id) {
-            const modal = document.getElementById(id);
-            modal.classList.add('modal-hidden');
-            setTimeout(() => {
-                modal.style.display = 'none';
-            }, 260);
-        }
-
-        // Toast notifications
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            
-            let bgClass = "bg-slate-900 border-slate-750 text-white";
-            let icon = "fa-circle-info text-indigo-400";
-            if (type === 'success') {
-                bgClass = "bg-slate-900 border-emerald-500/50 text-emerald-300";
-                icon = "fa-circle-check text-emerald-400";
-            } else if (type === 'error') {
-                bgClass = "bg-slate-900 border-rose-500/50 text-rose-300";
-                icon = "fa-circle-exclamation text-rose-400";
-            } else if (type === 'warning') {
-                bgClass = "bg-slate-900 border-amber-500/50 text-amber-300";
-                icon = "fa-triangle-exclamation text-amber-400";
-            }
-
-            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-2xl border shadow-2xl backdrop-blur-xl text-xs font-semibold transform transition-all duration-300 translate-y-4 opacity-0 ${bgClass}`;
-            toast.innerHTML = `
-                <i class="fa-solid ${icon} text-sm"></i>
-                <span>${esc(message)}</span>
-            `;
-
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.classList.remove('translate-y-4', 'opacity-0');
-            }, 10);
-
-            setTimeout(() => {
-                toast.classList.add('translate-y-4', 'opacity-0');
-                setTimeout(() => toast.remove(), 300);
-            }, 3500);
-        }
-
-        // Date formatters
-        function formatDayName(dStr) {
-            try {
-                const d = new Date(dStr + 'T00:00:00');
-                return d.toLocaleDateString('fr-FR', { weekday: 'short' });
-            } catch { return 'J'; }
-        }
-
-        function formatDayNumber(dStr) {
-            try {
-                const parts = dStr.split('-');
-                return parts[2] + '/' + parts[1];
-            } catch { return dStr; }
-        }
-
-        function formatDigits(num) {
-            if (!num) return '0';
-            return esc(num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " "));
-        }
+      }
+    });
+  }
+}
+
+function toggleAccordion(id) {
+  const content = document.getElementById('content-'+id), icon = document.getElementById('icon-'+id); if (!content) return;
+  const isHidden = content.classList.toggle('hidden'); icon?.classList.toggle('rotate-180', !isHidden);
+  if (isHidden) state.expanded.delete(id); else state.expanded.add(id);
+}
+function toggleAllAccordions() {
+  if (state.expanded.size === state.filtered.length) state.expanded.clear(); else state.expanded = new Set(state.filtered.map(e => e.id));
+  render(); toast(state.expanded.size ? 'Toutes les dates dépliées' : 'Toutes les dates repliées', 'info');
+}
+function switchView(v) {
+  const dateBox = $('#dateView'), tableBox = $('#tableView'), bD = $('#viewBtnDate'), bT = $('#viewBtnTable');
+  const active = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-600 text-white', idle = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition';
+  if (v === 'date') { dateBox.classList.remove('hidden'); tableBox.classList.add('hidden'); bD.className = active; bT.className = idle; bT.style.color = 'var(--text-muted)'; }
+  else { dateBox.classList.add('hidden'); tableBox.classList.remove('hidden'); bT.className = active; bT.style.color = ''; bD.className = idle; bD.style.color = 'var(--text-muted)'; }
+}
+function resetFilters() { $('#searchInput').value = ''; $('#filterYear').value = 'all'; $('#filterCarrier').value = 'all'; $('#filterDest').value = 'all'; applyFilters(); }
+
+let rowCounter = 0;
+
+function nextNumEnvoi(dateStr) {
+  const y = (dateStr||'').slice(0,4) || String(new Date().getFullYear());
+  const re = new RegExp('^ENV' + y + '(\\d+)$'); 
+  let max = 0;
+  state.expeditions.forEach(e => {
+    const m = re.exec(e.numero_bl || '');
+    if (m) max = Math.max(max, +m[1]);
+  });
+  return `ENV${y}${String(max+1).padStart(3,'0')}`;
+}
+
+function openExpeditionModal(id) {
+  if (!requireOperator()) return;
+  const isEdit = !!id, exp = isEdit ? state.expeditions.find(e => e.id === id) : null;
+  if (isEdit && !exp) return;
+  
+  if (isEdit) {
+    const isExpired = (new Date() - new Date(exp.created_at)) > 48 * 3600 * 1000;
+    if (isExpired && !state.isAdmin) return toast("Modification impossible : délai de 48h dépassé.", "error");
+  }
+
+  $('#expId').value = isEdit ? exp.id : '';
+  $('#expTitle').textContent = isEdit ? `Modifier l'envoi du ${fmtDate(exp.date_envoi)}` : 'Nouvel envoi';
+  const today = new Date().toISOString().slice(0,10);
+  $('#formDate').value = isEdit ? exp.date_envoi : today;
+  $('#formBL').value = isEdit ? (exp.numero_bl || '') : nextNumEnvoi(today);
+  $('#formCarrier').value = isEdit ? exp.transporteur : 'YAZID';
+  $('#formObs').value = isEdit ? (exp.observations || '') : '';
+  
+  $('#formDate').onchange = (e) => {
+    if (!isEdit && e.target.value) {
+      $('#formBL').value = nextNumEnvoi(e.target.value);
+    }
+  };
+
+  $('#itemsBody').innerHTML = ''; (isEdit ? exp.items : [{}]).forEach(it => addItemRow(it));
+  updateModalTotals(); openModal('expeditionModal');
+}
+function addItemRow(item = {}) {
+  const rowId = 'r' + (++rowCounter), tr = document.createElement('tr'); tr.dataset.rowId = rowId;
+  tr.innerHTML = `
+    <td class="p-2"><input class="inp font-mono-code input-uppercase" data-field="reference" list="productsList" value="${esc(item.reference||'')}" placeholder="Réf"></td>
+    <td class="p-2"><input class="inp input-uppercase" data-field="categorie" list="categoriesList" value="${esc(item.categorie||'')}" placeholder="Catégorie"></td> <!-- NOUVEAU -->
+    <td class="p-2"><input class="inp input-uppercase" data-field="designation" value="${esc(item.designation||'')}" placeholder="Désignation"></td>
+    <td class="p-2"><input class="inp input-uppercase" data-field="destinataire" list="clientsList" value="${esc(item.destinataire||'STOCK')}"></td>
+    <td class="p-2"><input class="inp text-center input-uppercase" data-field="unite" list="unitsList" value="${esc(item.unite||'UN')}"></td>
+    <td class="p-2"><input class="inp text-right font-mono-code" data-field="quantite" value="${esc(item.quantite||'0')}"></td>
+    <td class="p-2"><input class="inp text-center font-bold text-amber-400" data-field="cartons" type="number" min="1" value="${esc(item.cartons||'1')}"></td>
+    <td class="p-2 text-center"><button type="button" class="btn-icon" data-remove aria-label="Supprimer"><i class="fa-solid fa-xmark text-rose-400 text-xs"></i></button></td>`;
+  $('#itemsBody').appendChild(tr);
+  tr.querySelector('[data-field="cartons"]').addEventListener('input', updateModalTotals);
+  tr.querySelector('[data-remove]').addEventListener('click', () => { tr.remove(); updateModalTotals(); });
+  
+  const refInput = tr.querySelector('[data-field="reference"]');
+  const catInput = tr.querySelector('[data-field="categorie"]');
+  const desInput = tr.querySelector('[data-field="designation"]');
+  const unitInput = tr.querySelector('[data-field="unite"]');
+  
+  // Auto-complétion étendue à la catégorie
+  refInput.addEventListener('change', (e) => {
+    const ref = e.target.value.trim().toUpperCase();
+    if (ref && refMemory[ref]) {
+      desInput.value = refMemory[ref].designation;
+      if (unitInput) unitInput.value = refMemory[ref].unite;
+      if (catInput && refMemory[ref].categorie) catInput.value = refMemory[ref].categorie;
+    }
+  });
+
+  updateModalTotals();
+}
+function updateModalTotals() {
+  const rows = $$('#itemsBody tr'); let total = 0; rows.forEach(tr => total += parseInt(tr.querySelector('[data-field="cartons"]').value) || 1);
+  $('#modalTotal').textContent = `Total : ${total} carton(s)`; $('#itemsCount').textContent = `${rows.length}`;
+}
+function collectItems() {
+  return $$('#itemsBody tr').map(tr => {
+    const get = f => tr.querySelector(`[data-field="${f}"]`).value.trim().toUpperCase();
+    return { reference: get('reference'), categorie: get('categorie'), designation: get('designation'), destinataire: get('destinataire') || 'STOCK', unite: get('unite') || 'UN', quantite: get('quantite') || '0', cartons: parseInt(get('cartons')) || 1 };
+  }).filter(it => it.reference || it.designation);
+}
+async function saveExpedition() {
+  if (!requireOperator()) return;
+  const dateVal = $('#formDate').value; if (!dateVal) return toast("Date d'expédition requise.", "error");
+  const items = collectItems(); if (!items.length) return toast("Renseignez au moins un article.", "error");
+  
+  const payload = { 
+    p_id: $('#expId').value || null, 
+    p_date_envoi: dateVal, 
+    p_numero_bl: ($('#formBL').value.trim() || null)?.toUpperCase(), 
+    p_transporteur: $('#formCarrier').value.trim().toUpperCase(), 
+    p_observations: $('#formObs').value.trim(), 
+    p_items: items 
+  };
+  
+  try {
+    const { error } = await state.supabase.rpc('save_expedition', payload);
+    if (error) throw error; toast('Envoi enregistré.', 'success');
+  } catch (e) { return toast('Échec : ' + (e.message || e), 'error'); }
+  closeModal('expeditionModal'); await fetchData();
+}
+async function deleteExpedition(id) {
+  if (!requireOperator()) return;
+  if (!await confirmDialog('Supprimer cet envoi ?')) return;
+  try { const { error } = await state.supabase.from('expeditions').delete().eq('id', id); if (error) throw error; toast('Envoi supprimé.', 'success'); }
+  catch (e) { return toast('Suppression impossible : ' + (e.message || e), 'error'); }
+  await fetchData();
+}
+
+function openAdmin() { openModal('adminModal'); }
+function toggleKeyVis() { const i = $('#sbKey'); i.type = i.type === 'password' ? 'text' : 'password'; }
+function saveSupabaseConfig() {
+  if (!requireOperator()) return;
+  const url = $('#sbUrl').value.trim(), key = $('#sbKey').value.trim(); if (!url || !key) return toast("URL et clé requises.", "error");
+  lsSet(CFG_URL, url); lsSet(CFG_KEY, key); initSupabase(); initAuth(); fetchData(); closeModal('adminModal'); toast('Configuration enregistrée.', 'success');
+}
+
+async function openOperators() { if (!state.isAdmin) return; openModal('opsModal'); await loadOperators(); }
+async function loadOperators() {
+  const box = $('#opsList'); const { data, error } = await state.supabase.from('operateurs').select('*').order('created_at');
+  if (error) return box.innerHTML = `<p class="py-3 text-rose-400">${esc(error.message)}</p>`;
+  const me = (state.session?.user?.email || '').split('@')[0];
+  box.innerHTML = (data||[]).map(o => `
+    <div class="py-2.5 flex items-center justify-between gap-2"><div class="min-w-0"><p class="font-semibold truncate">${esc(o.username)}</p><p class="text-[11px]" style="color:var(--text-muted)">${o.role === 'admin' ? 'Administrateur' : 'Opérateur'}</p></div>
+    ${o.username === me ? '<span class="text-[11px]" style="color:var(--text-dim)">vous</span>' : `<button onclick="removeOperator('${esc(o.username)}')" class="btn btn-secondary"><i class="fa-solid fa-trash text-rose-400"></i>Retirer</button>`}</div>`).join('') || '<p class="py-3 text-xs" style="color:var(--text-muted)">Aucun opérateur.</p>';
+}
+async function addOperator(e) {
+  e.preventDefault();
+  const username = $('#opUsername').value.trim().toLowerCase(), password = $('#opPassword').value, role = $('#opRole').value;
+  if (password.length < 6) return toast("Le mot de passe doit faire 6 caractères minimum.", "error");
+  const { error } = await state.supabase.rpc('create_operator', { p_username: username, p_password: password, p_role: role });
+  if (error) return toast('Création impossible : ' + error.message, 'error');
+  $('#opUsername').value = ''; $('#opPassword').value = ''; toast('Compte opérateur créé.', 'success'); await loadOperators();
+}
+async function removeOperator(username) {
+  if (!await confirmDialog(`Retirer l'accès à ${username} ?`)) return;
+  const { error } = await state.supabase.from('operateurs').delete().eq('username', username);
+  if (error) return toast('Retrait impossible : ' + error.message, 'error');
+  toast('Accès retiré.', 'success'); await loadOperators();
+}
+
+const SAMPLES = [
+  { date_envoi: '2027-01-05', numero_bl: 'ENV2027001', transporteur: 'YAZID', observations: "Départ direct usine vers UPW Beni Abbes", items: [{ reference:'E02CL38B1', categorie:'ETIQUETTES', designation:'ETIQUETTE TT 105*148', destinataire:'UPW BENI ABBES', unite:'ID', quantite:'15000', cartons:1 }] },
+  { date_envoi: '2027-01-07', numero_bl: 'ENV2027002', transporteur: 'YAZID', observations: "Livraison Smartware + retour atelier", items: [{ reference:'R2A045300BN', categorie:'RUBANS', designation:'RUBAN CIRE 45*300', destinataire:'SMARTWARE', unite:'UN', quantite:'644', cartons:11 }, { reference:'R2C110300BO', categorie:'RUBANS', designation:'RUBAN RESINE 110*300', destinataire:'STOCK', unite:'UN', quantite:'44', cartons:1 }, { reference:'PVC-100', categorie:'CARTES PVC', designation:'CARTE PVC BLANCHE 0.75mm', destinataire:'STOCK', unite:'UN', quantite:'47', cartons:2 }] },
+];
+async function loadSamples() {
+  if (!requireOperator()) return;
+  try {
+    const bls = SAMPLES.map(s => s.numero_bl);
+    const { data: existing } = await state.supabase.from('expeditions').select('numero_bl').in('numero_bl', bls);
+    if (existing && existing.length) return toast('Les exemples existent déjà.', 'warning');
+    for (const s of SAMPLES) {
+      const { error } = await state.supabase.rpc('save_expedition', { p_id: null, p_date_envoi: s.date_envoi, p_numero_bl: s.numero_bl, p_transporteur: s.transporteur, p_observations: s.observations, p_items: s.items });
+      if (error) throw error;
+    }
+    toast('Exemples ajoutés.', 'success'); closeModal('adminModal'); await fetchData();
+  } catch (e) { toast('Échec : ' + e.message, 'error'); }
+}
+
+function printExpedition(id) {
+  const e = state.expeditions.find(x => x.id === id); if (!e) return;
+  $('#printBL').textContent = e.numero_bl || 'SANS NUM'; $('#printDate').textContent = 'Date : ' + fmtDate(e.date_envoi);
+  $('#printCarrier').textContent = 'Transporteur : ' + e.transporteur; $('#printObs').textContent = e.observations ? 'Note : ' + e.observations : '';
+  let total = 0;
+  $('#printBody').innerHTML = (e.items||[]).map(it => { total += parseInt(it.cartons) || 1; return `<tr><td style="font-family:monospace;font-weight:bold">${esc(it.reference||'-')}</td><td>${esc(it.categorie||'-')}</td><td>${esc(it.designation||'-')}</td><td style="font-weight:bold">${esc(it.destinataire||'STOCK')}</td><td style="text-align:center">${esc(it.unite||'UN')}</td><td style="text-align:right">${esc(it.quantite||'0')}</td><td style="text-align:center">${esc(it.cartons||'1')}</td></tr>`; }).join('');
+  $('#printTotal').textContent = total; window.print();
+}
+function exportCSV() {
+  const sep = ';', rows = [['Date','N° d\'envoi','Transporteur','Référence','Catégorie','Désignation','Destinataire','Unité','Quantité','Cartons','Observations']];
+  state.expeditions.forEach(e => (e.items||[]).forEach(it => { rows.push([e.date_envoi, e.numero_bl, e.transporteur, it.reference, it.categorie, it.designation, it.destinataire, it.unite, it.quantite, it.cartons, (e.observations||'').replace(/;/g, ',')]); }));
+  const csv = '\uFEFF' + rows.map(r => r.map(v => `"${String(v??'').replace(/"/g,'""')}"`).join(sep)).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `Expeditions_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href); toast('Export CSV téléchargé.', 'success');
+}
+
+async function syncData() {
+  const btn = event?.currentTarget; btn?.classList.add('animate-spin'); await fetchData(); setTimeout(() => btn?.classList.remove('animate-spin'), 400);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  syncThemeIcon(); initSupabase(); await fetchData(); try { await initAuth(); } catch (e) { console.warn(e); }
+});
