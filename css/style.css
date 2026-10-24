@@ -62,6 +62,7 @@ body {
   font-weight: 500;
   transition: border-color .15s, box-shadow .15s;
 }
+.inp-error { border-color: #f43f5e !important; box-shadow: 0 0 0 3px rgba(244,63,94,.25) !important; }
 .inp::placeholder { color: var(--text-dim); }
 .inp:focus {
   outline: none;
