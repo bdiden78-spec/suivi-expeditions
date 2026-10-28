@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="LogiTrak — Suivi d'expéditions Eurequat Algérie">
+  <link rel="icon" type="image/png" href="assets/logo-eurequat.png">
+  <title>LogiTrak • Eurequat Algérie</title>
+
+  <script>
+    try {
+      if (localStorage.getItem('logitrak_theme') === 'light')
+        document.documentElement.classList.add('light');
+    } catch(e) {}
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .list-hero{padding:4px 2px 0}
+    .list-hero-icon{width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;background:linear-gradient(135deg,#6366f1,#3b82f6);box-shadow:0 8px 24px -6px rgba(99,102,241,.55)}
+    .list-focus{border:1px solid rgba(99,102,241,.45)!important;box-shadow:0 0 0 3px rgba(99,102,241,.12),0 10px 30px -12px rgba(99,102,241,.45)}
+
+    /* ---- Menu Statistiques : panneau qui pousse la page vers la gauche ---- */
+    body{transition:padding-right .35s cubic-bezier(.22,.8,.3,1)}
+    #statsDrawer{position:fixed;top:0;right:0;bottom:0;z-index:71;width:min(480px,100vw);background:var(--bg);border-left:1px solid var(--border);box-shadow:-18px 0 40px -24px rgba(0,0,0,.55);transform:translateX(100%);visibility:hidden;transition:transform .35s cubic-bezier(.22,.8,.3,1),visibility .35s;display:flex;flex-direction:column}
+    #statsDrawer.open{transform:translateX(0);visibility:visible}
+    #statsDrawer .stats-body{overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;flex:1}
+    #statsDrawer .stat-card{position:relative;border-radius:18px;padding:18px 18px 14px;background:var(--bg-input);border:1px solid var(--border);overflow:hidden}
+    #statsDrawer .stat-card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--c1),var(--c2))}
+    #statsDrawer .stat-card h4{font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px}
+    #statsDrawer .stat-card p{font-size:11px;color:var(--text-muted);margin:2px 0 12px}
+    #statsDrawer .stat-dot{width:26px;height:26px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2))}
+    #statsDrawer .chart-box{position:relative;height:240px}
+    #statsDrawer .chart-box.tall{height:340px}
+    #statsDrawer .chart-box.short{height:170px}
+    #statsOverlay{position:fixed;inset:0;z-index:70;background:rgba(2,6,23,.55);opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s}
+    @media (min-width:1024px){
+      body.stats-open{padding-right:480px}
+      #statsOverlay{display:none}
+    }
+    @media (max-width:1023px){
+      #statsOverlay.open{opacity:1;visibility:visible}
+    }
+    #statsBtn.active{background:rgba(99,102,241,.18);border-color:rgba(99,102,241,.6)}
+    @media print{#statsOverlay,#statsDrawer{display:none!important} body.stats-open{padding-right:0!important}}
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+  <div class="bg-orbs fixed inset-0 overflow-hidden z-0">
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl animate-pulse-subtle"></div>
+    <div class="absolute top-1/3 -right-40 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl animate-pulse-subtle" style="animation-delay:2s"></div>
+    <div class="absolute -bottom-40 left-1/3 w-[32rem] h-[32rem] bg-purple-600/15 rounded-full blur-3xl animate-pulse-subtle" style="animation-delay:4s"></div>
+  </div>
+
+  <header class="relative z-30 backdrop-blur-xl border-b no-print" style="background:color-mix(in srgb, var(--bg) 88%, transparent); border-color:var(--border);">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="h-12 px-3 rounded-2xl bg-white flex items-center flex-shrink-0 shadow-lg ring-1 ring-black/10">
+          <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" class="block" style="height:32px;width:auto;max-width:180px;object-fit:contain">
+        </div>
+        <div class="hidden sm:flex items-center h-12 px-3 rounded-2xl bg-white flex-shrink-0 shadow-lg ring-1 ring-black/10" title="LogiTrak — Envoi &amp; Traçabilité">
+          <img src="assets/logitrak-logo.png" alt="LogiTrak — Envoi &amp; Traçabilité" class="block" style="height:36px;width:auto;max-width:190px;object-fit:contain">
+        </div>
+        <p class="text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <div id="visitorBar" class="no-print relative z-20 text-xs text-center py-2 px-4" style="background:rgba(99,102,241,.08); border-bottom:1px solid rgba(99,102,241,.2); color:#a5b4fc;">
+    Consultation en lecture seule. <button onclick="authAction()" class="underline font-bold hover:text-white">Connexion</button> pour ajouter ou modifier des envois.
+  </div>
+
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
+    
+    <!-- KPI Cards -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="panel p-5 relative overflow-hidden group">
+        <div class="flex items-center justify-between">
+          <div><p class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--text-dim)">Journées d'expédition</p><p class="text-3xl font-black mt-1" id="kpiDays">0</p></div>
+          <div class="w-13 h-13 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-xl"><i class="fa-regular fa-calendar-check"></i></div>
+        </div>
+        <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-clock-rotate-left text-indigo-400 mr-1"></i><span id="kpiYear">Toutes années</span></p>
+      </div>
+      <div class="panel p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div><p class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--text-dim)">Références / Lignes</p><p class="text-3xl font-black mt-1" id="kpiItems">0</p></div>
+          <div class="w-13 h-13 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-xl"><i class="fa-solid fa-barcode"></i></div>
+        </div>
+        <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-tags text-cyan-400 mr-1"></i>Rubans, étiquettes & PVC</p>
+      </div>
+      <div class="panel p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div><p class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--text-dim)">Volume total colis</p><p class="text-3xl font-black mt-1" id="kpiCartons">0</p></div>
+          <div class="w-13 h-13 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center text-xl"><i class="fa-solid fa-boxes-stacked"></i></div>
+        </div>
+        <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-box-open text-amber-400 mr-1"></i>Colisage usine</p>
+      </div>
+      <div class="panel p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div class="min-w-0"><p class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--text-dim)">Transporteur principal</p><p class="text-2xl font-black mt-1 truncate" id="kpiCarrier">—</p></div>
+          <div class="w-13 h-13 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center text-xl"><i class="fa-solid fa-truck-fast"></i></div>
+        </div>
+        <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-chart-pie text-purple-400 mr-1"></i><span id="kpiCarrierShare">—</span></p>
+      </div>
+    </section>
+
+    <!-- Titre mis en évidence de la liste d'envoi -->
+    <div class="list-hero flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-3">
+        <div class="list-hero-icon"><i class="fa-solid fa-truck-ramp-box"></i></div>
+        <div>
+          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Liste des envois</h2>
+          <p class="text-xs" style="color:var(--text-muted)">Recherchez, filtrez et consultez toutes les expéditions</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="relative op-only">
+          <div id="dbBadge" class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition" style="background:var(--bg-soft); border:1px solid var(--border); color:var(--text-muted)" onclick="toggleOnlineUsers(event)" title="Voir qui est en ligne">
+            <span class="relative flex h-2 w-2">
+              <span id="dbPing" class="absolute inline-flex h-full w-full rounded-full bg-slate-400 opacity-75"></span>
+              <span id="dbDot" class="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
+            </span>
+            <span id="dbText" class="tracking-wide hidden md:inline">En ligne…</span>
+          </div>
+
+          <div id="onlineUsersDropdown" class="dropdown-menu absolute right-0 top-full mt-2 w-64 rounded-xl shadow-2xl border z-50 overflow-hidden" style="background:var(--bg-card); border-color:var(--border)">
+            <div class="px-4 py-3 border-b" style="border-color:var(--border); background:var(--bg-input)">
+              <h3 class="text-xs font-bold uppercase tracking-wider" style="color:var(--text-muted)">Utilisateurs en ligne</h3>
+            </div>
+            <div id="onlineUsersList" class="max-h-60 overflow-y-auto p-2 space-y-1"></div>
+          </div>
+        </div>
+        <button onclick="syncData()" class="btn-icon" title="Synchroniser les données"><i class="fa-solid fa-arrows-rotate text-sm"></i></button>
+        <span id="authLabel" class="hidden"></span>
+        <a href="production.html" class="btn btn-secondary op-only" title="Saisie de la production">
+          <i class="fa-solid fa-industry text-emerald-500"></i><span>Production</span>
+        </a>
+        <a href="colisage.html" class="btn btn-secondary" title="Page de colisage">
+          <i class="fa-solid fa-boxes-packing text-amber-500"></i><span>Colisage</span>
+        </a>
+        
+        <button onclick="openExpeditionModal()" class="btn btn-primary">
+          <i class="fa-solid fa-plus"></i><span class="hidden sm:inline">Nouvel envoi</span>
+        </button>
+      </div>
+    </div>
+
+    <section class="panel list-focus p-3 sm:p-4 flex flex-col lg:flex-row gap-3">
+      <div class="flex flex-wrap items-center gap-2 flex-1">
+        <div class="relative flex-1 min-w-[200px]">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
+          <!-- Recherche dynamique à chaque frappe -->
+          <input id="searchInput" type="text" oninput="applyFilters()" placeholder="Rechercher référence, catégorie, client..." class="inp pl-9" aria-label="Rechercher">
+        </div>
+        <select id="filterYear" onchange="applyFilters()" class="inp w-auto" aria-label="Année"></select>
+        <select id="filterCarrier" onchange="applyFilters()" class="inp w-auto" aria-label="Transporteur">
+          <option value="all">🚛 Tous transporteurs</option>
+        </select>
+        <select id="filterDest" onchange="applyFilters()" class="inp w-auto" aria-label="Destinataire"></select>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input); border:1px solid var(--border)">
+          <button id="viewBtnDate" onclick="switchView('date')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-600 text-white"><i class="fa-solid fa-calendar-days mr-1"></i>Par date</button>
+          <button id="viewBtnTable" onclick="switchView('table')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition" style="color:var(--text-muted)"><i class="fa-solid fa-table-list mr-1"></i>Tableau</button>
+        </div>
+        <button onclick="exportCSV()" class="btn btn-secondary" title="Export CSV"><i class="fa-solid fa-file-excel text-emerald-400"></i><span class="hidden sm:inline">Export</span></button>
+        <button onclick="toggleAllAccordions()" class="btn-icon" title="Déplier / replier tout"><i class="fa-solid fa-up-right-and-down-left-from-center text-xs"></i></button>
+      </div>
+    </section>
+
+    <section id="dateView" class="space-y-4"></section>
+
+    <section id="tableView" class="panel overflow-hidden hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead style="background:var(--bg-input)">
+            <tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
+              <th class="p-3 pl-5">Date</th><th class="p-3">N° d'envoi</th><th class="p-3">Transporteur</th>
+              <th class="p-3">Référence</th><th class="p-3">Catégorie</th><th class="p-3">Désignation</th><th class="p-3">Destinataire</th>
+              <th class="p-3 text-center">Unité</th><th class="p-3 text-right">Quantité</th><th class="p-3 text-center">Cartons</th><th class="p-3">Observations</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y" style="border-color:var(--border)"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Menu spécial : Statistiques (pousse la page vers la gauche) -->
+  
+  
+
+
+
+  <div id="toasts" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
+
+  <!-- Modal Expédition -->
+  <div id="expeditionModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-content w-full max-w-5xl"> <!-- Agrandi pour faire de la place à la colonne catégorie -->
+      <div class="px-6 py-4 flex items-center justify-between border-b" style="border-color:var(--border)">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center"><i class="fa-solid fa-boxes-packing"></i></div>
+          <div><h3 id="expTitle" class="text-base font-extrabold">Nouvel envoi</h3><p class="text-xs" style="color:var(--text-muted)">Tous les colis rattachés à cette date</p></div>
+        </div>
+        <button onclick="closeModal('expeditionModal')" class="btn-icon" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-6 overflow-y-auto space-y-5 flex-1">
+        <input type="hidden" id="expId">
+        <div class="panel-soft p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div><label for="formDate" class="block text-xs font-bold mb-1.5">Date *</label><input type="date" id="formDate" class="inp" required></div>
+          <div><label for="formBL" class="block text-xs font-bold mb-1.5">N° d'envoi</label><input type="text" id="formBL" class="inp font-mono-code input-uppercase" placeholder="ENVAAAAnnn"></div>
+          <div>
+            <label for="formCarrier" class="block text-xs font-bold mb-1.5">Transporteur *</label>
+            <input type="text" id="formCarrier" list="carriersList" class="inp input-uppercase" placeholder="Ex: YAZID">
+          </div>
+          <div class="sm:col-span-3"><label for="formObs" class="block text-xs font-bold mb-1.5">Observations</label><input type="text" id="formObs" class="inp" placeholder="Consignes…"></div>
+        </div>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2"><h4 class="text-sm font-extrabold">Articles</h4><span id="itemsCount" class="badge" style="background:rgba(99,102,241,.15);color:#a5b4fc;border-color:rgba(99,102,241,.3)">0</span></div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" onclick="openProdPicker()" class="btn btn-secondary" title="Choisir des lots dans la production"><i class="fa-solid fa-industry text-amber-500 text-xs"></i>Importer depuis la production</button>
+              <button type="button" onclick="addItemRow()" class="btn btn-secondary"><i class="fa-solid fa-plus text-xs"></i>Ajouter une ligne</button>
+            </div>
+          </div>
+          <div class="panel-soft overflow-x-auto">
+            <table class="w-full text-left text-xs" style="min-width:900px"> <!-- Elargi -->
+              <thead style="background:var(--bg-input)">
+                <tr class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--text-muted)">
+                  <th class="p-2.5 w-28">Référence</th>
+                  <th class="p-2.5 w-32">Catégorie</th> <!-- NOUVELLE COLONNE -->
+                  <th class="p-2.5">Désignation</th>
+                  <th class="p-2.5 w-32">Destinataire</th>
+                  <th class="p-2.5 w-20 text-center">Unité</th>
+                  <th class="p-2.5 w-24 text-right">Quantité</th>
+                  <th class="p-2.5 w-20 text-center">Cartons</th>
+                  <th class="p-2.5 w-10"></th>
+                </tr>
+              </thead>
+              <tbody id="itemsBody" class="divide-y" style="border-color:var(--border)"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="px-6 py-4 flex items-center justify-between border-t" style="border-color:var(--border);background:var(--bg-input)">
+        <span class="text-xs font-bold text-amber-400"><i class="fa-solid fa-boxes-stacked mr-1"></i><span id="modalTotal">Total : 0 carton(s)</span></span>
+        <div class="flex gap-2">
+          <button onclick="closeModal('expeditionModal')" class="btn btn-secondary">Annuler</button>
+          <button onclick="saveExpedition()" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal : Importer depuis la production -->
+  <div id="prodPickerModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-content w-full max-w-3xl">
+      <div class="px-6 py-4 flex items-center justify-between border-b" style="border-color:var(--border)">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-500 flex items-center justify-center"><i class="fa-solid fa-industry"></i></div>
+          <div><h3 class="text-base font-extrabold">Importer depuis la production</h3><p class="text-xs" style="color:var(--text-muted)">Cochez les lots à expédier et ajustez la quantité (expédition partielle possible)</p></div>
+        </div>
+        <button onclick="closeModal('prodPickerModal')" class="btn-icon" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-6 overflow-y-auto space-y-4 flex-1">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2 relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
+            <input id="ppSearch" oninput="filterProdPicker()" class="inp pl-9" placeholder="Rechercher un OF, une référence…" aria-label="Rechercher un lot">
+          </div>
+          <input id="ppDest" list="clientsList" class="inp input-uppercase" placeholder="Destinataire (STOCK)" title="Destinataire appliqué aux lignes importées (modifiable ensuite)">
+        </div>
+        <div class="flex justify-end"><button type="button" onclick="toggleAllProdPicker()" class="btn btn-secondary"><i class="fa-solid fa-check-double text-xs"></i>Tout cocher / décocher</button></div>
+        <div id="ppList" class="space-y-2"></div>
+      </div>
+      <div class="px-6 py-4 flex items-center justify-end gap-2 border-t" style="border-color:var(--border);background:var(--bg-input)">
+        <button onclick="closeModal('prodPickerModal')" class="btn btn-secondary">Annuler</button>
+        <button onclick="importFromProduction()" class="btn btn-primary"><i class="fa-solid fa-file-import"></i>Ajouter à l'envoi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Admin -->
+  <div id="adminModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-content w-full max-w-xl">
+      <div class="px-6 py-4 flex items-center justify-between border-b" style="border-color:var(--border)">
+        <h3 class="text-base font-extrabold">Paramètres & Supabase</h3>
+        <button onclick="closeModal('adminModal')" class="btn-icon" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-6 space-y-4 overflow-y-auto">
+        <div class="panel-soft p-4 space-y-3" style="border-color:rgba(99,102,241,.3)">
+          <p class="text-xs font-black uppercase tracking-wider text-indigo-400"><i class="fa-solid fa-database mr-1"></i>Base Supabase</p>
+          <div><label for="sbUrl" class="block text-xs font-semibold mb-1">Project URL</label><input type="text" id="sbUrl" class="inp font-mono-code"></div>
+          <div><label for="sbKey" class="block text-xs font-semibold mb-1">Anon key</label><input type="password" id="sbKey" class="inp font-mono-code"></div>
+          <div class="flex justify-end gap-2">
+            <button onclick="toggleKeyVis()" class="btn btn-secondary"><i class="fa-regular fa-eye"></i>Afficher</button>
+            <button onclick="saveSupabaseConfig()" class="btn btn-primary">Tester & Enregistrer</button>
+          </div>
+        </div>
+        <div class="panel-soft p-4 space-y-3">
+          <p class="text-xs font-black uppercase tracking-wider text-amber-400"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Données d'exemple</p>
+          <p class="text-xs" style="color:var(--text-muted)">Insère 3 envois modèles (uniquement si la base est vide).</p>
+          <button onclick="loadSamples()" class="btn btn-secondary"><i class="fa-solid fa-cloud-arrow-up text-amber-400"></i>Charger les exemples</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Connexion -->
+  <div id="loginModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <form onsubmit="doLogin(event)" class="modal-content w-full max-w-sm p-6 space-y-3">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-base font-extrabold">Connexion opérateur</h3>
+        <button type="button" onclick="closeModal('loginModal')" class="btn-icon" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <input type="text" id="loginUsername" required placeholder="Pseudo" class="inp" autocomplete="username">
+      <input type="password" id="loginPassword" required placeholder="Mot de passe" class="inp" autocomplete="current-password">
+      <p id="loginMsg" class="text-xs hidden"></p>
+      <button type="submit" class="btn btn-primary w-full justify-center">Se connecter</button>
+      <p class="text-[11px] text-center" style="color:var(--text-dim)">Les comptes sont créés par l'administrateur.</p>
+    </form>
+  </div>
+
+  <!-- Modal Opérateurs -->
+  <div id="opsModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-content w-full max-w-xl">
+      <div class="px-6 py-4 flex items-center justify-between border-b" style="border-color:var(--border)">
+        <div><h3 class="text-base font-extrabold">Opérateurs autorisés</h3><p class="text-xs" style="color:var(--text-muted)">Créer et gérer les accès.</p></div>
+        <button onclick="closeModal('opsModal')" class="btn-icon" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-6 space-y-4 overflow-y-auto">
+        <form onsubmit="addOperator(event)" class="flex flex-wrap gap-2">
+          <input type="text" id="opUsername" required placeholder="Pseudo" class="inp flex-1 min-w-[130px]">
+          <input type="password" id="opPassword" required placeholder="Mot de passe" class="inp flex-1 min-w-[130px]">
+          <select id="opRole" class="inp w-auto"><option value="operateur">Opérateur</option><option value="admin">Admin</option></select>
+          <button type="submit" class="btn btn-primary">Créer</button>
+        </form>
+        <div id="opsList" class="divide-y text-xs" style="border-color:var(--border)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Confirmation -->
+  <div id="confirmModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-content w-full max-w-sm p-6 space-y-4">
+      <p class="text-sm font-semibold" data-msg>Confirmer ?</p>
+      <div class="flex justify-end gap-2"><button data-no class="btn btn-secondary">Annuler</button><button data-yes class="btn btn-primary">Confirmer</button></div>
+    </div>
+  </div>
+
+  <!-- Zone d'impression -->
+  <div id="printArea">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:14px;">
+      <div>
+        <img src="assets/logo-eurequat.png" alt="Eurequat" style="height:48px;width:auto;display:block;">
+        <p style="font-size:10px;color:#475569;margin:4px 0 0">Identification Automatique, Rubans & Étiquettes</p>
+        <p style="font-size:10px;color:#475569;margin:0">Zone Industrielle Tlemcen • Algérie</p>
+      </div>
+      <div style="text-align:right">
+        <h2 style="font-size:15px;font-weight:800;text-transform:uppercase;margin:0;color:#4f46e5">Bordereau d'Expédition</h2>
+        <div id="printBL" style="font-size:12px;font-weight:700;margin-top:3px"></div>
+        <div id="printDate" style="font-size:10px;color:#64748b"></div>
+        <div id="printCarrier" style="font-size:11px;font-weight:700;margin-top:3px"></div>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Référence</th><th>Catégorie</th><th>Désignation</th><th>Destinataire</th><th>Unité</th><th style="text-align:right">Qté</th><th style="text-align:center">Cartons</th></tr></thead>
+      <tbody id="printBody"></tbody>
+      <tfoot><tr style="background:#f8fafc;font-weight:800"><td colspan="6" style="text-align:right">TOTAL CARTONS :</td><td id="printTotal" style="text-align:center"></td></tr></tfoot>
+    </table>
+    <p id="printObs" style="font-size:10px;color:#334155;margin:14px 0;font-style:italic"></p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:24px;font-size:10px;text-align:center">
+      <div style="border:1px dashed #94a3b8;height:80px;padding:6px;border-radius:6px"><strong>Service Expédition</strong><div style="color:#94a3b8;margin-top:32px">Visa & Date</div></div>
+      <div style="border:1px dashed #94a3b8;height:80px;padding:6px;border-radius:6px"><strong>Transporteur</strong><div style="color:#94a3b8;margin-top:32px">Nom & Émargement</div></div>
+      <div style="border:1px dashed #94a3b8;height:80px;padding:6px;border-radius:6px"><strong>Réceptionnaire</strong><div style="color:#94a3b8;margin-top:32px">Cachet & Signature</div></div>
+    </div>
+  </div>
+
+  <!-- Datalists -->
+  <datalist id="clientsList"></datalist>
+  <datalist id="productsList"></datalist>
+  <datalist id="categoriesList"></datalist> <!-- NOUVEAU -->
+  <datalist id="carriersList">
+    <option value="YAZID"><option value="YALIDINE"><option value="DJALAL">
+    <option value="CLIENT"><option value="AUTRE">
+  </datalist>
+  <datalist id="unitsList">
+    <option value="UN"><option value="ID"><option value="BOBINE">
+  </datalist>
+
+  <!-- Style fin et moderne pour les 3 graphiques des statistiques -->
+  <script>
+  (function(){
+    if(!window.Chart) return;
+    var IDS=['chartCategories','chartClients','chartProducts'];
+    // Une couleur (dégradé) par graphique : violet / vert / ambre
+    var COLORS={ chartCategories:['#8b5cf6','#c4b5fd'], chartClients:['#10b981','#6ee7b7'], chartProducts:['#f59e0b','#fcd34d'] };
+    function css(v,f){ try{ return getComputedStyle(document.documentElement).getPropertyValue(v).trim()||f; }catch(e){ return f; } }
+    function fmt(v){ try{ return Number(v).toLocaleString('fr-FR'); }catch(e){ return String(v); } }
+    function cut(t,n){ t=String(t); return t.length>n ? t.slice(0,n-1)+'…' : t; }
+
+    Chart.defaults.font.family="'Plus Jakarta Sans',system-ui,sans-serif";
+    Chart.defaults.font.size=11;
+    Chart.defaults.animation.duration=900;
+    Chart.defaults.animation.easing='easeOutQuart';
+    var tt=Chart.defaults.plugins.tooltip;
+    tt.backgroundColor='rgba(15,23,42,.96)'; tt.titleColor='#fff'; tt.bodyColor='#cbd5e1';
+    tt.padding=10; tt.cornerRadius=10; tt.boxPadding=4;
+    tt.borderColor='rgba(99,102,241,.45)'; tt.borderWidth=1;
+
+    function style(chart){
+      if(!chart.canvas || IDS.indexOf(chart.canvas.id)<0) return;
+      var id=chart.canvas.id, cfg=chart.config;
+      var o=cfg.options=cfg.options||{};
+      var horiz=(o.indexAxis==='y');
+      var muted=css('--text-muted','#94a3b8');
+      var light=document.documentElement.classList.contains('light');
+      var pair=COLORS[id];
+
+      o.responsive=true; o.maintainAspectRatio=false;
+      // marge à droite / en haut pour laisser la place aux chiffres au bout des barres
+      o.layout={ padding: horiz ? {top:4,right:46,bottom:2,left:2} : {top:22,right:6,bottom:2,left:2} };
+      o.plugins=o.plugins||{};
+      o.plugins.legend={display:false};
+
+      o.scales=o.scales||{};
+      ['x','y'].forEach(function(k){
+        var sc=o.scales[k]=o.scales[k]||{};
+        var isCategory=((k==='x')!==horiz);
+        sc.border={display:false,dash:[4,4]};
+        sc.beginAtZero=true;
+        sc.ticks=Object.assign({},sc.ticks,{color:muted,padding:8,font:{size:isCategory&&horiz?10:11,weight:'600'}});
+        if(isCategory && horiz){
+          // noms longs : on coupe l'étiquette (le nom complet reste visible dans l'infobulle)
+          sc.ticks.callback=function(v){ return cut(this.getLabelForValue(v), 24); };
+        }
+        sc.grid=isCategory ? {display:false} : {color:light?'rgba(51,65,85,.38)':'rgba(148,163,184,.16)',drawTicks:false};
+      });
+
+      (cfg.data.datasets||[]).forEach(function(ds){
+        ds.borderRadius=10; ds.borderSkipped=false; ds.borderWidth=0;
+        ds.maxBarThickness=horiz?14:30; ds.categoryPercentage=.75; ds.barPercentage=.8;
+        ds.backgroundColor=function(c){
+          var a=c.chart.chartArea; if(!a) return pair[0];
+          var g=horiz ? c.chart.ctx.createLinearGradient(a.left,0,a.right,0)
+                      : c.chart.ctx.createLinearGradient(0,a.bottom,0,a.top);
+          g.addColorStop(0,pair[0]); g.addColorStop(1,pair[1]); return g;
+        };
+        ds.hoverBackgroundColor=pair[1];
+      });
+    }
+
+    // Affiche la valeur au bout de chaque barre
+    function valueLabels(chart){
+      if(!chart.canvas || IDS.indexOf(chart.canvas.id)<0) return;
+      var horiz=(chart.options.indexAxis==='y');
+      var ctx=chart.ctx;
+      ctx.save();
+      ctx.font="700 11px 'Plus Jakarta Sans',system-ui,sans-serif";
+      ctx.fillStyle=css('--text','#e2e8f0');
+      ctx.textBaseline='middle';
+      ctx.textAlign=horiz?'left':'center';
+      chart.getDatasetMeta(0).data.forEach(function(bar,i){
+        var v=chart.data.datasets[0].data[i];
+        if(v==null) return;
+        if(horiz) ctx.fillText(fmt(v), bar.x+8, bar.y);
+        else      ctx.fillText(fmt(v), bar.x, bar.y-10);
+      });
+      ctx.restore();
+    }
+
+    Chart.register({ id:'logitrakStyle', beforeInit:style, beforeUpdate:style, afterDatasetsDraw:valueLabels });
+  })();
+  </script>
+
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/scanner.js"></script>
+  <script src="js/nav.js"></script>
+</body>
+</html>

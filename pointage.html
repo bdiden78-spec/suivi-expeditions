@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Pointage — LogiTrak Eurequat Algérie">
+  <link rel="icon" type="image/png" href="assets/logo-eurequat.png">
+  <title>Pointage • LogiTrak Eurequat Algérie</title>
+
+  <script>
+    try {
+      if (localStorage.getItem('logitrak_theme') === 'light')
+        document.documentElement.classList.add('light');
+    } catch(e) {}
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+  <header class="relative z-30 backdrop-blur-xl border-b no-print" style="background:color-mix(in srgb, var(--bg) 88%, transparent); border-color:var(--border);">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="h-12 px-3 rounded-2xl bg-white flex items-center flex-shrink-0 shadow-lg ring-1 ring-black/10">
+          <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" class="block" style="height:32px;width:auto;max-width:180px;object-fit:contain">
+        </div>
+        <div class="hidden sm:flex items-center h-12 px-3 rounded-2xl bg-white flex-shrink-0 shadow-lg ring-1 ring-black/10" title="LogiTrak — Envoi &amp; Traçabilité">
+          <img src="assets/logitrak-logo.png" alt="LogiTrak — Envoi &amp; Traçabilité" class="block" style="height:36px;width:auto;max-width:190px;object-fit:contain">
+        </div>
+        <p class="text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main id="embedRoot" data-url="https://eurequat.netlify.app/" data-name="Pointage" data-icon="fa-fingerprint" data-c1="#ec4899" data-c2="#a855f7"></main>
+
+  <script src="js/embed.js"></script>
+  <script src="js/nav.js"></script>
+</body>
+</html>

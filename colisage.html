@@ -26,11 +26,12 @@
   <style>
     .kpi{padding:14px 16px}
     .kpi small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim)}
-    .kpi b{display:block;font-size:22px;font-weight:900;margin-top:2px}
+    .kpi b{display:block;font-size:20px;font-weight:900;margin-top:2px}
     .colis-range{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;background:rgba(245,158,11,.14);color:#d97706;border:1px solid rgba(245,158,11,.35);white-space:nowrap}
     .group-row td{background:var(--bg-hover);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
     .seg{padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text-muted);transition:all .15s}
-    .seg.active{background:#4f46e5;color:#fff}
+    .seg.active{background:#f59e0b;color:#fff}
+    .lbl{display:block;font-size:11px;font-weight:700;margin-bottom:5px}
 
     /* ---- Feuille imprimable ---- */
     #sheet{display:none}
@@ -49,55 +50,163 @@
 </head>
 <body class="min-h-screen flex flex-col antialiased">
 
-  <header class="relative z-30 sticky top-0 backdrop-blur-xl border-b no-print" style="background:color-mix(in srgb, var(--bg) 88%, transparent); border-color:var(--border);">
+  <header class="relative z-30 backdrop-blur-xl border-b no-print" style="background:color-mix(in srgb, var(--bg) 88%, transparent); border-color:var(--border);">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
         <div class="h-12 px-3 rounded-2xl bg-white flex items-center flex-shrink-0 shadow-lg ring-1 ring-black/10">
           <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" class="block" style="height:32px;width:auto;max-width:180px;object-fit:contain">
         </div>
-        <div class="min-w-0 hidden sm:block">
-          <h1 class="text-xl font-extrabold tracking-tight"><span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-blue-400">Colisage</span></h1>
-          <p class="text-xs font-medium truncate" style="color:var(--text-muted)"><i class="fa-solid fa-boxes-packing text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Fiche de colisage</p>
+        <div class="hidden sm:flex items-center h-12 px-3 rounded-2xl bg-white flex-shrink-0 shadow-lg ring-1 ring-black/10" title="LogiTrak — Envoi &amp; Traçabilité">
+          <img src="assets/logitrak-logo.png" alt="LogiTrak — Envoi &amp; Traçabilité" class="block" style="height:36px;width:auto;max-width:190px;object-fit:contain">
         </div>
+        <p class="text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
       <div class="flex items-center gap-2">
-        <span id="dbBadge" class="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold" style="background:var(--bg-soft);border:1px solid var(--border)">
-          <span id="dbDot" class="inline-flex rounded-full h-2 w-2 bg-slate-400"></span><span id="dbText">Chargement…</span>
-        </span>
         <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
-        <a href="index.html" class="btn btn-secondary"><i class="fa-solid fa-arrow-left text-xs"></i><span class="hidden sm:inline">Retour aux envois</span></a>
-        <button onclick="printSheet()" class="btn btn-primary"><i class="fa-solid fa-print"></i><span class="hidden sm:inline">Imprimer</span></button>
       </div>
     </div>
   </header>
 
   <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6 no-print">
 
-    <!-- Titre -->
-    <div class="flex items-center gap-3">
-      <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl text-white" style="background:linear-gradient(135deg,#6366f1,#3b82f6);box-shadow:0 8px 24px -6px rgba(99,102,241,.55)"><i class="fa-solid fa-boxes-packing"></i></div>
-      <div>
-        <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Fiche de colisage</h2>
-        <p class="text-xs" style="color:var(--text-muted)">Choisissez un envoi : les colis sont numérotés automatiquement</p>
+    <!-- Titre & Mode -->
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl text-white" style="background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 8px 24px -6px rgba(245,158,11,.55)"><i class="fa-solid fa-boxes-packing"></i></div>
+        <div>
+          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Colisage Production &amp; Expéditions</h2>
+          <p class="text-xs" style="color:var(--text-muted)">Le colisage est établi dès la sortie de production (Étiquettes, Rubans, Cartes PVC) avant d'être rappelé dans les envois</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
+          <button id="tabProd" class="seg active" onclick="switchTab('prod')"><i class="fa-solid fa-industry mr-1.5"></i>1. Colisage après Production (OF)</button>
+          <button id="tabExp" class="seg" onclick="switchTab('exp')"><i class="fa-solid fa-truck-fast mr-1.5"></i>2. Bordereau de Colisage Envoi</button>
+        </div>
+        <span id="dbBadge" class="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold" style="background:var(--bg-soft);border:1px solid var(--border)">
+          <span id="dbDot" class="inline-flex rounded-full h-2 w-2 bg-slate-400"></span><span id="dbText">Chargement…</span>
+        </span>
+        <button onclick="printSheet()" class="btn btn-primary"><i class="fa-solid fa-print"></i><span class="hidden sm:inline">Imprimer Fiche</span></button>
       </div>
     </div>
 
-    <!-- Choix de l'envoi -->
-    <section class="panel p-3 sm:p-4 flex flex-col lg:flex-row gap-3" style="border:1px solid rgba(99,102,241,.45);box-shadow:0 0 0 3px rgba(99,102,241,.12)">
-      <div class="flex flex-wrap items-center gap-2 flex-1">
-        <div class="relative flex-1 min-w-[200px]">
-          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
-          <input id="search" type="text" oninput="fillSelect()" placeholder="Rechercher un N° d'envoi, un transporteur, une date…" class="inp pl-9" aria-label="Rechercher">
+    <!-- ==================== VUE 1 : COLISAGE APRÈS PRODUCTION (PAR DÉFAUT) ==================== -->
+    <div id="prodSection" class="space-y-6">
+      <!-- Sélecteur de lot de production -->
+      <section class="panel p-3 sm:p-4 flex flex-col lg:flex-row gap-3" style="border:1px solid rgba(245,158,11,.45);box-shadow:0 0 0 3px rgba(245,158,11,.12)">
+        <div class="flex flex-wrap items-center gap-2 flex-1">
+          <div class="relative flex-1 min-w-[200px]">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
+            <input id="searchProd" type="text" oninput="fillProdSelect()" placeholder="Rechercher un OF, une référence, une matière…" class="inp pl-9" aria-label="Rechercher un lot">
+          </div>
+          <select id="prodSelect" onchange="onPickProd()" class="inp font-bold" style="flex:2;min-width:280px" aria-label="Choisir une production"></select>
         </div>
-        <select id="expSelect" onchange="onPick()" class="inp" style="flex:2;min-width:260px" aria-label="Choisir un envoi"></select>
-      </div>
-      <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
-        <button id="modeLine" class="seg active" onclick="setMode('line')"><i class="fa-solid fa-list mr-1"></i>Par ligne</button>
-        <button id="modeDest" class="seg" onclick="setMode('dest')"><i class="fa-solid fa-user-group mr-1"></i>Par destinataire</button>
-      </div>
-    </section>
+        <div class="flex items-center gap-2">
+          <a href="production.html" class="btn btn-secondary"><i class="fa-solid fa-plus text-emerald-400"></i>Nouvelle production</a>
+          <a href="envois.html?new=1" class="btn btn-secondary op-only"><i class="fa-solid fa-share-from-square text-indigo-400"></i>Expédier</a>
+        </div>
+      </section>
 
-    <div id="content"></div>
+      <!-- Formulaire d'édition du colisage du lot (Opérateur < 48h ou Admin) -->
+      <section id="prodConfigCard" class="panel p-4 sm:p-5 space-y-4 op-only hidden">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style="border-color:var(--border)">
+          <div>
+            <h3 class="text-sm font-extrabold"><i class="fa-solid fa-Sliders text-amber-400 mr-1.5"></i>Paramètres techniques &amp; Colisage du lot <span id="cfgOfLabel" class="font-mono-code text-amber-400"></span></h3>
+            <p class="text-[11px]" style="color:var(--text-muted)">Ces valeurs seront automatiquement reprises lors de la création d'un Nouvel Envoi.</p>
+          </div>
+          <span id="cfgLockBadge" class="badge hidden" style="background:rgba(244,63,94,.14);color:#fb7185;border-color:rgba(244,63,94,.35)"><i class="fa-solid fa-lock"></i>Délai 48h dépassé (Admin requis)</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div>
+            <label class="lbl" for="cTypeProd">Famille Produit</label>
+            <select id="cTypeProd" class="inp font-bold" onchange="onChangeProdTypeUI()">
+              <option value="ETIQUETTE">Étiquettes (Bobines)</option>
+              <option value="RUBAN">Rubans TTR (Unités)</option>
+              <option value="CARTE_PVC">Cartes PVC (Paquets)</option>
+            </select>
+          </div>
+          <div>
+            <label class="lbl" for="cRef">Référence Produit</label>
+            <input id="cRef" class="inp font-mono-code input-uppercase font-bold">
+          </div>
+          <div class="col-span-2">
+            <label class="lbl" for="cDes">Désignation</label>
+            <input id="cDes" class="inp input-uppercase">
+          </div>
+          <div>
+            <label class="lbl" for="cCat">Catégorie / Client dédié</label>
+            <input id="cCat" class="inp input-uppercase" placeholder="Ex: ALGÉRIE POSTE">
+          </div>
+          <div>
+            <label class="lbl" for="cMatiere">Matière / Support</label>
+            <input id="cMatiere" class="inp input-uppercase" placeholder="Ex: THERMIQUE, CIRE, PVC">
+          </div>
+
+          <!-- Spécifique Étiquettes / Rubans / PVC -->
+          <div id="cWrapEtq">
+            <label class="lbl" for="cEtqBob">Étiquettes / Bobine</label>
+            <input id="cEtqBob" type="number" min="0" class="inp text-right font-mono-code" oninput="previewProdColisage()" placeholder="Ex: 1000">
+          </div>
+          <div id="cWrapMandrin">
+            <label class="lbl" for="cMandrin">Mandrin</label>
+            <input id="cMandrin" class="inp input-uppercase" placeholder="Ex: 40MM, 76MM, 1&quot;">
+          </div>
+          <div id="cWrapPvc" class="hidden">
+            <label class="lbl" for="cCartesPaquet">Cartes / Paquet (Lot)</label>
+            <select id="cCartesPaquet" class="inp font-mono-code font-bold" onchange="previewProdColisage()">
+              <option value="100">100 cartes / paquet</option>
+              <option value="50">50 cartes / paquet</option>
+              <option value="20">20 cartes / paquet</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="lbl" id="cLblQty" for="cQty">Qté produite (Bobines)</label>
+            <input id="cQty" type="number" min="1" class="inp text-right font-mono-code font-bold" oninput="previewProdColisage()">
+          </div>
+          <div>
+            <label class="lbl" id="cLblQpc" for="cQpc">Qté par Carton Plein</label>
+            <input id="cQpc" type="number" min="1" class="inp text-right font-mono-code font-bold text-amber-400" oninput="previewProdColisage()">
+          </div>
+          <div>
+            <label class="lbl" for="cBoxFull">Type Carton Plein</label>
+            <input id="cBoxFull" class="inp input-uppercase font-bold text-center" value="H2" oninput="previewProdColisage()">
+          </div>
+          <div>
+            <label class="lbl" for="cPoids">Poids Carton Plein (kg)</label>
+            <input id="cPoids" type="number" step="0.01" min="0" class="inp text-right font-mono-code" oninput="previewProdColisage()">
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <div id="cSmartSummary" class="text-xs font-bold px-3.5 py-2 rounded-xl" style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:#fbbf24"></div>
+          <button id="btnSaveColisage" type="button" onclick="saveProdColisage()" class="btn btn-primary"><i class="fa-solid fa-check-double"></i>Enregistrer &amp; Valider le Colisage</button>
+        </div>
+      </section>
+
+      <div id="prodContent"></div>
+    </div>
+
+    <!-- ==================== VUE 2 : COLISAGE D'UN ENVOI ==================== -->
+    <div id="expSection" class="space-y-6 hidden">
+      <section class="panel p-3 sm:p-4 flex flex-col lg:flex-row gap-3" style="border:1px solid rgba(99,102,241,.45);box-shadow:0 0 0 3px rgba(99,102,241,.12)">
+        <div class="flex flex-wrap items-center gap-2 flex-1">
+          <div class="relative flex-1 min-w-[200px]">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
+            <input id="searchExp" type="text" oninput="fillExpSelect()" placeholder="Rechercher un N° d'envoi, un transporteur, une date…" class="inp pl-9" aria-label="Rechercher">
+          </div>
+          <select id="expSelect" onchange="onPickExp()" class="inp" style="flex:2;min-width:260px" aria-label="Choisir un envoi"></select>
+        </div>
+        <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
+          <button id="modeLine" class="seg active" onclick="setMode('line')"><i class="fa-solid fa-list mr-1"></i>Par ligne</button>
+          <button id="modeDest" class="seg" onclick="setMode('dest')"><i class="fa-solid fa-user-group mr-1"></i>Par destinataire</button>
+        </div>
+      </section>
+
+      <div id="expContent"></div>
+    </div>
+
   </main>
 
   <!-- Feuille imprimable (A4) -->
@@ -107,85 +216,495 @@
 
   <script src="js/config.js"></script>
   <script>
-    const THEME_KEY = 'logitrak_theme', LOCAL_KEY = 'eurequat_expeditions_v1';
-    const state = { expeditions: [], current: null, mode: 'line' };
+    const THEME_KEY = 'logitrak_theme', LOCAL_KEY = 'eurequat_expeditions_v1', PROD_LOCAL_KEY = 'eurequat_production_v2';
+    const state = {
+      sb: null,
+      isOperator: false,
+      isAdmin: false,
+      tab: 'prod',          // 'prod' (Colisage après production) ou 'exp' (Colisage d'un envoi)
+      lots: [],
+      shipped: {},
+      currentProd: null,
+      expeditions: [],
+      currentExp: null,
+      mode: 'line'
+    };
 
     const $ = s => document.querySelector(s);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
-    const fmtDate = d => { if (!d) return '—'; const [y,m,day] = d.split('-'); return `${day}/${m}/${y}`; };
+    const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+    const fmtDate = d => { if (!d) return '—'; const [y,m,day] = String(d).split('-'); return `${day}/${m}/${y}`; };
     const fmtNum = n => Number(n || 0).toLocaleString('fr-FR');
+    const fmtKg = n => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
     const parseQty = v => parseInt(String(v ?? '').replace(/[^0-9]/g, ''), 10) || 0;
-    const cartonsOf = it => parseInt(it.cartons) || 1;
+    const cartonsOf = it => Math.max(1, parseInt(it.cartons) || 1);
 
-    /* ----- Thème ----- */
+    function toast(msg, type = 'info') {
+      const cfg = {
+        success: { bg:'rgba(16,185,129,.15)', bd:'rgba(16,185,129,.4)', cl:'#34d399', ic:'fa-circle-check' },
+        error:   { bg:'rgba(244,63,94,.15)',  bd:'rgba(244,63,94,.4)',  cl:'#fb7185', ic:'fa-circle-exclamation' },
+        warning: { bg:'rgba(245,158,11,.15)', bd:'rgba(245,158,11,.4)', cl:'#fbbf24', ic:'fa-triangle-exclamation' },
+        info:    { bg:'rgba(99,102,241,.15)', bd:'rgba(99,102,241,.4)', cl:'#a5b4fc', ic:'fa-circle-info' },
+      }[type] || {};
+      const el = document.createElement('div');
+      el.className = 'pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl text-xs font-semibold transition-all duration-300 translate-y-4 opacity-0';
+      el.style.cssText += `background:${cfg.bg};border:1px solid ${cfg.bd};color:${cfg.cl};backdrop-filter:blur(12px)`;
+      el.innerHTML = `<i class="fa-solid ${cfg.ic}"></i><span>${esc(msg)}</span>`;
+      $('#toasts').appendChild(el);
+      requestAnimationFrame(() => el.classList.remove('translate-y-4','opacity-0'));
+      setTimeout(() => { el.classList.add('translate-y-4','opacity-0'); setTimeout(() => el.remove(), 3500); }, 3500);
+    }
+
     function syncThemeIcon() { $('#themeIcon').className = 'fa-solid text-sm ' + (document.documentElement.classList.contains('light') ? 'fa-moon' : 'fa-sun'); }
     function toggleTheme() {
       const light = document.documentElement.classList.toggle('light');
-      try { localStorage.setItem(THEME_KEY, light ? 'light' : 'dark'); } catch {}
+      lsSet(THEME_KEY, light ? 'light' : 'dark');
       syncThemeIcon();
     }
 
-    /* ----- Données (mêmes sources que la page des envois) ----- */
+    /* ----- Calcul intelligent des cartons (H2 / H1 sans virgule) ----- */
+    function computeSmartPacking(qty, qpc, fullBoxType = 'H2', unitWeight = 0) {
+      qty = Math.max(0, parseInt(qty) || 0);
+      qpc = Math.max(1, parseInt(qpc) || 1);
+      fullBoxType = (fullBoxType || 'H2').toUpperCase();
+      unitWeight = parseFloat(unitWeight) || 0;
+
+      const fullBoxes = Math.floor(qty / qpc);
+      const remQty = qty % qpc;
+      const totalBoxes = fullBoxes + (remQty > 0 ? 1 : 0);
+      let remBoxType = '';
+      if (remQty > 0) {
+        if (remQty <= Math.floor(qpc / 2)) {
+          remBoxType = (fullBoxType === 'H2') ? 'H1' : 'H1';
+        } else {
+          remBoxType = fullBoxType;
+        }
+      }
+
+      // Génération des tranches de cartons (ex: Cartons 1 à 5 : H2 pleins, Carton 6 : H1 ou H2 partiel)
+      const groups = [];
+      let currentBox = 1;
+      if (fullBoxes > 0) {
+        groups.push({
+          from: currentBox,
+          to: currentBox + fullBoxes - 1,
+          count: fullBoxes,
+          boxType: fullBoxType,
+          qtyPerBox: qpc,
+          totalQty: fullBoxes * qpc,
+          weightPerBox: unitWeight,
+          totalWeight: fullBoxes * unitWeight,
+          isPartial: false
+        });
+        currentBox += fullBoxes;
+      }
+      if (remQty > 0) {
+        const partWeight = unitWeight ? +(unitWeight * (remQty / qpc)).toFixed(2) : 0;
+        groups.push({
+          from: currentBox,
+          to: currentBox,
+          count: 1,
+          boxType: remBoxType,
+          qtyPerBox: remQty,
+          totalQty: remQty,
+          weightPerBox: partWeight,
+          totalWeight: partWeight,
+          isPartial: true
+        });
+      }
+
+      const parts = [];
+      if (fullBoxes > 0) parts.push(`${fullBoxes} × ${fullBoxType} (${qpc}/carton)`);
+      if (remQty > 0) parts.push(`1 × ${remBoxType} (${remQty} dans le carton)`);
+
+      return {
+        totalBoxes,
+        fullBoxes,
+        remQty,
+        fullBoxType,
+        remBoxType,
+        groups,
+        totalWeight: groups.reduce((s, g) => s + g.totalWeight, 0),
+        summary: totalBoxes ? `${totalBoxes} carton(s) au total : ${parts.join(' + ')}` : '0 carton'
+      };
+    }
+
+    async function detectRole(sb) {
+      try {
+        const { data } = await sb.auth.getSession();
+        const email = data.session?.user?.email; if (!email) return;
+        const r = await sb.from('operateurs').select('role').eq('username', email.split('@')[0]).maybeSingle();
+        if (r.data) {
+          state.isOperator = true;
+          state.isAdmin = r.data.role === 'admin';
+          document.body.classList.add('is-operator');
+          if (state.isAdmin) document.body.classList.add('is-admin');
+        }
+      } catch (e) {}
+    }
+
     function setBadge(ok, text) {
       $('#dbDot').className = 'inline-flex rounded-full h-2 w-2 ' + (ok ? 'bg-emerald-400' : 'bg-rose-400');
       $('#dbText').textContent = text;
     }
+
     async function loadData() {
       let loaded = false;
       try {
         const url = lsGet('supabase_url') || SUPABASE_URL, key = lsGet('supabase_key') || SUPABASE_ANON;
         if (!window.supabase) throw new Error('SDK non chargé');
-        const sb = window.supabase.createClient(url, key);
-        const [exps, lines] = await Promise.all([
-          sb.from('expeditions').select('*').order('date_envoi', { ascending: false }),
-          sb.from('lignes_expedition').select('*').order('created_at', { ascending: true }),
+        state.sb = window.supabase.createClient(url, key);
+        await detectRole(state.sb);
+        const [prods, exps, lines] = await Promise.all([
+          state.sb.from('production').select('*').order('date_production', { ascending: false }).order('created_at', { ascending: false }),
+          state.sb.from('expeditions').select('*').order('date_envoi', { ascending: false }),
+          state.sb.from('lignes_expedition').select('*').order('created_at', { ascending: true }),
         ]);
-        if (exps.error) throw exps.error; if (lines.error) throw lines.error;
+        if (!prods.error) {
+          state.lots = (prods.data || []).map(p => ({
+            ...p,
+            quantite_produite: +p.quantite_produite || 0,
+            qte_par_carton: +p.qte_par_carton || 1,
+            poids_carton: +p.poids_carton || 0,
+            etq_par_bobine: +p.etq_par_bobine || 0,
+            cartes_par_paquet: +p.cartes_par_paquet || 100
+          }));
+          lsSet(PROD_LOCAL_KEY, JSON.stringify(state.lots));
+        }
+        if (exps.error) throw exps.error;
+        if (lines.error) throw lines.error;
+        state.shipped = {};
+        (lines.data || []).forEach(l => {
+          if (l.production_id) state.shipped[l.production_id] = (state.shipped[l.production_id] || 0) + parseQty(l.quantite);
+        });
         state.expeditions = (exps.data || []).map(e => ({
           id: e.id, date_envoi: e.date_envoi, numero_bl: e.numero_bl || '', transporteur: e.transporteur || 'AUTRE',
           observations: e.observations || '',
           items: (lines.data || []).filter(l => l.expedition_id === e.id).map(l => ({
             reference: l.reference || '', categorie: l.categorie || '', designation: l.designation || '',
             destinataire: l.destinataire || 'STOCK', unite: l.unite || 'UN', quantite: l.quantite || '0', cartons: l.cartons || 1,
+            type_carton: l.type_carton || '', poids_carton: +l.poids_carton || 0, production_id: l.production_id || '', of_numero: l.of_numero || ''
           })),
         }));
         loaded = true; setBadge(true, 'Connecté');
       } catch (e) { setBadge(false, 'Hors ligne'); }
-      if (!loaded) { try { state.expeditions = JSON.parse(lsGet(LOCAL_KEY) || '[]'); } catch { state.expeditions = []; } }
+      if (!loaded) {
+        try { state.expeditions = JSON.parse(lsGet(LOCAL_KEY) || '[]'); } catch { state.expeditions = []; }
+        try { state.lots = JSON.parse(lsGet(PROD_LOCAL_KEY) || '[]'); } catch { state.lots = []; }
+      }
       state.expeditions.sort((a, b) => (b.date_envoi || '').localeCompare(a.date_envoi || ''));
     }
 
-    /* ----- Sélecteur ----- */
-    function label(e) {
+    function switchTab(tab) {
+      state.tab = tab;
+      $('#tabProd').classList.toggle('active', tab === 'prod');
+      $('#tabExp').classList.toggle('active', tab === 'exp');
+      $('#prodSection').classList.toggle('hidden', tab !== 'prod');
+      $('#expSection').classList.toggle('hidden', tab !== 'exp');
+      if (tab === 'prod') renderProd(); else renderExp();
+    }
+
+    /* ==================== LOGIQUE VUE 1 : COLISAGE APRÈS PRODUCTION ==================== */
+    function prodLabel(p) {
+      const smart = computeSmartPacking(p.quantite_produite, p.qte_par_carton, p.type_carton || 'H2', p.poids_carton);
+      return `OF ${p.of_numero} — ${p.reference || p.designation} (${fmtNum(p.quantite_produite)} ${p.unite}) — ${smart.totalBoxes} cartons`;
+    }
+
+    function fillProdSelect() {
+      const q = ($('#searchProd').value || '').trim().toLowerCase();
+      const list = state.lots.filter(p => !q || [p.of_numero, p.reference, p.designation, p.categorie, p.matiere, p.mandrin].join(' ').toLowerCase().includes(q));
+      const sel = $('#prodSelect'), keep = state.currentProd?.id;
+      sel.innerHTML = list.length
+        ? list.map(p => `<option value="${esc(p.id)}">${esc(prodLabel(p))}</option>`).join('')
+        : '<option value="">Aucun lot de production trouvé</option>';
+      if (keep && list.some(p => p.id === keep)) sel.value = keep;
+      onPickProd();
+    }
+
+    function canModifyLot(lot) {
+      if (!state.isOperator || !lot) return false;
+      if (state.isAdmin) return true;
+      return (new Date() - new Date(lot.created_at)) <= 48 * 3600 * 1000;
+    }
+
+    function onChangeProdTypeUI() {
+      const t = $('#cTypeProd').value;
+      $('#cWrapEtq').classList.toggle('hidden', t !== 'ETIQUETTE');
+      $('#cWrapMandrin').classList.toggle('hidden', t === 'CARTE_PVC');
+      $('#cWrapPvc').classList.toggle('hidden', t !== 'CARTE_PVC');
+      if (t === 'ETIQUETTE') {
+        $('#cLblQty').textContent = 'Qté produite (Bobines)';
+        $('#cLblQpc').textContent = 'Bobines / Carton Plein';
+      } else if (t === 'RUBAN') {
+        $('#cLblQty').textContent = 'Qté produite (Unités)';
+        $('#cLblQpc').textContent = 'Unités / Carton Plein';
+      } else {
+        $('#cLblQty').textContent = 'Qté produite (Paquets/Lots)';
+        $('#cLblQpc').textContent = 'Paquets / Carton Plein';
+      }
+      previewProdColisage();
+    }
+
+    function onPickProd() {
+      const id = $('#prodSelect').value;
+      state.currentProd = state.lots.find(p => p.id === id) || null;
+      const p = state.currentProd;
+      const cfg = $('#prodConfigCard');
+      if (p && state.isOperator) {
+        cfg.classList.remove('hidden');
+        $('#cfgOfLabel').textContent = `OF ${p.of_numero}`;
+        const inferredType = p.type_produit || (p.unite === 'BOBINE' ? 'ETIQUETTE' : p.unite === 'LOT' ? 'CARTE_PVC' : 'RUBAN');
+        $('#cTypeProd').value = inferredType;
+        $('#cRef').value = p.reference || '';
+        $('#cDes').value = p.designation || '';
+        $('#cCat').value = p.categorie || '';
+        $('#cMatiere').value = p.matiere || '';
+        $('#cEtqBob').value = p.etq_par_bobine || '';
+        $('#cMandrin').value = p.mandrin || '';
+        $('#cCartesPaquet').value = String(p.cartes_par_paquet || 100);
+        $('#cQty').value = p.quantite_produite || 1;
+        $('#cQpc').value = p.qte_par_carton || 1;
+        $('#cBoxFull').value = p.type_carton || 'H2';
+        $('#cPoids').value = p.poids_carton || '';
+        onChangeProdTypeUI();
+
+        const allowed = canModifyLot(p);
+        $('#cfgLockBadge').classList.toggle('hidden', allowed);
+        $('#btnSaveColisage').disabled = !allowed;
+      } else {
+        cfg.classList.add('hidden');
+      }
+      renderProd();
+    }
+
+    function previewProdColisage() {
+      const qty = parseInt($('#cQty')?.value) || 0;
+      const qpc = parseInt($('#cQpc')?.value) || 1;
+      const boxFull = ($('#cBoxFull')?.value || 'H2').trim().toUpperCase();
+      const poids = parseFloat($('#cPoids')?.value) || 0;
+      const smart = computeSmartPacking(qty, qpc, boxFull, poids);
+      const t = $('#cTypeProd')?.value || 'ETIQUETTE';
+      let extra = '';
+      if (t === 'ETIQUETTE') {
+        const epb = parseInt($('#cEtqBob')?.value) || 0;
+        if (epb > 0) extra = ` • Total : ${fmtNum(qty * epb)} étiquettes`;
+      } else if (t === 'CARTE_PVC') {
+        const cpp = parseInt($('#cCartesPaquet')?.value) || 100;
+        extra = ` • Total : ${fmtNum(qty * cpp)} cartes PVC (${qty} paquets de ${cpp})`;
+      }
+      if ($('#cSmartSummary')) {
+        $('#cSmartSummary').innerHTML = `<i class="fa-solid fa-boxes-stacked mr-1.5"></i>${esc(smart.summary)}${esc(extra)}`;
+      }
+    }
+
+    async function saveProdColisage() {
+      const p = state.currentProd;
+      if (!p) return;
+      if (!canModifyLot(p)) return toast('Délai de 48h dépassé. Seul un administrateur peut modifier ce colisage.', 'error');
+
+      const t = $('#cTypeProd').value;
+      const unite = t === 'ETIQUETTE' ? 'BOBINE' : t === 'CARTE_PVC' ? 'LOT' : 'UN';
+      const qty = Math.max(1, parseInt($('#cQty').value) || 1);
+      const qpc = Math.max(1, parseInt($('#cQpc').value) || 1);
+      const boxFull = ($('#cBoxFull').value || 'H2').trim().toUpperCase();
+      const poids = parseFloat($('#cPoids').value) || 0;
+      const smart = computeSmartPacking(qty, qpc, boxFull, poids);
+
+      const baseUpdate = {
+        reference: ($('#cRef').value || '').trim().toUpperCase(),
+        designation: ($('#cDes').value || '').trim().toUpperCase(),
+        categorie: ($('#cCat').value || '').trim().toUpperCase(),
+        unite,
+        quantite_produite: qty,
+        qte_par_carton: qpc,
+        type_carton: boxFull,
+        poids_carton: poids,
+        updated_at: new Date().toISOString()
+      };
+
+      const extUpdate = {
+        ...baseUpdate,
+        type_produit: t,
+        matiere: ($('#cMatiere').value || '').trim().toUpperCase(),
+        mandrin: ($('#cMandrin').value || '').trim().toUpperCase(),
+        etq_par_bobine: t === 'ETIQUETTE' ? (parseInt($('#cEtqBob').value) || 0) : 0,
+        cartes_par_paquet: t === 'CARTE_PVC' ? (parseInt($('#cCartesPaquet').value) || 100) : 100,
+        type_carton_partiel: smart.remBoxType || boxFull,
+        qte_carton_partiel: smart.remQty || 0,
+        nb_cartons_total: smart.totalBoxes,
+        colisage_valide: true
+      };
+
+      try {
+        let { error } = await state.sb.from('production').update(extUpdate).eq('id', p.id);
+        if (error && /column/i.test(error.message)) {
+          const retry = await state.sb.from('production').update(baseUpdate).eq('id', p.id);
+          error = retry.error;
+        }
+        if (error) throw error;
+        Object.assign(p, extUpdate);
+        lsSet(PROD_LOCAL_KEY, JSON.stringify(state.lots));
+        toast('Colisage de production enregistré et validé.', 'success');
+        fillProdSelect();
+      } catch (err) {
+        toast('Erreur : ' + (err.message || err), 'error');
+      }
+    }
+
+    function renderProd() {
+      const box = $('#prodContent');
+      const p = state.currentProd;
+      if (!p) {
+        box.innerHTML = `<div class="panel p-12 text-center" style="color:var(--text-muted)"><i class="fa-solid fa-industry text-4xl mb-3 block" style="color:var(--text-dim)"></i><h4 class="text-base font-bold" style="color:var(--text)">Aucun lot de production sélectionné</h4><p class="text-xs mt-1">Saisissez d'abord un lot dans l'onglet Production pour établir sa fiche de colisage.</p></div>`;
+        $('#sheet').innerHTML = '';
+        return;
+      }
+
+      const smart = computeSmartPacking(p.quantite_produite, p.qte_par_carton, p.type_carton || 'H2', p.poids_carton);
+      const shipped = state.shipped[p.id] || 0;
+      const rest = Math.max(0, p.quantite_produite - shipped);
+
+      // Spécifications techniques selon produit
+      const specs = [];
+      if (p.matiere) specs.push(`Matière : ${p.matiere}`);
+      if (p.mandrin) specs.push(`Mandrin : ${p.mandrin}`);
+      if (p.etq_par_bobine > 0) specs.push(`${fmtNum(p.etq_par_bobine)} étq/bobine (Total : ${fmtNum(p.quantite_produite * p.etq_par_bobine)} étq)`);
+      if (p.unite === 'LOT' && p.cartes_par_paquet) specs.push(`Paquet de ${p.cartes_par_paquet} cartes (Total : ${fmtNum(p.quantite_produite * p.cartes_par_paquet)} cartes)`);
+
+      const rowsHtml = smart.groups.map(g => {
+        const range = g.from === g.to ? `Colis ${g.from}` : `Colis ${g.from} – ${g.to}`;
+        const statusBadge = g.isPartial
+          ? `<span class="badge" style="background:rgba(245,158,11,.15);color:#fbbf24;border-color:rgba(245,158,11,.35)">Reliquat partiel (${esc(g.boxType)})</span>`
+          : `<span class="badge" style="background:rgba(16,185,129,.15);color:#34d399;border-color:rgba(16,185,129,.35)">Carton plein (${esc(g.boxType)})</span>`;
+        return `<tr class="hover:bg-[var(--bg-hover)] transition">
+          <td class="p-3 pl-5"><span class="colis-range">${esc(range)}</span></td>
+          <td class="p-3 font-mono-code font-bold text-indigo-400">${esc(p.reference || '-')}</td>
+          <td class="p-3 font-semibold">${esc(p.designation || '-')} ${specs.length ? `<div class="text-[11px] font-normal" style="color:var(--text-muted)">${esc(specs.join(' • '))}</div>` : ''}</td>
+          <td class="p-3 text-center">${statusBadge}</td>
+          <td class="p-3 text-center font-bold text-amber-500">${g.count} × ${esc(g.boxType)}</td>
+          <td class="p-3 text-right font-mono-code font-bold">${fmtNum(g.qtyPerBox)} ${esc(p.unite)}</td>
+          <td class="p-3 text-right font-mono-code font-bold">${fmtNum(g.totalQty)} ${esc(p.unite)}</td>
+          <td class="p-3 pr-5 text-right font-bold">${g.totalWeight ? fmtKg(g.totalWeight) + ' kg' : '—'}</td>
+        </tr>`;
+      }).join('');
+
+      box.innerHTML = `
+        <section class="grid grid-cols-2 lg:grid-cols-6 gap-3">
+          <div class="panel kpi"><small>Ordre de Fab.</small><b class="font-mono-code text-amber-500" style="font-size:18px">OF ${esc(p.of_numero)}</b></div>
+          <div class="panel kpi"><small>Date Production</small><b>${esc(fmtDate(p.date_production))}</b></div>
+          <div class="panel kpi"><small>Référence</small><b class="font-mono-code text-indigo-400" style="font-size:17px">${esc(p.reference || '—')}</b></div>
+          <div class="panel kpi"><small>Qté Produite</small><b>${fmtNum(p.quantite_produite)} ${esc(p.unite)}</b></div>
+          <div class="panel kpi"><small>Total Cartons (Entier)</small><b class="text-amber-500">${smart.totalBoxes} colis</b></div>
+          <div class="panel kpi"><small>Reste à expédier</small><b class="text-emerald-400">${fmtNum(rest)} ${esc(p.unite)}</b></div>
+        </section>
+
+        <section class="panel overflow-hidden">
+          <div class="px-5 py-3 border-b flex flex-wrap items-center justify-between gap-2" style="border-color:var(--border);background:var(--bg-input)">
+            <div class="text-xs font-extrabold uppercase tracking-wider"><i class="fa-solid fa-boxes-stacked text-amber-400 mr-1.5"></i>Détail du colisage de la production (${esc(smart.summary)})</div>
+            <div class="text-xs" style="color:var(--text-muted)">Poids total estimé : <b>${smart.totalWeight ? fmtKg(smart.totalWeight) + ' kg' : '—'}</b></div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead style="background:var(--bg-soft)"><tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
+                <th class="p-3 pl-5">N° Colis</th>
+                <th class="p-3">Référence</th>
+                <th class="p-3">Désignation &amp; Spécifications</th>
+                <th class="p-3 text-center">Remplissage</th>
+                <th class="p-3 text-center">Nb &amp; Type Carton</th>
+                <th class="p-3 text-right">Qté / Carton</th>
+                <th class="p-3 text-right">Sous-total Qté</th>
+                <th class="p-3 pr-5 text-right">Poids (kg)</th>
+              </tr></thead>
+              <tbody class="divide-y" style="border-color:var(--border)">${rowsHtml}</tbody>
+            </table>
+          </div>
+        </section>`;
+
+      buildProdSheet(p, smart, specs);
+    }
+
+    function buildProdSheet(p, smart, specs) {
+      const rows = smart.groups.map(g => {
+        const range = g.from === g.to ? `${g.from}` : `${g.from} – ${g.to}`;
+        return `<tr>
+          <td style="text-align:center;font-weight:800">${esc(range)}</td>
+          <td style="font-family:monospace;font-weight:bold">${esc(p.reference || '-')}</td>
+          <td><b>${esc(p.designation || '-')}</b>${specs.length ? `<br><span style="font-size:10px;color:#475569">${esc(specs.join(' • '))}</span>` : ''}</td>
+          <td style="text-align:center;font-weight:bold">${g.count} × ${esc(g.boxType)}</td>
+          <td style="text-align:right;font-weight:bold">${fmtNum(g.qtyPerBox)} ${esc(p.unite)}</td>
+          <td style="text-align:right;font-weight:bold">${fmtNum(g.totalQty)} ${esc(p.unite)}</td>
+          <td style="text-align:right">${g.totalWeight ? fmtKg(g.totalWeight) : '—'}</td>
+        </tr>`;
+      }).join('');
+
+      $('#sheet').innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:14px">
+          <div>
+            <img src="assets/logo-eurequat.png" alt="Eurequat" style="height:48px;width:auto;display:block">
+            <p style="font-size:10px;color:#475569;margin:4px 0 0">Identification Automatique, Rubans &amp; Étiquettes</p>
+            <p style="font-size:10px;color:#475569;margin:0">Zone Industrielle Tlemcen • Algérie</p>
+          </div>
+          <div style="text-align:right">
+            <h2 style="font-size:15px;font-weight:800;text-transform:uppercase;margin:0;color:#d97706">Fiche de Colisage Production</h2>
+            <div style="font-size:13px;font-weight:800;margin-top:3px">OF : ${esc(p.of_numero)}</div>
+            <div style="font-size:10px;color:#64748b">Date de production : ${esc(fmtDate(p.date_production))}</div>
+            <div style="font-size:11px;font-weight:700;margin-top:3px">Catégorie : ${esc(p.categorie || 'STANDARD')}</div>
+          </div>
+        </div>
+        <table>
+          <thead><tr>
+            <th style="text-align:center">N° Colis</th>
+            <th>Référence</th>
+            <th>Désignation &amp; Spécifications techniques</th>
+            <th style="text-align:center">Type Carton</th>
+            <th style="text-align:right">Qté / Carton</th>
+            <th style="text-align:right">Quantité Totale</th>
+            <th style="text-align:right">Poids (kg)</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr style="background:#f8fafc;font-weight:800">
+            <td colspan="3" style="text-align:right">TOTAL PRODUCTION :</td>
+            <td style="text-align:center">${smart.totalBoxes} carton(s)</td>
+            <td></td>
+            <td style="text-align:right">${fmtNum(p.quantite_produite)} ${esc(p.unite)}</td>
+            <td style="text-align:right">${smart.totalWeight ? fmtKg(smart.totalWeight) + ' kg' : ''}</td>
+          </tr></tfoot>
+        </table>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px;font-size:10px;text-align:center">
+          <div style="border:1px dashed #94a3b8;height:80px;padding:6px;border-radius:6px"><strong>Responsable Production / Colisage</strong><div style="color:#94a3b8;margin-top:32px">Visa &amp; Date</div></div>
+          <div style="border:1px dashed #94a3b8;height:80px;padding:6px;border-radius:6px"><strong>Contrôle Qualité / Magasin</strong><div style="color:#94a3b8;margin-top:32px">Cachet &amp; Signature</div></div>
+        </div>`;
+    }
+
+    /* ==================== LOGIQUE VUE 2 : COLISAGE D'UN ENVOI ==================== */
+    function expLabel(e) {
       const c = (e.items || []).reduce((s, it) => s + cartonsOf(it), 0);
       return `${fmtDate(e.date_envoi)} — ${e.numero_bl || 'SANS NUM'} — ${e.transporteur} — ${c} colis`;
     }
-    function fillSelect() {
-      const q = $('#search').value.trim().toLowerCase();
-      const list = state.expeditions.filter(e => !q || (label(e) + ' ' + (e.observations || '')).toLowerCase().includes(q));
-      const sel = $('#expSelect'), keep = state.current?.id;
+    function fillExpSelect() {
+      const q = ($('#searchExp').value || '').trim().toLowerCase();
+      const list = state.expeditions.filter(e => !q || (expLabel(e) + ' ' + (e.observations || '')).toLowerCase().includes(q));
+      const sel = $('#expSelect'), keep = state.currentExp?.id;
       sel.innerHTML = list.length
-        ? list.map(e => `<option value="${esc(e.id)}">${esc(label(e))}</option>`).join('')
+        ? list.map(e => `<option value="${esc(e.id)}">${esc(expLabel(e))}</option>`).join('')
         : '<option value="">Aucun envoi trouvé</option>';
       if (keep && list.some(e => e.id === keep)) sel.value = keep;
-      onPick();
+      onPickExp();
     }
-    function onPick() {
+    function onPickExp() {
       const id = $('#expSelect').value;
-      state.current = state.expeditions.find(e => e.id === id) || null;
-      render();
+      state.currentExp = state.expeditions.find(e => e.id === id) || null;
+      if (state.tab === 'exp') renderExp();
     }
     function setMode(m) {
       state.mode = m;
       $('#modeLine').classList.toggle('active', m === 'line');
       $('#modeDest').classList.toggle('active', m === 'dest');
-      render();
+      renderExp();
     }
 
-    /* ----- Calcul du colisage ----- */
-    // Numérote les colis dans l'ordre affiché : une ligne de 3 cartons -> colis 1 à 3, la suivante démarre au 4.
-    function buildRows(e) {
+    function buildExpRows(e) {
       let items = (e.items || []).map(it => ({ ...it }));
       if (state.mode === 'dest') {
         items = items
@@ -198,24 +717,39 @@
         const c = cartonsOf(it), q = parseQty(it.quantite);
         it.c = c; it.q = q;
         it.from = n; it.to = n + c - 1; n += c;
-        const per = q / c;
-        it.per = Number.isInteger(per) ? fmtNum(per) : '≈ ' + fmtNum(Math.round(per));
+        // Recherche du lot de production associé pour afficher le détail exact (ex: H2 + H1)
+        const lot = state.lots.find(l => l.id === it.production_id) || state.lots.find(l => l.reference && l.reference === it.reference);
+        if (lot && lot.qte_par_carton) {
+          const smart = computeSmartPacking(q, lot.qte_par_carton, lot.type_carton || 'H2', lot.poids_carton);
+          it.per = smart.remQty > 0 && smart.fullBoxes > 0
+            ? `${smart.fullBoxes}×${lot.qte_par_carton} + 1×${smart.remQty}`
+            : fmtNum(Math.min(q, lot.qte_par_carton));
+          if (!it.type_carton) {
+            it.type_carton = smart.remQty > 0 && smart.remBoxType !== smart.fullBoxType
+              ? `${smart.fullBoxes > 0 ? smart.fullBoxes + '×' + smart.fullBoxType + ' + ' : ''}1×${smart.remBoxType}`
+              : smart.fullBoxType;
+          }
+        } else {
+          const per = q / c;
+          it.per = Number.isInteger(per) ? fmtNum(per) : '≈ ' + fmtNum(Math.round(per));
+        }
+        it.kg = (parseFloat(it.poids_carton) || 0) * c;
       });
       return { items, totalColis: n - 1 };
     }
     const rangeTxt = it => it.from === it.to ? `${it.from}` : `${it.from} – ${it.to}`;
 
-    /* ----- Affichage ----- */
-    function render() {
-      const box = $('#content');
-      const e = state.current;
+    function renderExp() {
+      const box = $('#expContent');
+      const e = state.currentExp;
       if (!e) {
         box.innerHTML = `<div class="panel p-12 text-center" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-4xl mb-3 block" style="color:var(--text-dim)"></i><h4 class="text-base font-bold" style="color:var(--text)">Aucun envoi à afficher</h4><p class="text-xs mt-1">Créez d'abord un envoi dans la page des envois.</p></div>`;
         $('#sheet').innerHTML = '';
         return;
       }
-      const { items, totalColis } = buildRows(e);
+      const { items, totalColis } = buildExpRows(e);
       const totalQty = items.reduce((s, it) => s + it.q, 0);
+      const totalKg = items.reduce((s, it) => s + (it.kg || 0), 0);
 
       let rows = '', lastDest = null;
       items.forEach(it => {
@@ -223,7 +757,7 @@
           lastDest = it.destinataire;
           const sub = items.filter(x => x.destinataire === lastDest);
           const cs = sub.reduce((s, x) => s + x.c, 0);
-          rows += `<tr class="group-row"><td colspan="7" class="p-3 pl-5"><i class="fa-solid fa-location-dot text-indigo-400 mr-2"></i>${esc(lastDest)} <span style="color:var(--text-muted);font-weight:600">— ${cs} colis</span></td></tr>`;
+          rows += `<tr class="group-row"><td colspan="10" class="p-3 pl-5"><i class="fa-solid fa-location-dot text-indigo-400 mr-2"></i>${esc(lastDest)} <span style="color:var(--text-muted);font-weight:600">— ${cs} colis</span></td></tr>`;
         }
         rows += `<tr class="hover:bg-[var(--bg-hover)] transition">
           <td class="p-3 pl-5"><span class="colis-range">${rangeTxt(it)}</span></td>
@@ -233,17 +767,20 @@
           <td class="p-3 text-center">${esc(it.unite)}</td>
           <td class="p-3 text-right font-bold">${fmtNum(it.q)}</td>
           <td class="p-3 text-center font-bold text-amber-500">${it.c}</td>
-          <td class="p-3 pr-5 text-right" style="color:var(--text-muted)">${it.per}</td>
+          <td class="p-3 text-right" style="color:var(--text-muted)">${esc(it.per)}</td>
+          <td class="p-3 text-center font-semibold">${esc(it.type_carton || '—')}</td>
+          <td class="p-3 pr-5 text-right font-bold">${it.kg ? fmtKg(it.kg) : '—'}</td>
         </tr>`;
       });
 
       box.innerHTML = `
-        <section class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <section class="grid grid-cols-2 lg:grid-cols-6 gap-3">
           <div class="panel kpi"><small>Date</small><b>${esc(fmtDate(e.date_envoi))}</b></div>
           <div class="panel kpi"><small>N° d'envoi</small><b class="font-mono-code" style="font-size:18px">${esc(e.numero_bl || 'SANS NUM')}</b></div>
           <div class="panel kpi"><small>Transporteur</small><b style="font-size:18px">${esc(e.transporteur)}</b></div>
           <div class="panel kpi"><small>Total colis</small><b class="text-amber-500">${totalColis}</b></div>
           <div class="panel kpi"><small>Quantité totale</small><b>${fmtNum(totalQty)}</b></div>
+          <div class="panel kpi"><small>Poids total</small><b>${totalKg ? fmtKg(totalKg) + ' kg' : '—'}</b></div>
         </section>
         ${e.observations ? `<div class="px-4 py-2.5 text-xs flex items-center gap-2 rounded-xl" style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25)"><i class="fa-solid fa-circle-info text-indigo-400"></i><span>${esc(e.observations)}</span></div>` : ''}
         <section class="panel overflow-hidden">
@@ -251,25 +788,23 @@
             <table class="w-full text-left text-xs">
               <thead style="background:var(--bg-input)"><tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
                 <th class="p-3 pl-5">N° colis</th><th class="p-3">Référence</th><th class="p-3">Désignation</th><th class="p-3">Destinataire</th>
-                <th class="p-3 text-center">Unité</th><th class="p-3 text-right">Quantité</th><th class="p-3 text-center">Colis</th><th class="p-3 pr-5 text-right">Qté / colis</th>
+                <th class="p-3 text-center">Unité</th><th class="p-3 text-right">Quantité</th><th class="p-3 text-center">Colis</th><th class="p-3 text-right">Répartition / colis</th><th class="p-3 text-center">Carton</th><th class="p-3 pr-5 text-right">Poids (kg)</th>
               </tr></thead>
-              <tbody class="divide-y" style="border-color:var(--border)">${rows || '<tr><td colspan="8" class="p-8 text-center" style="color:var(--text-muted)">Cet envoi ne contient aucune ligne.</td></tr>'}</tbody>
+              <tbody class="divide-y" style="border-color:var(--border)">${rows || '<tr><td colspan="10" class="p-8 text-center" style="color:var(--text-muted)">Cet envoi ne contient aucune ligne.</td></tr>'}</tbody>
             </table>
           </div>
-        </section>
-        <p class="text-[11px]" style="color:var(--text-dim)"><i class="fa-solid fa-circle-info mr-1"></i>« Qté / colis » est la quantité de la ligne divisée par son nombre de colis (« ≈ » quand la division ne tombe pas juste).</p>`;
+        </section>`;
 
-      buildSheet(e, items, totalColis, totalQty);
+      buildExpSheet(e, items, totalColis, totalQty, totalKg);
     }
 
-    /* ----- Feuille A4 à imprimer ----- */
-    function buildSheet(e, items, totalColis, totalQty) {
+    function buildExpSheet(e, items, totalColis, totalQty, totalKg) {
       let rows = '', lastDest = null;
       items.forEach(it => {
         if (state.mode === 'dest' && it.destinataire !== lastDest) {
           lastDest = it.destinataire;
           const cs = items.filter(x => x.destinataire === lastDest).reduce((s, x) => s + x.c, 0);
-          rows += `<tr class="grp"><td colspan="7">${esc(lastDest)} — ${cs} colis</td></tr>`;
+          rows += `<tr class="grp"><td colspan="9">${esc(lastDest)} — ${cs} colis</td></tr>`;
         }
         rows += `<tr>
           <td style="text-align:center;font-weight:800;white-space:nowrap">${rangeTxt(it)}</td>
@@ -279,6 +814,8 @@
           <td style="text-align:center">${esc(it.unite)}</td>
           <td style="text-align:right;font-weight:bold">${fmtNum(it.q)}</td>
           <td style="text-align:center;font-weight:bold">${it.c}</td>
+          <td style="text-align:center">${esc(it.type_carton || '')}</td>
+          <td style="text-align:right">${it.kg ? fmtKg(it.kg) : ''}</td>
         </tr>`;
       });
       $('#sheet').innerHTML = `
@@ -289,19 +826,21 @@
             <p style="font-size:10px;color:#475569;margin:0">Zone Industrielle Tlemcen • Algérie</p>
           </div>
           <div style="text-align:right">
-            <h2 style="font-size:15px;font-weight:800;text-transform:uppercase;margin:0;color:#4f46e5">Fiche de colisage</h2>
+            <h2 style="font-size:15px;font-weight:800;text-transform:uppercase;margin:0;color:#4f46e5">Bordereau de Colisage Expédition</h2>
             <div style="font-size:12px;font-weight:700;margin-top:3px">${esc(e.numero_bl || 'SANS NUM')}</div>
             <div style="font-size:10px;color:#64748b">Date : ${esc(fmtDate(e.date_envoi))}</div>
             <div style="font-size:11px;font-weight:700;margin-top:3px">Transporteur : ${esc(e.transporteur)}</div>
           </div>
         </div>
         <table>
-          <thead><tr><th style="text-align:center">N° colis</th><th>Référence</th><th>Désignation</th><th>Destinataire</th><th style="text-align:center">Unité</th><th style="text-align:right">Quantité</th><th style="text-align:center">Colis</th></tr></thead>
+          <thead><tr><th style="text-align:center">N° colis</th><th>Référence</th><th>Désignation</th><th>Destinataire</th><th style="text-align:center">Unité</th><th style="text-align:right">Quantité</th><th style="text-align:center">Colis</th><th style="text-align:center">Carton</th><th style="text-align:right">Poids (kg)</th></tr></thead>
           <tbody>${rows}</tbody>
           <tfoot><tr style="background:#f8fafc;font-weight:800">
             <td colspan="5" style="text-align:right">TOTAL :</td>
             <td style="text-align:right">${fmtNum(totalQty)}</td>
             <td style="text-align:center">${totalColis}</td>
+            <td></td>
+            <td style="text-align:right">${totalKg ? fmtKg(totalKg) : ''}</td>
           </tr></tfoot>
         </table>
         ${e.observations ? `<p style="font-size:10px;color:#334155;margin:14px 0;font-style:italic">Note : ${esc(e.observations)}</p>` : ''}
@@ -311,8 +850,10 @@
           <div style="border:1px dashed #94a3b8;height:80px;padding:6px;border-radius:6px"><strong>Réceptionnaire</strong><div style="color:#94a3b8;margin-top:32px">Cachet &amp; Signature</div></div>
         </div>`;
     }
+
     function printSheet() {
-      if (!state.current) return;
+      if (state.tab === 'prod' && !state.currentProd) return;
+      if (state.tab === 'exp' && !state.currentExp) return;
       window.print();
     }
 
@@ -320,11 +861,26 @@
     (async function init() {
       syncThemeIcon();
       await loadData();
-      fillSelect();
-      // ?id=... permet d'ouvrir directement un envoi précis
-      const wanted = new URLSearchParams(location.search).get('id');
-      if (wanted && state.expeditions.some(e => e.id === wanted)) { $('#expSelect').value = wanted; onPick(); }
+      fillProdSelect();
+      fillExpSelect();
+
+      const params = new URLSearchParams(location.search);
+      const wantedProd = params.get('prod');
+      const wantedExp = params.get('id');
+
+      if (wantedProd && state.lots.some(p => p.id === wantedProd)) {
+        switchTab('prod');
+        $('#prodSelect').value = wantedProd;
+        onPickProd();
+      } else if (wantedExp && state.expeditions.some(e => e.id === wantedExp)) {
+        switchTab('exp');
+        $('#expSelect').value = wantedExp;
+        onPickExp();
+      } else {
+        switchTab('prod');
+      }
     })();
   </script>
+  <script src="js/nav.js"></script>
 </body>
 </html>

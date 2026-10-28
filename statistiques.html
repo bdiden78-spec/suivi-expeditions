@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="LogiTrak — Statistiques Annuelles Eurequat Algérie">
+  <link rel="icon" type="image/png" href="assets/logo-eurequat.png">
+  <title>Statistiques • LogiTrak Eurequat Algérie</title>
+
+  <script>
+    try {
+      if (localStorage.getItem('logitrak_theme') === 'light')
+        document.documentElement.classList.add('light');
+    } catch(e) {}
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .stat-card{position:relative;border-radius:20px;padding:22px;background:var(--bg-card);border:1px solid var(--border);overflow:hidden}
+    .stat-card::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,var(--c1),var(--c2))}
+    .stat-card h3{font-size:15px;font-weight:800;display:flex;align-items:center;gap:10px}
+    .stat-card p{font-size:12px;color:var(--text-muted);margin:4px 0 16px}
+    .stat-dot{width:32px;height:32px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2))}
+    .chart-box{position:relative;height:320px;width:100%}
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+  <header class="relative z-30 backdrop-blur-xl border-b no-print" style="background:color-mix(in srgb, var(--bg) 88%, transparent); border-color:var(--border);">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="h-12 px-3 rounded-2xl bg-white flex items-center flex-shrink-0 shadow-lg ring-1 ring-black/10">
+          <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" class="block" style="height:32px;width:auto;max-width:180px;object-fit:contain">
+        </div>
+        <div class="hidden sm:flex items-center h-12 px-3 rounded-2xl bg-white flex-shrink-0 shadow-lg ring-1 ring-black/10" title="LogiTrak — Envoi &amp; Traçabilité">
+          <img src="assets/logitrak-logo.png" alt="LogiTrak — Envoi &amp; Traçabilité" class="block" style="height:36px;width:auto;max-width:190px;object-fit:contain">
+        </div>
+        <p class="text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Statistiques Annuelles</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
+
+    <!-- En-tête -->
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl text-white" style="background:linear-gradient(135deg,#8b5cf6,#ec4899);box-shadow:0 8px 24px -6px rgba(139,92,246,.55)"><i class="fa-solid fa-chart-pie"></i></div>
+        <div>
+          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Statistiques Annuelles</h2>
+          <p id="statsPeriodLabel" class="text-xs font-bold text-indigo-400">Période du 1er janvier au 31 décembre</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <label for="statsYear" class="text-xs font-bold" style="color:var(--text-muted)">Année civile :</label>
+        <select id="statsYear" onchange="renderStatsPage()" class="inp w-auto font-extrabold" aria-label="Année des statistiques"></select>
+      </div>
+    </div>
+
+    <!-- Grille des 4 Top 3 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="stat-card" style="--c1:#8b5cf6;--c2:#c084fc">
+        <h3><span class="stat-dot"><i class="fa-solid fa-scroll"></i></span>Top 3 Client — Étiquettes</h3>
+        <p>Clients les plus livrés en étiquettes standard (hors RFID)</p>
+        <div class="chart-box"><canvas id="chartEtq"></canvas></div>
+      </div>
+      <div class="stat-card" style="--c1:#10b981;--c2:#34d399">
+        <h3><span class="stat-dot"><i class="fa-solid fa-ribbon"></i></span>Top 3 Client — Rubans</h3>
+        <p>Clients les plus livrés en rubans TTR</p>
+        <div class="chart-box"><canvas id="chartRub"></canvas></div>
+      </div>
+      <div class="stat-card" style="--c1:#06b6d4;--c2:#38bdf8">
+        <h3><span class="stat-dot"><i class="fa-solid fa-tower-broadcast"></i></span>Top 3 Client — Étiquettes RFID</h3>
+        <p>Clients les plus livrés en étiquettes RFID</p>
+        <div class="chart-box"><canvas id="chartRfid"></canvas></div>
+      </div>
+      <div class="stat-card" style="--c1:#f59e0b;--c2:#f472b6">
+        <h3><span class="stat-dot"><i class="fa-solid fa-envelope-open-text"></i></span>Top 3 Client — Algérie Poste</h3>
+        <p>Destinataires principaux pour Algérie Poste / UPW</p>
+        <div class="chart-box"><canvas id="chartAp"></canvas></div>
+      </div>
+    </div>
+  </main>
+
+  <div id="toasts" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none no-print"></div>
+
+  <script src="js/config.js"></script>
+  <script>
+    const THEME_KEY = 'logitrak_theme', LOCAL_KEY = 'eurequat_expeditions_v1';
+    let state = { expeditions: [] };
+    let chartEtq = null, chartRub = null, chartRfid = null, chartAp = null;
+
+    const $ = s => document.querySelector(s);
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+    const parseQty = val => parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10) || 0;
+
+    function syncThemeIcon() { $('#themeIcon').className = 'fa-solid text-sm ' + (document.documentElement.classList.contains('light') ? 'fa-moon' : 'fa-sun'); }
+    function toggleTheme() {
+      const light = document.documentElement.classList.toggle('light');
+      try { localStorage.setItem(THEME_KEY, light ? 'light' : 'dark'); } catch {}
+      syncThemeIcon();
+      renderStatsPage();
+    }
+
+    async function loadData() {
+      try {
+        const url = lsGet('supabase_url') || SUPABASE_URL, key = lsGet('supabase_key') || SUPABASE_ANON;
+        const sb = window.supabase.createClient(url, key);
+        const [exps, lines] = await Promise.all([
+          sb.from('expeditions').select('*').order('date_envoi', { ascending: false }),
+          sb.from('lignes_expedition').select('*'),
+        ]);
+        if (exps.error || lines.error) throw (exps.error || lines.error);
+        state.expeditions = (exps.data || []).map(e => ({
+          ...e,
+          items: (lines.data || []).filter(l => l.expedition_id === e.id)
+        }));
+      } catch (e) {
+        try { state.expeditions = JSON.parse(lsGet(LOCAL_KEY) || '[]'); } catch { state.expeditions = []; }
+      }
+      fillYears();
+      renderStatsPage();
+    }
+
+    function fillYears() {
+      const years = [...new Set(state.expeditions.map(e => (e.date_envoi||'').slice(0,4)).filter(Boolean))].sort().reverse();
+      const currentYear = String(new Date().getFullYear());
+      const statYears = [...new Set([currentYear, ...years])].sort().reverse();
+      const sel = $('#statsYear');
+      if (sel) {
+        const prev = sel.value;
+        sel.innerHTML = statYears.map(y => `<option value="${esc(y)}">Année ${esc(y)} (01/01 au 31/12)</option>`).join('');
+        if (prev && statYears.includes(prev)) sel.value = prev;
+        else sel.value = currentYear;
+      }
+    }
+
+    function makeHBar(canvasId, entries, label, color, textColor, gridColor) {
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return null;
+      return new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: entries.map(d => d[0]),
+          datasets: [{ label, data: entries.map(d => d[1]), backgroundColor: color, borderRadius: 8 }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: textColor }, grid: { color: gridColor } },
+            y: { ticks: { color: textColor, font: { size: 11, weight: '700' } }, grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    function renderStatsPage() {
+      const isLight = document.documentElement.classList.contains('light');
+      const textColor = isLight ? '#475569' : '#94a3b8';
+      const gridColor = isLight ? '#94a3b8' : '#334155';
+
+      const colors = {
+        purple: 'rgba(139, 92, 246, 0.8)',
+        emerald: 'rgba(16, 185, 129, 0.8)',
+        cyan: 'rgba(6, 182, 212, 0.8)',
+        amber: 'rgba(245, 158, 11, 0.8)',
+      };
+
+      const clientEtqData = {};
+      const clientRubData = {};
+      const clientRfidData = {};
+      const clientApData = {};
+
+      const year = $('#statsYear') ? $('#statsYear').value : String(new Date().getFullYear());
+      const startDate = `${year}-01-01`;
+      const endDate   = `${year}-12-31`;
+
+      if ($('#statsPeriodLabel')) {
+        $('#statsPeriodLabel').textContent = `Période du 1er janvier au 31 décembre ${year}`;
+      }
+
+      const annualExpeditions = state.expeditions.filter(e => {
+        const d = String(e.date_envoi || '').slice(0, 10);
+        return d >= startDate && d <= endDate;
+      });
+
+      annualExpeditions.forEach(e => {
+        (e.items || []).forEach(it => {
+          const q = parseQty(it.quantite);
+          if (q <= 0) return;
+          const dest = String(it.destinataire || 'STOCK').trim().toUpperCase();
+          if (!dest || dest === 'STOCK') return;
+
+          const cat = String(it.categorie || '').trim().toUpperCase();
+          const ref = String(it.reference || '').trim().toUpperCase();
+          const des = String(it.designation || '').trim().toUpperCase();
+          const txt = `${dest} ${cat} ${des} ${ref}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+
+          const isAP = txt.includes('ALGERIE POSTE') || txt.includes('POSTE') || /\bUPW\b/.test(txt) || /\bAP\b/.test(txt);
+          const isRFID = txt.includes('RFID') || cat.includes('RFID') || ref.includes('RFID');
+          const isRuban = txt.includes('RUBAN') || cat.includes('RUBAN') || ref.startsWith('R2') || ref.startsWith('R1');
+          const isEtq = !isRFID && !isRuban && (txt.includes('ETIQUETTE') || cat.includes('ETIQUETTE') || ref.startsWith('E0') || ref.startsWith('ETQ') || true);
+
+          if (isAP) {
+            clientApData[dest] = (clientApData[dest] || 0) + q;
+          } else if (isRFID) {
+            clientRfidData[dest] = (clientRfidData[dest] || 0) + q;
+          } else if (isRuban) {
+            clientRubData[dest] = (clientRubData[dest] || 0) + q;
+          } else if (isEtq) {
+            clientEtqData[dest] = (clientEtqData[dest] || 0) + q;
+          }
+        });
+      });
+
+      const top3 = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+      [chartEtq, chartRub, chartRfid, chartAp].forEach(c => { if (c) c.destroy(); });
+
+      chartEtq  = makeHBar('chartEtq',  top3(clientEtqData),  'Quantité', colors.purple,  textColor, gridColor);
+      chartRub  = makeHBar('chartRub',  top3(clientRubData),  'Quantité', colors.emerald, textColor, gridColor);
+      chartRfid = makeHBar('chartRfid', top3(clientRfidData), 'Quantité', colors.cyan,    textColor, gridColor);
+      chartAp   = makeHBar('chartAp',   top3(clientApData),   'Quantité', colors.amber,   textColor, gridColor);
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      syncThemeIcon();
+      await loadData();
+    });
+  </script>
+  <script src="js/nav.js"></script>
+</body>
+</html>
