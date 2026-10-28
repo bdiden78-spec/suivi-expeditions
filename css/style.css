@@ -21,8 +21,8 @@ html.light {
   --bg-card:   #ffffff;
   --bg-input:  #ffffff;
   --bg-hover:  #eff6ff;
-  --border:    #bfdbfe;
-  --border-strong: #93c5fd;
+  --border:    #94a3b8;
+  --border-strong: #64748b;
   --text:      #0f172a;
   --text-muted:#334155;
   --text-dim:  #64748b;
@@ -182,3 +182,6 @@ html.light .bg-orbs { display: none; }
   #printArea thead { background: #f1f5f9; }
   .no-print { display: none !important; }
 }
+
+/* Les lignes et bordures suivent le thème (plus foncées en thème clair) */
+html *, html *::before, html *::after { border-color: var(--border); }
