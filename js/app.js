@@ -39,6 +39,35 @@ function parseQty(val) {
   return parseInt(String(val).replace(/[^0-9]/g, ''), 10) || 0;
 }
 
+// Calcul intelligent du colisage sans virgule (avec gestion H2 -> H1 si reliquat <= moitié)
+function computeSmartCarton(qty, qpc, fullBoxType = 'H2') {
+  qty = Math.max(0, parseInt(qty) || 0);
+  qpc = Math.max(1, parseInt(qpc) || 1);
+  fullBoxType = (fullBoxType || 'H2').toUpperCase();
+  if (qty === 0) return { cartons: 1, boxLabel: fullBoxType, detail: '' };
+  const fullBoxes = Math.floor(qty / qpc);
+  const remQty = qty % qpc;
+  const cartons = Math.max(1, fullBoxes + (remQty > 0 ? 1 : 0)); // Toujours entier sans virgule
+  let remBoxType = fullBoxType;
+  if (remQty > 0 && remQty <= Math.floor(qpc / 2)) {
+    remBoxType = (fullBoxType === 'H2') ? 'H1' : 'H1';
+  }
+  let boxLabel = fullBoxType;
+  if (remQty > 0) {
+    if (fullBoxes === 0) {
+      boxLabel = remBoxType;
+    } else if (remBoxType !== fullBoxType) {
+      boxLabel = `${fullBoxes}×${fullBoxType} + 1×${remBoxType}`;
+    } else {
+      boxLabel = fullBoxType;
+    }
+  }
+  const parts = [];
+  if (fullBoxes > 0) parts.push(`${fullBoxes}×${fullBoxType} (${qpc})`);
+  if (remQty > 0) parts.push(`1×${remBoxType} (${remQty})`);
+  return { cartons, boxLabel, detail: parts.join(' + ') };
+}
+
 function toast(msg, type='info') {
   const cfg = {
     success: { bg:'rgba(16,185,129,.15)', bd:'rgba(16,185,129,.4)', cl:'#34d399', ic:'fa-circle-check' },
@@ -129,11 +158,15 @@ async function refreshRole(session) {
 
 function authAction() {
   if (state.session) { 
-    confirmDialog('Se déconnecter ?').then(yes => { 
-      if (yes) {
-        if (onlineChannel) { state.supabase.removeChannel(onlineChannel); onlineChannel = null; }
-        state.supabase.auth.signOut(); 
-      }
+    confirmDialog('Se déconnecter ?').then(async yes => { 
+      if (!yes) return;
+      if (onlineChannel) { try { state.supabase.removeChannel(onlineChannel); } catch (e) {} onlineChannel = null; }
+      // Déconnexion locale : fonctionne même si le réseau ou le serveur ne répond pas
+      try { await state.supabase.auth.signOut({ scope: 'local' }); } catch (e) { console.warn(e); }
+      // sécurité : on efface aussi la session gardée dans le navigateur
+      try { Object.keys(localStorage).filter(k => /^sb-.*-auth-token/.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+      await refreshRole(null);
+      toast('Vous êtes déconnecté.', 'info');
     }); 
   }
   else { $('#loginMsg').classList.add('hidden'); openModal('loginModal'); }
@@ -237,6 +270,7 @@ async function fetchData() {
         items: (lines.data || []).filter(l => l.expedition_id === e.id).map(l => ({
           id: l.id, reference: l.reference || '', categorie: l.categorie || '', designation: l.designation || '', destinataire: l.destinataire || 'STOCK',
           unite: l.unite || 'UN', quantite: l.quantite || '0', cartons: l.cartons || 1,
+          production_id: l.production_id || '', type_carton: l.type_carton || '', poids_carton: +l.poids_carton || 0, of_numero: l.of_numero || '',
         })),
       }));
       saveLocal(); setDbBadge('ok', `Connecté`); loaded = true;
@@ -244,7 +278,7 @@ async function fetchData() {
       refMemory = {};
       const clients = new Set(['STOCK']);
       const carriers = new Set(['YAZID', 'YALIDINE', 'DJALAL', 'CLIENT', 'AUTRE']);
-      const units = new Set(['UN', 'ID', 'BOBINE']);
+      const units = new Set(['BOBINE', 'UN', 'LOT', 'ID']);
       const categories = new Set(); // Nouveau : dictionnaire des catégories
       
       state.expeditions.forEach(e => {
@@ -268,6 +302,28 @@ async function fetchData() {
       if ($('#unitsList')) $('#unitsList').innerHTML = [...units].map(u => `<option value="${esc(u)}">`).join('');
       if ($('#categoriesList')) $('#categoriesList').innerHTML = [...categories].map(c => `<option value="${esc(c)}">`).join(''); // Remplissage catégories
 
+      // Chargement du référentiel de production / colisage pour pré-remplir par défaut les envois
+      try {
+        const { data: prodData } = await state.supabase.from('production').select('*').order('created_at', { ascending: false });
+        if (prodData) {
+          state.production = prodData.map(l => ({ ...l, quantite_produite: +l.quantite_produite, qte_par_carton: +l.qte_par_carton || 1, poids_carton: +l.poids_carton || 0 }));
+          state.production.forEach(p => {
+            const ref = (p.reference || '').toUpperCase();
+            if (ref) {
+              refMemory[ref] = {
+                designation: (p.designation || refMemory[ref]?.designation || '').toUpperCase(),
+                unite: (p.unite || refMemory[ref]?.unite || 'BOBINE').toUpperCase(),
+                categorie: (p.categorie || refMemory[ref]?.categorie || '').toUpperCase(),
+                qpc: +p.qte_par_carton || 1,
+                type_carton: (p.type_carton || 'H2').toUpperCase(),
+                poids_carton: +p.poids_carton || 0
+              };
+            }
+          });
+          if ($('#productsList')) $('#productsList').innerHTML = Object.keys(refMemory).map(r => `<option value="${esc(r)}" label="${esc(refMemory[r].designation)}">`).join('');
+        }
+      } catch (e) {}
+
     } catch (e) { setDbBadge('off', 'Hors ligne'); }
   } else { setDbBadge('off', 'Hors ligne'); }
   if (!loaded) { try { state.expeditions = JSON.parse(lsGet(LOCAL_KEY) || '[]'); } catch { state.expeditions = []; } }
@@ -288,12 +344,27 @@ function fillFilters() {
   fill('filterYear', '🌐 Toutes années', years); 
   fill('filterDest', '🏢 Tous destinataires', dests);
   fill('filterCarrier', '🚛 Tous transporteurs', carriers);
+
+  // Remplissage du sélecteur d'année des statistiques (du 1er janvier au 31 décembre)
+  const currentYear = String(new Date().getFullYear());
+  const statYears = [...new Set([currentYear, ...years])].sort().reverse();
+  const sSel = document.getElementById('statsYear');
+  if (sSel) {
+    const prev = sSel.value;
+    sSel.innerHTML = statYears.map(y => `<option value="${esc(y)}">📅 Année ${esc(y)}</option>`).join('');
+    if (prev && statYears.includes(prev)) sSel.value = prev;
+    else if (years.length && !years.includes(currentYear)) sSel.value = years[0];
+    else sSel.value = currentYear;
+  }
 }
 
 // --- RECHERCHE DYNAMIQUE ---
 function applyFilters() {
   const q = ($('#searchInput').value || '').toLowerCase().trim();
   const year = $('#filterYear').value;
+  if (year !== 'all' && $('#statsYear') && $('#statsYear').value !== year) {
+    $('#statsYear').value = year;
+  }
   const carr = $('#filterCarrier').value;
   const dest = $('#filterDest').value;
 
@@ -409,10 +480,16 @@ function makeHBar(canvasId, entries, label, color, fontSize, textColor, gridColo
   });
 }
 
+function isAlgeriePosteItem(it) {
+  const txt = `${it.destinataire || ''} ${it.categorie || ''} ${it.designation || ''} ${it.reference || ''}`
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  return txt.includes('ALGERIE POSTE') || txt.includes('POSTE') || /\bUPW\b/.test(txt) || /\bAP\b/.test(txt);
+}
+
 function updateCharts() {
   const isLight = document.documentElement.classList.contains('light');
   const textColor = isLight ? '#475569' : '#94a3b8';
-  const gridColor = isLight ? '#e2e8f0' : '#334155';
+  const gridColor = isLight ? '#94a3b8' : '#334155';
 
   const colors = {
     purple: 'rgba(139, 92, 246, 0.8)',
@@ -421,21 +498,46 @@ function updateCharts() {
     amber: 'rgba(245, 158, 11, 0.8)',
   };
 
-  const categoryData = {};
-  const clientData = {};   // clients hors STOCK
-  const productData = {};
+  const apCategoryData = {}; // Top 5 Destinataires Algérie Poste sur l'année
+  const clientData = {};     // Top 5 Clients hors Algérie Poste (et hors STOCK) sur l'année
+  const productData = {};    // Top 5 Produits (tout produit) hors Algérie Poste sur l'année
 
-  // Tout est basé sur la quantité réelle
-  state.filtered.forEach(e => {
+  const selectedYear = ($('#statsYear') && $('#statsYear').value)
+    || ($('#filterYear') && $('#filterYear').value !== 'all' ? $('#filterYear').value : String(new Date().getFullYear()));
+  const startDate = `${selectedYear}-01-01`;
+  const endDate   = `${selectedYear}-12-31`;
+
+  if ($('#statsPeriodLabel')) {
+    $('#statsPeriodLabel').textContent = `Du 01/01/${selectedYear} au 31/12/${selectedYear}`;
+  }
+
+  // Filtrage strict sur l'année civile du 1er janvier au 31 décembre
+  const annualExpeditions = state.expeditions.filter(e => {
+    const d = String(e.date_envoi || '').slice(0, 10);
+    return d >= startDate && d <= endDate;
+  });
+
+  annualExpeditions.forEach(e => {
     (e.items || []).forEach(it => {
       const q = parseQty(it.quantite);
+      if (q <= 0) return;
       const dest = String(it.destinataire || 'STOCK').trim().toUpperCase();
       const cat = String(it.categorie || '').trim().toUpperCase();
       const prodName = (it.reference ? it.reference + ' - ' : '') + (it.designation || 'SANS NOM');
+      const isAP = isAlgeriePosteItem(it);
 
-      if (dest !== 'STOCK') clientData[dest] = (clientData[dest] || 0) + q;   // on ne compte pas le STOCK
-      if (cat) categoryData[cat] = (categoryData[cat] || 0) + q;   // lignes sans catégorie ignorées
-      productData[prodName] = (productData[prodName] || 0) + q;
+      if (isAP) {
+        // Top 5 Catégorie Algérie Poste classé entre les Destinataires de ce produit (hors STOCK)
+        if (dest && dest !== 'STOCK') {
+          apCategoryData[dest] = (apCategoryData[dest] || 0) + q;
+        }
+      } else {
+        // Hors Algérie Poste : Clients (hors STOCK) & Produits (tous produits confondus)
+        if (dest && dest !== 'STOCK') {
+          clientData[dest] = (clientData[dest] || 0) + q;
+        }
+        productData[prodName] = (productData[prodName] || 0) + q;
+      }
     });
   });
 
@@ -443,9 +545,9 @@ function updateCharts() {
 
   [chartCategories, chartClients, chartProducts].forEach(c => { if (c) c.destroy(); });
 
-  chartCategories     = makeHBar('chartCategories',     top(categoryData, 3),      'Quantité', colors.purple,  11, textColor, gridColor);
-  chartClients        = makeHBar('chartClients',        top(clientData, 5),        'Quantité', colors.emerald, 10, textColor, gridColor);
-  chartProducts       = makeHBar('chartProducts',       top(productData, 10),      'Quantité', colors.amber,    9, textColor, gridColor);
+  chartCategories = makeHBar('chartCategories', top(apCategoryData, 5), 'Quantité AP', colors.purple,  10, textColor, gridColor);
+  chartClients    = makeHBar('chartClients',    top(clientData, 5),     'Quantité',    colors.emerald, 10, textColor, gridColor);
+  chartProducts   = makeHBar('chartProducts',   top(productData, 5),    'Quantité',    colors.amber,   10, textColor, gridColor);
 }
 
 function toggleAccordion(id) {
@@ -508,7 +610,7 @@ function openExpeditionModal(id) {
 function addItemRow(item = {}) {
   const rowId = 'r' + (++rowCounter), tr = document.createElement('tr'); tr.dataset.rowId = rowId;
   tr.innerHTML = `
-    <td class="p-2"><input class="inp font-mono-code input-uppercase" data-field="reference" list="productsList" value="${esc(item.reference||'')}" placeholder="📷 Réf" title="Toucher la case vide pour scanner un code-barres ou DataMatrix"></td>
+    <td class="p-2"><input class="inp font-mono-code input-uppercase" data-field="reference" list="productsList" value="${esc(item.reference||'')}" placeholder="📷 Réf" title="Toucher la case vide pour scanner un code-barres ou DataMatrix"><div data-prodtag class="text-[10px] mt-1 font-bold text-amber-500 ${item.of_numero ? '' : 'hidden'}">${item.of_numero ? 'OF ' + esc(item.of_numero) + (item.type_carton ? ' • carton ' + esc(item.type_carton) : '') : ''}</div></td>
     <td class="p-2"><input class="inp input-uppercase" data-field="categorie" list="categoriesList" value="${esc(item.categorie||'')}" placeholder="Catégorie"></td> <!-- NOUVEAU -->
     <td class="p-2"><input class="inp input-uppercase" data-field="designation" value="${esc(item.designation||'')}" placeholder="Désignation"></td>
     <td class="p-2"><input class="inp input-uppercase" data-field="destinataire" list="clientsList" value="${esc(item.destinataire||'STOCK')}"></td>
@@ -517,12 +619,45 @@ function addItemRow(item = {}) {
     <td class="p-2"><input class="inp text-center font-bold text-amber-400" data-field="cartons" type="number" min="1" value="${esc(item.cartons||'1')}"></td>
     <td class="p-2 text-center"><button type="button" class="btn-icon" data-remove aria-label="Supprimer"><i class="fa-solid fa-xmark text-rose-400 text-xs"></i></button></td>`;
   $('#itemsBody').appendChild(tr);
-  tr.querySelector('[data-field="cartons"]').addEventListener('input', updateModalTotals);
+  // Données issues de la production (lien, OF, carton, poids)
+  tr.dataset.prod = item.production_id || '';
+  tr.dataset.of = item.of_numero || '';
+  tr.dataset.baseCarton = item.base_carton || item.type_carton || 'H2';
+  tr.dataset.carton = item.type_carton || '';
+  tr.dataset.poids = item.poids_carton || 0;
+  tr.dataset.qpc = item.qpc || '';
+  tr.dataset.linkRef = String(item.reference || '').toUpperCase();
+  if (item.cartonsManual) tr.dataset.cartonsManual = '1';
+
+  const refreshRowPacking = (qtyVal) => {
+    const qpc = parseInt(tr.dataset.qpc) || 0;
+    if (!qpc) return;
+    const smart = computeSmartCarton(parseInt(qtyVal) || 0, qpc, tr.dataset.baseCarton || 'H2');
+    if (tr.dataset.cartonsManual !== '1') {
+      tr.querySelector('[data-field="cartons"]').value = smart.cartons;
+    }
+    tr.dataset.carton = smart.boxLabel;
+    const tg = tr.querySelector('[data-prodtag]');
+    if (tg) {
+      const ofTxt = tr.dataset.of ? `OF ${tr.dataset.of} • ` : '';
+      tg.textContent = `${ofTxt}${smart.detail || ('carton ' + smart.boxLabel)}`;
+      tg.classList.remove('hidden');
+    }
+  };
+
+  tr.querySelector('[data-field="cartons"]').addEventListener('input', (e) => {
+    const cleanC = digitsOnly(e.target.value);
+    e.target.value = cleanC || '1';
+    tr.dataset.cartonsManual = '1';
+    updateModalTotals();
+  });
   const qtyInput = tr.querySelector('[data-field="quantite"]');
   qtyInput.addEventListener('input', () => {
     const clean = digitsOnly(qtyInput.value);
     if (clean !== qtyInput.value) { qtyInput.value = clean; flashError(qtyInput); }
     qtyInput.classList.remove('inp-error');
+    refreshRowPacking(clean);
+    updateModalTotals();
   });
   tr.querySelector('[data-remove]').addEventListener('click', () => { tr.remove(); updateModalTotals(); });
   
@@ -531,15 +666,30 @@ function addItemRow(item = {}) {
   const desInput = tr.querySelector('[data-field="designation"]');
   const unitInput = tr.querySelector('[data-field="unite"]');
   
-  // Auto-complétion étendue à la catégorie
+  // Si l'utilisateur change la référence d'une ligne importée, le lien avec la production est coupé
+  refInput.addEventListener('input', () => {
+    if (tr.dataset.prod && refInput.value.trim().toUpperCase() !== tr.dataset.linkRef) {
+      tr.dataset.prod = ''; tr.dataset.of = ''; tr.dataset.carton = ''; tr.dataset.poids = '0'; tr.dataset.qpc = '';
+      const tg = tr.querySelector('[data-prodtag]'); if (tg) tg.classList.add('hidden');
+    }
+  });
+  // Auto-complétion étendue à la catégorie et au colisage par défaut du produit
   refInput.addEventListener('change', (e) => {
     const ref = e.target.value.trim().toUpperCase();
     if (ref && refMemory[ref]) {
       desInput.value = refMemory[ref].designation;
       if (unitInput) unitInput.value = refMemory[ref].unite;
       if (catInput && refMemory[ref].categorie) catInput.value = refMemory[ref].categorie;
+      if (refMemory[ref].qpc) {
+        tr.dataset.qpc = refMemory[ref].qpc;
+        tr.dataset.baseCarton = refMemory[ref].type_carton || 'H2';
+        tr.dataset.poids = refMemory[ref].poids_carton || 0;
+        refreshRowPacking(qtyInput.value);
+        updateModalTotals();
+      }
     }
   });
+  if (tr.dataset.qpc) refreshRowPacking(qtyInput.value);
 
   updateModalTotals();
 }
@@ -569,7 +719,8 @@ function updateModalTotals() {
 function collectItems() {
   return $$('#itemsBody tr').map(tr => {
     const get = f => tr.querySelector(`[data-field="${f}"]`).value.trim().toUpperCase();
-    return { reference: get('reference'), categorie: get('categorie'), designation: get('designation'), destinataire: get('destinataire') || 'STOCK', unite: get('unite') || 'UN', quantite: String(parseInt(digitsOnly(get('quantite')), 10) || 0), cartons: parseInt(get('cartons')) || 1 };
+    return { reference: get('reference'), categorie: get('categorie'), designation: get('designation'), destinataire: get('destinataire') || 'STOCK', unite: get('unite') || 'UN', quantite: String(parseInt(digitsOnly(get('quantite')), 10) || 0), cartons: parseInt(get('cartons')) || 1,
+      production_id: tr.dataset.prod || '', type_carton: tr.dataset.carton || '', poids_carton: parseFloat(tr.dataset.poids) || 0, of_numero: tr.dataset.of || '' };
   }).filter(it => it.reference || it.designation);
 }
 async function saveExpedition() {
@@ -579,6 +730,8 @@ async function saveExpedition() {
   const badQty = firstBadQuantity();
   if (badQty) { badQty.classList.add('inp-error'); badQty.focus(); return toast("Quantité invalide : saisissez un nombre entier supérieur à 0 (sans virgule).", "error"); }
   
+  const limitErr = await checkProductionLimits(items);
+  if (limitErr) return toast(limitErr, "error");
   const payload = { 
     p_id: $('#expId').value || null, 
     p_date_envoi: dateVal, 
@@ -628,23 +781,13 @@ async function addOperator(e) {
 
   if (password.length < 6) return toast("Le mot de passe doit faire 6 caractères minimum.", "error");
 
-  const email = username + '@logitrak.internal';
-
-  // 1. Création de l'utilisateur dans Auth via la Edge Function
-  const { data: fnData, error: fnError } = await state.supabase.functions.invoke('create-operator', {
-    body: { email: email, password: password }
+  const { error } = await state.supabase.rpc('create_operator', {
+    p_username: username,
+    p_password: password,
+    p_role: role
   });
 
-  if (fnError) return toast('Création impossible : ' + fnError.message, 'error');
-  if (fnData && fnData.error) return toast('Erreur : ' + fnData.error, 'error');
-
-  // 2. Ajout de l'utilisateur dans ta table "operateurs"
-  const { error: dbError } = await state.supabase.from('operateurs').insert({
-    username: username,
-    role: role
-  });
-
-  if (dbError) return toast('Compte créé mais erreur table : ' + dbError.message, 'error');
+  if (error) return toast('Création impossible : ' + error.message, 'error');
 
   $('#opUsername').value = ''; 
   $('#opPassword').value = ''; 
@@ -699,4 +842,168 @@ async function syncData() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   syncThemeIcon(); initSupabase(); await fetchData(); try { await initAuth(); } catch (e) { console.warn(e); }
+  // Depuis l'accueil : envois.html?new=1 ouvre directement la fenêtre « Nouvel envoi »
+  const q = new URLSearchParams(location.search);
+  if (q.has('new') || q.has('login') || q.has('admin')) history.replaceState(null, '', location.pathname);
+  if (q.get('new') === '1') openExpeditionModal();
+  if (q.get('login') === '1') authAction();
+  if (q.get('admin') === 'ops') openOperators();
+  if (q.get('admin') === 'config') openAdmin();
 });
+
+/* ==========================================================
+   IMPORT DEPUIS LA PRODUCTION
+   ========================================================== */
+state.production = [];
+
+// Quantité déjà expédiée pour un lot, par les AUTRES envois (celui qu'on modifie est exclu)
+function shippedByOthers(lotId) {
+  const editing = $('#expId').value; let sum = 0;
+  state.expeditions.forEach(e => {
+    if (e.id === editing) return;
+    (e.items || []).forEach(it => { if (it.production_id === lotId) sum += parseQty(it.quantite); });
+  });
+  return sum;
+}
+// Quantité du lot déjà utilisée dans les lignes du formulaire en cours
+function qtyInForm(lotId) {
+  let sum = 0;
+  $$('#itemsBody tr').forEach(tr => { if (tr.dataset.prod === lotId) sum += parseQty(tr.querySelector('[data-field="quantite"]').value); });
+  return sum;
+}
+// Empêche d'expédier plus que ce qui reste du lot
+async function checkProductionLimits(items) {
+  const ids = [...new Set(items.map(i => i.production_id).filter(Boolean))];
+  if (!ids.length || !state.supabase) return null;
+  const { data, error } = await state.supabase.from('production').select('id,of_numero,reference,quantite_produite').in('id', ids);
+  if (error || !data) return null;
+  for (const lot of data) {
+    const asked = items.filter(i => i.production_id === lot.id).reduce((s, i) => s + parseQty(i.quantite), 0);
+    const rest = Math.max(0, lot.quantite_produite - shippedByOthers(lot.id));
+    if (asked > rest) return `Lot ${lot.of_numero} (${lot.reference}) : ${fmtNum(asked)} demandés, mais il ne reste que ${fmtNum(rest)} à expédier.`;
+  }
+  return null;
+}
+
+async function openProdPicker() {
+  if (!requireOperator()) return;
+  $('#ppSearch').value = '';
+  $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)">Chargement…</div>';
+  openModal('prodPickerModal');
+  try {
+    const { data, error } = await state.supabase.from('production').select('*')
+      .order('date_production', { ascending: false }).order('created_at', { ascending: false });
+    if (error) throw error;
+    state.production = (data || []).map(l => ({ ...l, quantite_produite: +l.quantite_produite, qte_par_carton: +l.qte_par_carton || 1, poids_carton: +l.poids_carton || 0 }));
+  } catch (e) {
+    $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)"><i class="fa-solid fa-database text-amber-500 text-2xl mb-2 block"></i>Le module Production n\'est pas encore installé dans la base.<br>Exécutez le fichier <b>sql/production.sql</b> dans Supabase (SQL Editor).</div>';
+    return;
+  }
+  renderProdPicker();
+}
+
+function renderProdPicker() {
+  const rows = state.production.map(lot => {
+    const avail = lot.quantite_produite - shippedByOthers(lot.id) - qtyInForm(lot.id);
+    return { lot, avail };
+  }).filter(x => x.avail > 0);
+
+  if (!rows.length) {
+    $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-3xl mb-2 block" style="color:var(--text-dim)"></i>Aucun lot à expédier.<br>Saisissez d\'abord la production dans la page <b>Production</b>.</div>';
+    return;
+  }
+  $('#ppList').innerHTML = rows.map(({ lot, avail }) => {
+    const search = [lot.of_numero, lot.reference, lot.designation, lot.categorie, lot.type_carton, lot.matiere].join(' ').toLowerCase();
+    const fullBox = (lot.type_carton || 'H2').toUpperCase();
+    const smart = computeSmartCarton(avail, lot.qte_par_carton, fullBox);
+    const specs = [];
+    if (lot.matiere) specs.push(lot.matiere);
+    if (lot.mandrin) specs.push('Mandrin ' + lot.mandrin);
+    if (lot.etq_par_bobine > 0) specs.push(`${fmtNum(lot.etq_par_bobine)} étq/bob`);
+    if (lot.unite === 'LOT' && lot.cartes_par_paquet) specs.push(`Paquet de ${lot.cartes_par_paquet}`);
+    return `<div class="pp-row panel-soft p-3 flex flex-wrap items-center gap-3" data-id="${esc(lot.id)}" data-search="${esc(search)}" data-box="${esc(fullBox)}">
+      <input type="checkbox" class="pp-check w-5 h-5 accent-indigo-500" aria-label="Sélectionner">
+      <div class="flex-1 min-w-[200px]">
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-mono-code font-bold text-amber-500">OF ${esc(lot.of_numero)}</span>
+          ${specs.length ? `<span class="text-[10px] px-2 py-0.5 rounded-full" style="background:var(--bg-input);color:var(--text-muted)">${esc(specs.join(' • '))}</span>` : ''}
+        </div>
+        <div class="text-xs mt-0.5"><span class="font-mono-code font-bold text-indigo-400">${esc(lot.reference || '-')}</span> <span class="font-semibold">${esc(lot.designation || '')}</span></div>
+        <div class="text-[11px]" style="color:var(--text-muted)">Dispo : <b>${fmtNum(avail)}</b> ${esc(lot.unite)} • Colisage défaut : <b>${fmtNum(lot.qte_par_carton)} ${esc(lot.unite)}/${esc(fullBox)}</b>${lot.poids_carton ? ' • ' + lot.poids_carton + ' kg' : ''}</div>
+        <div class="text-[11px] font-bold text-amber-400 mt-0.5 pp-smart-detail">${esc(smart.detail)}</div>
+      </div>
+      <div class="w-32"><label class="block text-[10px] font-bold mb-1" style="color:var(--text-muted)">Qté (${esc(lot.unite)})</label>
+        <input class="inp text-right font-mono-code font-bold pp-qty" inputmode="numeric" pattern="[0-9]*" maxlength="9" value="${avail}" data-avail="${avail}" data-qpc="${lot.qte_par_carton}"></div>
+      <div class="w-24"><label class="block text-[10px] font-bold mb-1" style="color:var(--text-muted)">Cartons (Entier)</label>
+        <input type="number" min="1" step="1" class="inp text-center font-bold text-amber-400 pp-cartons" value="${smart.cartons}"></div>
+    </div>`;
+  }).join('');
+}
+
+function filterProdPicker() {
+  const q = $('#ppSearch').value.trim().toLowerCase();
+  $$('#ppList .pp-row').forEach(r => { r.style.display = (!q || r.dataset.search.includes(q)) ? '' : 'none'; });
+}
+function toggleAllProdPicker() {
+  const vis = $$('#ppList .pp-row').filter(r => r.style.display !== 'none');
+  const allOn = vis.length && vis.every(r => r.querySelector('.pp-check').checked);
+  vis.forEach(r => { r.querySelector('.pp-check').checked = !allOn; });
+}
+
+// Saisie dans la liste : entiers seulement, plafonnés au reste, cartons recalculés avec logique H2 / H1
+document.addEventListener('input', e => {
+  const row = e.target.closest && e.target.closest('#ppList .pp-row'); if (!row) return;
+  const check = row.querySelector('.pp-check');
+  if (e.target.classList.contains('pp-qty')) {
+    const inp = e.target, avail = +inp.dataset.avail, qpc = +inp.dataset.qpc || 1;
+    const fullBox = row.dataset.box || 'H2';
+    let d = digitsOnly(inp.value);
+    if (d !== inp.value) { inp.value = d; flashError(inp); }
+    if ((+d || 0) > avail) { inp.value = String(avail); flashError(inp); d = String(avail); }
+    const smart = computeSmartCarton(+d || 0, qpc, fullBox);
+    const c = row.querySelector('.pp-cartons');
+    if (c.dataset.manual !== '1') c.value = smart.cartons;
+    const det = row.querySelector('.pp-smart-detail');
+    if (det) det.textContent = smart.detail;
+    check.checked = true;
+  } else if (e.target.classList.contains('pp-cartons')) {
+    e.target.value = digitsOnly(e.target.value) || '1';
+    e.target.dataset.manual = '1'; check.checked = true;
+  }
+});
+
+function importFromProduction() {
+  const dest = ($('#ppDest').value || '').trim().toUpperCase() || 'STOCK';
+  const picked = [];
+  $$('#ppList .pp-row').forEach(row => {
+    if (!row.querySelector('.pp-check').checked) return;
+    const lot = state.production.find(l => l.id === row.dataset.id); if (!lot) return;
+    const qty = parseQty(row.querySelector('.pp-qty').value);
+    const cInp = row.querySelector('.pp-cartons');
+    if (qty < 1) return;
+    const smart = computeSmartCarton(qty, lot.qte_par_carton, lot.type_carton || 'H2');
+    picked.push({
+      lot,
+      qty,
+      cartons: Math.max(1, parseInt(cInp.value) || smart.cartons),
+      manual: cInp.dataset.manual === '1',
+      boxLabel: smart.boxLabel
+    });
+  });
+  if (!picked.length) return toast('Cochez au moins un lot avec une quantité.', 'warning');
+
+  // on retire la ligne vide du départ
+  $$('#itemsBody tr').forEach(tr => {
+    const v = f => tr.querySelector(`[data-field="${f}"]`).value.trim();
+    if (!v('reference') && !v('designation') && !parseQty(v('quantite')) && !tr.dataset.prod) tr.remove();
+  });
+  picked.forEach(p => addItemRow({
+    reference: p.lot.reference, categorie: p.lot.categorie, designation: p.lot.designation,
+    destinataire: dest, unite: p.lot.unite, quantite: String(p.qty), cartons: p.cartons, cartonsManual: p.manual,
+    production_id: p.lot.id, base_carton: p.lot.type_carton || 'H2', type_carton: p.boxLabel, poids_carton: p.lot.poids_carton, of_numero: p.lot.of_numero,
+    qpc: p.lot.qte_par_carton,
+  }));
+  updateModalTotals();
+  closeModal('prodPickerModal');
+  toast(`${picked.length} ligne(s) importée(s) depuis la production avec colisage calculé.`, 'success');
+}
