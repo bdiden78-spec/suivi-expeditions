@@ -52,18 +52,27 @@ alter table production enable row level security;
 
 drop policy if exists "lecture operateurs production" on production;
 drop policy if exists "lecture publique production" on production;
-create policy "lecture publique production" on production
-  for select using (true);
-
 drop policy if exists "ajout operateurs production" on production;
 drop policy if exists "modif operateurs production" on production;
 drop policy if exists "suppression admin production" on production;
 drop policy if exists "ecriture operateurs 48h production" on production;
+drop policy if exists "insertion operateurs production" on production;
+drop policy if exists "modification production 48h" on production;
+drop policy if exists "suppression production 48h" on production;
 
-create policy "ecriture operateurs 48h production" on production
-  for all to authenticated
+-- Tous les opérateurs autorisés peuvent consulter l'historique complet.
+-- La limite de 48 h concerne les modifications, pas la lecture.
+create policy "lecture operateurs production" on production
+  for select to authenticated using (is_operator());
+create policy "insertion operateurs production" on production
+  for insert to authenticated with check (is_operator());
+create policy "modification production 48h" on production
+  for update to authenticated
   using (is_operator() and (is_admin() or now() - created_at < interval '48 hours'))
   with check (is_operator() and (is_admin() or now() - created_at < interval '48 hours'));
+create policy "suppression production 48h" on production
+  for delete to authenticated
+  using (is_operator() and (is_admin() or now() - created_at < interval '48 hours'));
 
 -- 3. Les lignes d'envoi gardent le lien complet avec la production et le colisage
 alter table lignes_expedition add column if not exists categorie text default '';
@@ -110,3 +119,17 @@ begin
 
   return v_id;
 end; $$;
+
+-- Protection du délai de modification : created_at reste immuable pour les opérateurs.
+create or replace function public.prevent_created_at_reset()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.created_at is distinct from old.created_at and not public.is_admin() then
+    raise exception 'Le champ created_at ne peut pas être modifié par un opérateur.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists protect_production_created_at on public.production;
+create trigger protect_production_created_at before update on public.production
+for each row execute function public.prevent_created_at_reset();
