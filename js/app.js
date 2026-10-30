@@ -433,6 +433,8 @@ function render() {
           <div class="flex items-center gap-2" onclick="event.stopPropagation()">
             <a href="colisage.html?id=${encodeURIComponent(e.id)}" class="btn-icon" title="Fiche de colisage"><i class="fa-solid fa-boxes-packing text-amber-500"></i></a>
             <button onclick="printExpedition('${esc(e.id)}')" class="btn-icon" title="Imprimer BL"><i class="fa-solid fa-print text-indigo-400"></i></button>
+            <button onclick="sendExpeditionByEmail('${esc(e.id)}')" class="btn-icon" title="Préparer le tableau pour e-mail" aria-label="Préparer le tableau pour e-mail"><i class="fa-solid fa-envelope text-sky-400"></i></button>
+            <button onclick="sendExpeditionByWhatsApp('${esc(e.id)}')" class="btn-icon" title="Partager le tableau par WhatsApp" aria-label="Partager le tableau par WhatsApp"><i class="fa-brands fa-whatsapp text-emerald-400"></i></button>
             ${editBtn}
             <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:var(--bg-hover); color:var(--text-muted)"><i id="icon-${esc(e.id)}" class="fa-solid fa-chevron-down text-xs transition-transform ${isExpanded?'rotate-180':''}"></i></div>
           </div>
@@ -820,6 +822,166 @@ async function loadSamples() {
   } catch (e) { toast('Échec : ' + e.message, 'error'); }
 }
 
+function financialRows(e) {
+  return (e.items || []).map(it => ({
+    reference: String(it.reference || '-').trim(),
+    designation: String(it.designation || '-').trim(),
+    unite: String(it.unite || 'UN').trim(),
+    quantite: fmtNum(it.quantite || 0)
+  }));
+}
+function buildFinancialListMessage(e) {
+  const rows = financialRows(e);
+  return [
+    'LISTE DES ARTICLES À FACTURER POUR LE TRANSPORT',
+    `Date d'envoi : ${fmtDate(e.date_envoi)}`,
+    `N° d'envoi : ${e.numero_bl || 'Sans numéro'}`,
+    `Transporteur : ${e.transporteur || 'Non renseigné'}`,
+    '',
+    'Référence | Désignation | Unité | Quantité',
+    ...rows.map(r => `${r.reference} | ${r.designation} | ${r.unite} | ${r.quantite}`)
+  ].join('\n');
+}
+function financialItemsTableMarkup(e) {
+  const rows = financialRows(e);
+  const escHtml = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return `<table id="financialItemsTable" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px;color:#172033;border:1px solid #cbd5e1;">
+    <thead><tr style="background:#1d4ed8;color:#ffffff;">
+      <th scope="col" style="padding:12px 14px;text-align:left;border:1px solid #1e40af;background:#1d4ed8;color:#ffffff;font-weight:700;">Référence</th>
+      <th scope="col" style="padding:12px 14px;text-align:left;border:1px solid #1e40af;background:#1d4ed8;color:#ffffff;font-weight:700;">Désignation</th>
+      <th scope="col" style="padding:12px 14px;text-align:center;border:1px solid #1e40af;background:#1d4ed8;color:#ffffff;font-weight:700;">Unité</th>
+      <th scope="col" style="padding:12px 14px;text-align:right;border:1px solid #1e40af;background:#1d4ed8;color:#ffffff;font-weight:700;">Quantité</th>
+    </tr></thead><tbody>${rows.map((r,i)=>`<tr style="background:${i%2?'#eff6ff':'#ffffff'};">
+      <td style="padding:11px 14px;border:1px solid #cbd5e1;color:#1d4ed8;font-weight:700;">${escHtml(r.reference)}</td>
+      <td style="padding:11px 14px;border:1px solid #cbd5e1;color:#172033;font-weight:600;">${escHtml(r.designation)}</td>
+      <td style="padding:11px 14px;border:1px solid #cbd5e1;text-align:center;color:#475569;">${escHtml(r.unite)}</td>
+      <td style="padding:11px 14px;border:1px solid #cbd5e1;text-align:right;color:#0f172a;font-weight:800;">${escHtml(r.quantite)}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+function financialTableMarkup(e) {
+  const rows = financialRows(e);
+  const escHtml = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return `<div style="font-family:Arial,sans-serif;color:#172033;max-width:100%;">
+    <div style="padding:20px 22px;background:#102a43;color:#fff;border-radius:12px 12px 0 0;">
+      <div style="font-size:22px;font-weight:800;margin-top:8px;">Liste des articles à facturer</div>
+      <div style="font-size:13px;color:#dbeafe;margin-top:7px;">Facturation du transport · ${escHtml(fmtDate(e.date_envoi))}</div>
+    </div>
+    <table style="border-collapse:collapse;width:100%;font-size:14px;">
+      <tbody>
+        <tr style="background:#eff6ff;"><td style="padding:10px 12px;color:#475569;font-weight:700;width:150px;border:1px solid #dbeafe;">N° d'envoi</td><td style="padding:10px 12px;font-weight:700;border:1px solid #dbeafe;">${escHtml(e.numero_bl || 'Sans numéro')}</td></tr>
+        <tr style="background:#f8fafc;"><td style="padding:10px 12px;color:#475569;font-weight:700;border:1px solid #dbeafe;">Transporteur</td><td style="padding:10px 12px;font-weight:700;border:1px solid #dbeafe;">${escHtml(e.transporteur || 'Non renseigné')}</td></tr>
+      </tbody>
+    </table>
+    <table id="financialItemsTable" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px;margin-top:0;">
+      <thead><tr style="background:#2563eb;color:#fff;">
+        <th style="padding:13px 12px;text-align:left;border:1px solid #1d4ed8;">Référence</th>
+        <th style="padding:13px 12px;text-align:left;border:1px solid #1d4ed8;">Désignation</th>
+        <th style="padding:13px 12px;text-align:center;border:1px solid #1d4ed8;">Unité</th>
+        <th style="padding:13px 12px;text-align:right;border:1px solid #1d4ed8;">Quantité</th>
+      </tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr style="background:${i%2?'#eff6ff':'#ffffff'};">
+        <td style="padding:12px;border:1px solid #dbeafe;color:#1d4ed8;font-weight:700;white-space:nowrap;">${escHtml(r.reference)}</td>
+        <td style="padding:12px;border:1px solid #dbeafe;color:#172033;font-weight:600;">${escHtml(r.designation)}</td>
+        <td style="padding:12px;border:1px solid #dbeafe;text-align:center;color:#475569;">${escHtml(r.unite)}</td>
+        <td style="padding:12px;border:1px solid #dbeafe;text-align:right;font-weight:800;color:#0f172a;">${escHtml(r.quantite)}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+}
+function openFinancialSharePreview(id, channel) {
+  const e = state.expeditions.find(x => x.id === id);
+  if (!e) return toast('Envoi introuvable.', 'error');
+  if (!(e.items || []).length) return toast('Cet envoi ne contient aucun article.', 'warning');
+  const popup = window.open('', '_blank');
+  if (!popup) return toast('Ouverture bloquée. Autorisez les fenêtres contextuelles puis réessayez.', 'warning');
+  const report = financialTableMarkup(e);
+  const title = `Liste de facturation transport - ${e.numero_bl || fmtDate(e.date_envoi)}`;
+  popup.document.open();
+  popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</title><style>
+    *{box-sizing:border-box}body{margin:0;background:#eef2f7;color:#172033;font-family:Arial,sans-serif;padding:24px}.wrap{max-width:1000px;margin:0 auto}.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px}.btn{border:0;border-radius:9px;padding:12px 16px;font-weight:700;cursor:pointer;color:white}.copy{background:#0f766e}.email{background:#2563eb}.wa{background:#059669}.print{background:#334155}.sheet{background:#fff;border-radius:12px;box-shadow:0 10px 30px #0f172a14;overflow:hidden;padding:20px}@media(max-width:600px){body{padding:10px}.sheet{padding:8px}.btn{flex:1}}
+    @media print{body{background:white;padding:0}.toolbar{display:none!important}.sheet{box-shadow:none;padding:0}}
+    </style></head><body><div class="wrap"><div class="toolbar"><button class="btn email" onclick="window.opener.sendFinancialEmailRich('${String(id).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">✉ Préparer l’e-mail</button><button class="btn wa" onclick="window.opener.sendFinancialWhatsAppImage('${String(id).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">◉ Partager sur WhatsApp</button><button class="btn print" onclick="window.print()">⎙ Imprimer / PDF</button></div><div class="sheet">${report}</div></div></body></html>`);
+  popup.document.close();
+}
+async function sendFinancialEmailRich(id) {
+  const e = state.expeditions.find(x => x.id === id);
+  if (!e) return toast('Envoi introuvable.', 'error');
+  const html = financialTableMarkup(e);
+  const plain = buildFinancialListMessage(e);
+  try {
+    if (navigator.clipboard && window.ClipboardItem && window.isSecureContext) {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], {type:'text/html'}),
+        'text/plain': new Blob([plain], {type:'text/plain'})
+      })]);
+      toast('Tableau coloré copié. Collez-le dans le corps de votre e-mail.', 'success');
+    } else {
+      const blob = new Blob([`<!doctype html><meta charset="utf-8"><title>Liste de facturation</title>${html}`], {type:'text/html;charset=utf-8'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Liste-facturation-${(e.numero_bl||'envoi').replace(/[^a-z0-9_-]/gi,'_')}.html`; a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+      toast('Tableau HTML téléchargé : ouvrez-le et copiez le tableau dans votre e-mail.', 'warning');
+    }
+  } catch (err) {
+    toast('Copie du tableau impossible. Utilisez Imprimer / PDF ou le téléchargement HTML.', 'warning');
+  }
+  const subject = `Liste pour facturation transport - ${e.numero_bl || fmtDate(e.date_envoi)}`;
+  const body = `Bonjour,\n\nVeuillez trouver la liste des articles à facturer pour le transport.\n\nDate : ${fmtDate(e.date_envoi)}\nN° d'envoi : ${e.numero_bl || 'Sans numéro'}\nTransporteur : ${e.transporteur || 'Non renseigné'}\n\nCordialement`;
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+async function sendFinancialWhatsAppImage(id) {
+  const e = state.expeditions.find(x => x.id === id);
+  if (!e) return toast('Envoi introuvable.', 'error');
+  const rows = financialRows(e);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const scale = 2, pad = 36, widths = [230, 500, 140, 190], tableW = widths.reduce((a,b)=>a+b,0);
+  ctx.font = '600 18px Arial';
+  const wrap = (text, maxWidth) => {
+    const words = String(text).split(/\s+/); const lines=[]; let line='';
+    for (const word of words) { const test=line ? line+' '+word : word; if (ctx.measureText(test).width>maxWidth && line) { lines.push(line); line=word; } else line=test; }
+    lines.push(line); return lines;
+  };
+  const prepared = rows.map(r => {
+    const cells=[r.reference,r.designation,r.unite,r.quantite];
+    const lines=cells.map((v,i)=>wrap(v,widths[i]-24));
+    return {cells,lines,height:Math.max(58,Math.max(...lines.map(a=>a.length))*25+24)};
+  });
+  const titleH=112, metaH=92, headH=58;
+  const height=pad*2+titleH+metaH+headH+prepared.reduce((n,r)=>n+r.height,0);
+  canvas.width=(tableW+pad*2)*scale; canvas.height=height*scale; ctx.scale(scale,scale);
+  ctx.fillStyle='#f1f5f9';ctx.fillRect(0,0,tableW+pad*2,height);
+  ctx.fillStyle='#102a43';ctx.fillRect(pad,pad,tableW,titleH);
+  ctx.fillStyle='#ffffff';ctx.font='bold 28px Arial';ctx.fillText('Liste des articles à facturer',pad+22,pad+48);
+  ctx.fillStyle='#dbeafe';ctx.font='18px Arial';ctx.fillText(`Transport · ${fmtDate(e.date_envoi)}`,pad+22,pad+80);
+  let y=pad+titleH;
+  ctx.fillStyle='#eff6ff';ctx.fillRect(pad,y,tableW,metaH);
+  ctx.fillStyle='#334155';ctx.font='bold 17px Arial';ctx.fillText(`N° d'envoi : ${e.numero_bl||'Sans numéro'}`,pad+18,y+32);
+  ctx.fillText(`Transporteur : ${e.transporteur||'Non renseigné'}`,pad+18,y+66);
+  y+=metaH;
+  const headers=['Référence','Désignation','Unité','Quantité'];let x=pad;
+  headers.forEach((h,i)=>{ctx.fillStyle='#2563eb';ctx.fillRect(x,y,widths[i],headH);ctx.strokeStyle='#1d4ed8';ctx.strokeRect(x,y,widths[i],headH);ctx.fillStyle='#fff';ctx.font='bold 17px Arial';ctx.textBaseline='middle';ctx.textAlign=i===2?'center':i===3?'right':'left';ctx.fillText(h,x+(i===2?widths[i]/2:i===3?widths[i]-14:12),y+headH/2);x+=widths[i];});
+  y+=headH;
+  prepared.forEach((r,ri)=>{x=pad;ctx.fillStyle=ri%2?'#eff6ff':'#ffffff';ctx.fillRect(pad,y,tableW,r.height);r.cells.forEach((v,i)=>{ctx.strokeStyle='#dbeafe';ctx.strokeRect(x,y,widths[i],r.height);ctx.fillStyle=i===0?'#1d4ed8':i===3?'#0f172a':'#334155';ctx.font=(i===0||i===3?'bold ':'')+'18px Arial';ctx.textBaseline='top';ctx.textAlign=i===2?'center':i===3?'right':'left';r.lines[i].forEach((line,j)=>ctx.fillText(line,x+(i===2?widths[i]/2:i===3?widths[i]-12:12),y+13+j*25));x+=widths[i];});y+=r.height;});
+  // Tableau limité aux quatre colonnes demandées, sans ligne récapitulative.
+  const caption=`Liste des articles à facturer pour le transport — ${e.numero_bl||fmtDate(e.date_envoi)} — ${e.transporteur||''}`;
+  try {
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+    if (!blob) throw new Error('PNG indisponible');
+    const file=new File([blob],`Liste-facturation-${(e.numero_bl||'envoi').replace(/[^a-z0-9_-]/gi,'_')}.png`,{type:'image/png'});
+    if (navigator.canShare && navigator.canShare({files:[file]}) && navigator.share) {
+      await navigator.share({files:[file],title:'Liste de facturation transport',text:caption});
+    } else {
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+      window.open('https://wa.me/?text='+encodeURIComponent(caption+'\n\nJe joins le tableau détaillé en image.'),'_blank','noopener,noreferrer');
+      toast('Image du tableau téléchargée. Joignez ce PNG dans WhatsApp pour conserver les couleurs.', 'warning');
+    }
+  } catch(err) {
+    if (err && err.name==='AbortError') return;
+    toast('Le partage direct n’est pas disponible. Utilisez Imprimer / PDF depuis l’aperçu.', 'warning');
+  }
+}
+function sendExpeditionByWhatsApp(id) { openFinancialSharePreview(id, 'whatsapp'); }
+function sendExpeditionByEmail(id) { openFinancialSharePreview(id, 'email'); }
 function printExpedition(id) {
   const e = state.expeditions.find(x => x.id === id); if (!e) return;
   $('#printBL').textContent = e.numero_bl || 'SANS NUM'; $('#printDate').textContent = 'Date : ' + fmtDate(e.date_envoi);

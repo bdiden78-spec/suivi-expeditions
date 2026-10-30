@@ -1,23 +1,18 @@
 /* ==========================================================
-   LogiTrak — Barre d'onglets commune à toutes les pages
-   - Reste visible en haut de l'écran (collée) quand on défile
-   - Onglets : Accueil, Production, Colisage, Envois, Pointage
-   - Bouton Admin (Opérateurs / Configuration) pour les admins
-   - Effets : apparition des onglets, ouverture de page en fondu
-   Pour ajouter un onglet plus tard : ajouter une ligne dans TABS.
+   LogiTrak — Barre d'onglets et contrôles d'administration
    ========================================================== */
 (function () {
   'use strict';
 
   const TABS = [
-    { id: 'index',      href: 'index.html',      icon: 'fa-house',           label: 'Accueil',    c1: '#6366f1', c2: '#3b82f6' },
-    { id: 'production', href: 'production.html', icon: 'fa-industry',        label: 'Production', c1: '#10b981', c2: '#34d399' },
-    { id: 'colisage',   href: 'colisage.html',   icon: 'fa-boxes-packing',   label: 'Colisage',   c1: '#f59e0b', c2: '#fbbf24' },
-    { id: 'envois',     href: 'envois.html',     icon: 'fa-truck-ramp-box',  label: 'Envois',     c1: '#06b6d4', c2: '#6366f1' },
-    { id: 'pointage',   href: 'pointage.html',   icon: 'fa-fingerprint',     label: 'Pointage',   c1: '#ec4899', c2: '#a855f7' },
-    { id: 'statistiques',href: 'statistiques.html', icon: 'fa-chart-pie', label: 'Statistiques', c1: '#8b5cf6', c2: '#ec4899' },
-    { id: 'gestion',    href: 'https://www.gestion.eurequat-algerie.com/', external: true, icon: 'fa-briefcase', label: 'Gestion', c1: '#0ea5e9', c2: '#38bdf8' },
-    { id: 'webmail',    href: 'https://srv29.novihost.net:2096/', external: true, icon: 'fa-envelope', label: 'Webmail', c1: '#ef4444', c2: '#f97316' },
+    { id: 'index',        href: 'index.html',        icon: 'fa-house',           label: 'Accueil',      c1: '#6366f1', c2: '#3b82f6' },
+    { id: 'production',   href: 'production.html',   icon: 'fa-industry',        label: 'Production',   c1: '#10b981', c2: '#34d399' },
+    { id: 'colisage',     href: 'colisage.html',     icon: 'fa-boxes-packing',   label: 'Colisage',     c1: '#f59e0b', c2: '#fbbf24' },
+    { id: 'envois',       href: 'envois.html',       icon: 'fa-truck-ramp-box',  label: 'Envois',       c1: '#06b6d4', c2: '#6366f1' },
+    { id: 'pointage',     href: 'pointage.html',     icon: 'fa-fingerprint',     label: 'Pointage',     c1: '#ec4899', c2: '#a855f7' },
+    { id: 'statistiques', href: 'statistiques.html', icon: 'fa-chart-pie',      label: 'Statistiques', c1: '#8b5cf6', c2: '#ec4899' },
+    { id: 'gestion',      href: 'https://www.gestion.eurequat-algerie.com/', external: true, icon: 'fa-briefcase', label: 'Gestion', c1: '#0ea5e9', c2: '#38bdf8' },
+    { id: 'webmail',      href: 'https://srv29.novihost.net:2096/',        external: true, icon: 'fa-envelope',  label: 'Webmail', c1: '#ef4444', c2: '#f97316' },
   ];
 
   const file = (location.pathname.split('/').pop() || 'index').replace(/\.html$/i, '') || 'index';
@@ -50,6 +45,8 @@
     .nav-tab.active::after{display:none}
     .nav-tab.active:hover{transform:none}
     .nav-tab.active i{color:#fff}
+    .nav-tab.nav-action{appearance:none;-webkit-appearance:none;background:transparent;cursor:pointer;font-family:inherit}
+    .nav-tab.nav-action:focus-visible{outline:2px solid var(--tc1);outline-offset:3px}
     @keyframes navTabIn{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
     @keyframes navTabOpen{0%{transform:scale(.88)}100%{transform:scale(1)}}
 
@@ -58,32 +55,24 @@
       background:var(--bg-soft);border:1px solid var(--border);color:var(--text);transition:transform .2s,background .2s,border-color .2s}
     .nav-btn:hover{background:var(--bg-hover);border-color:var(--border-strong);transform:translateY(-1px)}
     .nav-btn i{color:#818cf8}
-    .nav-admin{position:relative}
-    .nav-menu{position:absolute;right:0;top:calc(100% + 8px);min-width:210px;padding:6px;border-radius:14px;z-index:60;
-      background:var(--bg-card);border:1px solid var(--border-strong);box-shadow:0 24px 40px -16px rgba(0,0,0,.6);
-      opacity:0;visibility:hidden;transform:translateY(-8px) scale(.96);transform-origin:top right;
-      transition:opacity .2s,transform .25s cubic-bezier(.34,1.56,.64,1),visibility .2s}
-    .nav-menu.open{opacity:1;visibility:visible;transform:none}
-    .nav-menu button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border-radius:10px;font-size:12.5px;font-weight:700;color:var(--text);text-align:left;cursor:pointer;transition:background .15s}
-    .nav-menu button:hover{background:var(--bg-hover)}
-    .nav-menu button i{width:18px;text-align:center;color:#818cf8}
 
-    /* Ouverture des pages en fondu */
+    .header-admin-btns{display:inline-flex;align-items:center;gap:6px}
+
     body.has-nav > main{animation:pageIn .5s cubic-bezier(.22,.8,.3,1) both}
     @keyframes pageIn{from{opacity:0;transform:translateY(14px) scale(.992)}to{opacity:1;transform:none}}
     body.nav-leaving > main{opacity:0;transform:translateY(8px) scale(.99);transition:opacity .18s ease,transform .18s ease}
     @media (prefers-reduced-motion:reduce){
       .nav-tab,.nav-tab.active,body.has-nav > main{animation:none !important}
-      .nav-tab,.nav-menu,body.nav-leaving > main{transition:none !important}
+      .nav-tab,body.nav-leaving > main{transition:none !important}
     }
-    @media(max-width:520px){.nav-tab{padding:9px 12px 10px;font-size:12px}.nav-btn span{display:none}}
+    @media(max-width:900px){.nav-inner{align-items:center;flex-wrap:wrap}.nav-tabs{order:2;flex-basis:100%;padding-top:4px}.nav-right{order:1;margin-left:auto;padding-bottom:4px}}
+    @media(max-width:520px){.nav-tab{padding:9px 12px 10px;font-size:12px}.nav-btn{padding:8px 10px;gap:6px}}
     #appFooter{position:relative;z-index:10;text-align:center;padding:22px 16px 26px;margin-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--text-dim)}
     #appFooter p + p{margin-top:3px;font-weight:700;color:var(--text-muted)}
     @media print{.nav-bar,#appFooter{display:none !important}}
   `;
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
-  /* ---------- Construction de la barre ---------- */
   const nav = document.createElement('nav');
   nav.className = 'nav-bar no-print';
   nav.id = 'appNav';
@@ -95,17 +84,9 @@
           <a href="${t.href}" class="nav-tab${t.id === current ? ' active' : ''}" style="--tc1:${t.c1};--tc2:${t.c2};--i:${i}"${t.id === current ? ' aria-current="page"' : ''}${t.external ? ' target="_blank" rel="noopener noreferrer" title="S\'ouvre dans un nouvel onglet"' : ''}>
             <i class="fa-solid ${t.icon}"></i><span>${t.label}</span>${t.external ? '<i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px;opacity:.6;margin-left:-2px"></i>' : ''}
           </a>`).join('')}
+        <button type="button" class="nav-tab nav-action" id="navNewExpedition" style="--tc1:#10b981;--tc2:#06b6d4;--i:${TABS.length}" title="Créer un nouvel envoi"><i class="fa-solid fa-plus"></i><span>Nouvel envoi</span></button>
       </div>
       <div class="nav-right">
-        <div class="nav-admin adm-only">
-          <button type="button" class="nav-btn" id="navAdminBtn" aria-haspopup="true" aria-expanded="false" title="Administration">
-            <i class="fa-solid fa-user-shield"></i><span>Admin</span><i class="fa-solid fa-chevron-down" style="font-size:10px"></i>
-          </button>
-          <div class="nav-menu" id="navAdminMenu" role="menu">
-            <button type="button" role="menuitem" data-admin="ops"><i class="fa-solid fa-users-gear"></i>Opérateurs</button>
-            <button type="button" role="menuitem" data-admin="config"><i class="fa-solid fa-sliders"></i>Configuration</button>
-          </div>
-        </div>
         <button type="button" class="nav-btn" id="navUser" title="Espace opérateur">
           <i class="fa-solid fa-user-lock"></i><span id="navUserText">Connexion</span>
         </button>
@@ -116,25 +97,47 @@
   if (header) header.after(nav); else document.body.prepend(nav);
   document.body.classList.add('has-nav');
 
-  /* ---------- Bouton Admin ---------- */
-  const menu = nav.querySelector('#navAdminMenu'), adminBtn = nav.querySelector('#navAdminBtn');
-  const closeMenu = () => { menu.classList.remove('open'); adminBtn.setAttribute('aria-expanded', 'false'); };
-  adminBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    const open = menu.classList.toggle('open');
-    adminBtn.setAttribute('aria-expanded', String(open));
-  });
-  document.addEventListener('click', e => { if (!nav.querySelector('.nav-admin').contains(e.target)) closeMenu(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
-  menu.querySelectorAll('[data-admin]').forEach(b => b.addEventListener('click', () => {
-    closeMenu();
-    const what = b.dataset.admin;
-    if (what === 'ops' && typeof window.openOperators === 'function') return window.openOperators();
-    if (what === 'config' && typeof window.openAdmin === 'function') return window.openAdmin();
-    go('envois.html?admin=' + what);          // depuis une autre page : on ouvre la page Envois
-  }));
+  function injectHeaderAdminBtns() {
+    const headerRight = document.querySelector('header .flex.items-center.gap-2');
+    if (!headerRight) return;
+    
+    if (document.body.classList.contains('is-admin') && !document.getElementById('headerAdminGroup')) {
+      const group = document.createElement('div');
+      group.id = 'headerAdminGroup';
+      group.className = 'header-admin-btns adm-only';
+      group.innerHTML = `
+        <button type="button" class="nav-btn" id="headOpsBtn" title="Gérer les opérateurs"><i class="fa-solid fa-users-gear text-indigo-400"></i><span class="hidden sm:inline">Opérateurs</span></button>
+      `;
+      headerRight.insertBefore(group, headerRight.firstChild);
 
-  /* ---------- Signature en bas de page ---------- */
+      group.querySelector('#headOpsBtn').addEventListener('click', () => {
+        if (typeof window.openOperators === 'function') window.openOperators();
+        else location.href = 'envois.html?admin=ops';
+      });
+    }
+
+    const logo = document.querySelector('header img');
+    if (logo && !logo.dataset.cfgBound) {
+      logo.dataset.cfgBound = '1';
+      logo.style.cursor = 'default';
+      logo.addEventListener('dblclick', () => {
+        if (!document.body.classList.contains('is-admin')) {
+          if (typeof window.toast === 'function') window.toast('Accès refusé : réservé à l’administrateur.', 'error');
+          else alert('Accès refusé : réservé à l’administrateur.');
+          return;
+        }
+        if (typeof window.openAdmin === 'function') window.openAdmin();
+        else location.href = 'envois.html?admin=config';
+      });
+    }
+  }
+
+  const newExpBtn = nav.querySelector('#navNewExpedition');
+  newExpBtn.addEventListener('click', () => {
+    if (file === 'envois' && typeof window.openExpeditionModal === 'function') window.openExpeditionModal();
+    else location.href = 'envois.html?new=1';
+  });
+
   if (!document.getElementById('appFooter')) {
     const ft = document.createElement('footer');
     ft.id = 'appFooter'; ft.className = 'no-print';
@@ -142,7 +145,6 @@
     document.body.appendChild(ft);
   }
 
-  /* ---------- Connexion / utilisateur ---------- */
   function readUser() {
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -153,7 +155,7 @@
           if (email) return email.split('@')[0];
         }
       }
-    } catch (e) { /* pas de session */ }
+    } catch (e) {}
     return '';
   }
   const userBtn = nav.querySelector('#navUser'), userText = nav.querySelector('#navUserText');
@@ -161,6 +163,7 @@
     const u = readUser();
     userText.textContent = u || 'Connexion';
     userBtn.title = u ? 'Connecté : ' + u : 'Espace opérateur';
+    injectHeaderAdminBtns();
   }
   function clearTokens() {
     try { Object.keys(localStorage).filter(k => /^sb-.*-auth-token/.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
@@ -171,23 +174,22 @@
     try {
       if (window.supabase && typeof SUPABASE_URL !== 'undefined') {
         const url = localStorage.getItem('supabase_url') || SUPABASE_URL, key = localStorage.getItem('supabase_key') || SUPABASE_ANON;
-        await window.supabase.createClient(url, key).auth.signOut({ scope: 'local' });   // déconnexion locale : marche même sans réseau
+        await window.supabase.createClient(url, key).auth.signOut({ scope: 'local' });
       }
-    } catch (e) { /* on efface la session ci-dessous */ }
+    } catch (e) {}
     clearTokens();
     location.reload();
   }
   userBtn.addEventListener('click', () => {
-    if (typeof window.authAction === 'function') return window.authAction();   // page Envois (connexion ou déconnexion)
-    if (readUser()) return logout();                                           // autres pages : déconnexion
-    go('envois.html?login=1');                                                 // sinon : fenêtre de connexion
+    if (typeof window.authAction === 'function') return window.authAction();
+    if (readUser()) return logout();
+    go('envois.html?login=1');
   });
   refreshUser();
   window.addEventListener('storage', refreshUser);
   new MutationObserver(refreshUser).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   setTimeout(refreshUser, 1500);
 
-  /* ---------- Ouverture / fermeture des pages en fondu ---------- */
   function go(url) {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { location.href = url; return; }
     document.body.classList.add('nav-leaving');
@@ -198,7 +200,7 @@
     if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     if (a.target && a.target !== '_self') return;
     const href = a.getAttribute('href') || '';
-    if (!/^[\w\-./]+\.html(\?[\w\-=&%.]*)?$/i.test(href)) return;      // seulement les pages du site
+    if (!/^[\w\-./]+\.html(\?[\w\-=&%.]*)?$/i.test(href)) return;
     if (a.classList.contains('active')) { e.preventDefault(); return; }
     e.preventDefault(); go(href);
   });
