@@ -125,36 +125,7 @@
           <p class="text-xs" style="color:var(--text-muted)">Recherchez, filtrez et consultez toutes les expéditions</p>
         </div>
       </div>
-      <div class="flex items-center gap-2 flex-wrap">
-        <div class="relative op-only">
-          <div id="dbBadge" class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition" style="background:var(--bg-soft); border:1px solid var(--border); color:var(--text-muted)" onclick="toggleOnlineUsers(event)" title="Voir qui est en ligne">
-            <span class="relative flex h-2 w-2">
-              <span id="dbPing" class="absolute inline-flex h-full w-full rounded-full bg-slate-400 opacity-75"></span>
-              <span id="dbDot" class="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
-            </span>
-            <span id="dbText" class="tracking-wide hidden md:inline">En ligne…</span>
-          </div>
 
-          <div id="onlineUsersDropdown" class="dropdown-menu absolute right-0 top-full mt-2 w-64 rounded-xl shadow-2xl border z-50 overflow-hidden" style="background:var(--bg-card); border-color:var(--border)">
-            <div class="px-4 py-3 border-b" style="border-color:var(--border); background:var(--bg-input)">
-              <h3 class="text-xs font-bold uppercase tracking-wider" style="color:var(--text-muted)">Utilisateurs en ligne</h3>
-            </div>
-            <div id="onlineUsersList" class="max-h-60 overflow-y-auto p-2 space-y-1"></div>
-          </div>
-        </div>
-        <button onclick="syncData()" class="btn-icon" title="Synchroniser les données"><i class="fa-solid fa-arrows-rotate text-sm"></i></button>
-        <span id="authLabel" class="hidden"></span>
-        <a href="production.html" class="btn btn-secondary op-only" title="Saisie de la production">
-          <i class="fa-solid fa-industry text-emerald-500"></i><span>Production</span>
-        </a>
-        <a href="colisage.html" class="btn btn-secondary" title="Page de colisage">
-          <i class="fa-solid fa-boxes-packing text-amber-500"></i><span>Colisage</span>
-        </a>
-        
-        <button onclick="openExpeditionModal()" class="btn btn-primary">
-          <i class="fa-solid fa-plus"></i><span class="hidden sm:inline">Nouvel envoi</span>
-        </button>
-      </div>
     </div>
 
     <section class="panel list-focus p-3 sm:p-4 flex flex-col lg:flex-row gap-3">

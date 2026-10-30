@@ -29,7 +29,8 @@
     .stat-card h3{font-size:15px;font-weight:800;display:flex;align-items:center;gap:10px}
     .stat-card p{font-size:12px;color:var(--text-muted);margin:4px 0 16px}
     .stat-dot{width:32px;height:32px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2))}
-    .chart-box{position:relative;height:320px;width:100%}
+    .chart-box{position:relative;height:300px;width:100%}
+    .production-chart-box{position:relative;height:380px;width:100%}
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased">
@@ -68,8 +69,8 @@
       </div>
     </div>
 
-    <!-- Grille des 4 Top 3 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Top 3 : trois cartes par rangée sur grand écran -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
       <div class="stat-card" style="--c1:#8b5cf6;--c2:#c084fc">
         <h3><span class="stat-dot"><i class="fa-solid fa-scroll"></i></span>Top 3 Client — Étiquettes</h3>
         <p>Clients les plus livrés en étiquettes standard (hors RFID)</p>
@@ -90,6 +91,11 @@
         <p>Destinataires principaux pour Algérie Poste / UPW</p>
         <div class="chart-box"><canvas id="chartAp"></canvas></div>
       </div>
+      <div class="stat-card xl:col-span-2" style="--c1:#0ea5e9;--c2:#10b981">
+        <h3><span class="stat-dot"><i class="fa-solid fa-industry"></i></span>Production générale (Tri-bâton : Étiquettes, Rubans, Cartes PVC)</h3>
+        <p>Évolution mensuelle de la production par famille de produit pour l’année sélectionnée</p>
+        <div class="production-chart-box"><canvas id="chartProduction"></canvas></div>
+      </div>
     </div>
   </main>
 
@@ -98,8 +104,8 @@
   <script src="js/config.js"></script>
   <script>
     const THEME_KEY = 'logitrak_theme', LOCAL_KEY = 'eurequat_expeditions_v1';
-    let state = { expeditions: [] };
-    let chartEtq = null, chartRub = null, chartRfid = null, chartAp = null;
+    let state = { expeditions: [], production: [] };
+    let chartEtq = null, chartRub = null, chartRfid = null, chartAp = null, chartProduction = null;
 
     const $ = s => document.querySelector(s);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -118,24 +124,27 @@
       try {
         const url = lsGet('supabase_url') || SUPABASE_URL, key = lsGet('supabase_key') || SUPABASE_ANON;
         const sb = window.supabase.createClient(url, key);
-        const [exps, lines] = await Promise.all([
+        const [exps, lines, production] = await Promise.all([
           sb.from('expeditions').select('*').order('date_envoi', { ascending: false }),
           sb.from('lignes_expedition').select('*'),
+          sb.from('production').select('*'),
         ]);
         if (exps.error || lines.error) throw (exps.error || lines.error);
         state.expeditions = (exps.data || []).map(e => ({
           ...e,
           items: (lines.data || []).filter(l => l.expedition_id === e.id)
         }));
+        try { state.production = production && !production.error ? (production.data || []) : JSON.parse(lsGet('eurequat_production_v2') || '[]'); } catch { state.production = []; }
       } catch (e) {
         try { state.expeditions = JSON.parse(lsGet(LOCAL_KEY) || '[]'); } catch { state.expeditions = []; }
+        try { state.production = JSON.parse(lsGet('eurequat_production_v2') || '[]'); } catch { state.production = []; }
       }
       fillYears();
       renderStatsPage();
     }
 
     function fillYears() {
-      const years = [...new Set(state.expeditions.map(e => (e.date_envoi||'').slice(0,4)).filter(Boolean))].sort().reverse();
+      const years = [...new Set([...state.expeditions.map(e => (e.date_envoi||'').slice(0,4)), ...state.production.map(p => (p.date_production||'').slice(0,4))].filter(Boolean))].sort().reverse();
       const currentYear = String(new Date().getFullYear());
       const statYears = [...new Set([currentYear, ...years])].sort().reverse();
       const sel = $('#statsYear');
@@ -210,7 +219,7 @@
           const des = String(it.designation || '').trim().toUpperCase();
           const txt = `${dest} ${cat} ${des} ${ref}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
 
-          const isAP = txt.includes('ALGERIE POSTE') || txt.includes('POSTE') || /\bUPW\b/.test(txt) || /\bAP\b/.test(txt);
+          const isAP = txt.includes('ALGERIE POSTE') || txt.includes('POSTE') || /UPW/.test(txt) || /AP/.test(txt);
           const isRFID = txt.includes('RFID') || cat.includes('RFID') || ref.includes('RFID');
           const isRuban = txt.includes('RUBAN') || cat.includes('RUBAN') || ref.startsWith('R2') || ref.startsWith('R1');
           const isEtq = !isRFID && !isRuban && (txt.includes('ETIQUETTE') || cat.includes('ETIQUETTE') || ref.startsWith('E0') || ref.startsWith('ETQ') || true);
@@ -229,12 +238,61 @@
 
       const top3 = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
-      [chartEtq, chartRub, chartRfid, chartAp].forEach(c => { if (c) c.destroy(); });
+      [chartEtq, chartRub, chartRfid, chartAp, chartProduction].forEach(c => { if (c) c.destroy(); });
 
       chartEtq  = makeHBar('chartEtq',  top3(clientEtqData),  'Quantité', colors.purple,  textColor, gridColor);
       chartRub  = makeHBar('chartRub',  top3(clientRubData),  'Quantité', colors.emerald, textColor, gridColor);
       chartRfid = makeHBar('chartRfid', top3(clientRfidData), 'Quantité', colors.cyan,    textColor, gridColor);
       chartAp   = makeHBar('chartAp',   top3(clientApData),   'Quantité', colors.amber,   textColor, gridColor);
+
+      // Tri-bâton production générale par mois (Étiquettes, Rubans, Cartes PVC)
+      const monthLabels = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+      const monthlyEtq = Array(12).fill(0);
+      const monthlyRub = Array(12).fill(0);
+      const monthlyPvc = Array(12).fill(0);
+
+      state.production.forEach(row => {
+        const d = String(row.date_production || '').slice(0, 10);
+        if (d.slice(0, 4) === year) {
+          const m = Number(d.slice(5, 7));
+          if (m >= 1 && m <= 12) {
+            const q = parseQty(row.quantite_produite);
+            const t = String(row.type_produit || '').toUpperCase();
+            const u = String(row.unite || '').toUpperCase();
+            if (t === 'RUBAN' || u === 'UN') {
+              monthlyRub[m - 1] += q;
+            } else if (t === 'CARTE_PVC' || u === 'LOT') {
+              monthlyPvc[m - 1] += q;
+            } else {
+              monthlyEtq[m - 1] += q; // ETIQUETTE / BOBINE par défaut
+            }
+          }
+        }
+      });
+
+      const pctx = document.getElementById('chartProduction');
+      chartProduction = pctx ? new Chart(pctx, {
+        type: 'bar',
+        data: {
+          labels: monthLabels,
+          datasets: [
+            { label: 'Étiquettes', data: monthlyEtq, backgroundColor: 'rgba(139,92,246,0.85)', borderRadius: 6, maxBarThickness: 24 },
+            { label: 'Rubans TTR', data: monthlyRub, backgroundColor: 'rgba(16,185,129,0.85)', borderRadius: 6, maxBarThickness: 24 },
+            { label: 'Cartes PVC', data: monthlyPvc, backgroundColor: 'rgba(245,158,11,0.85)', borderRadius: 6, maxBarThickness: 24 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'top', labels: { color: textColor, font: { weight: '700', size: 11 } } },
+            tooltip: { callbacks: { label: c => `${c.dataset.label} : ${Number(c.raw || 0).toLocaleString('fr-FR')}` } }
+          },
+          scales: {
+            x: { ticks: { color: textColor, font: { size: 10, weight: '600' } }, grid: { display: false } },
+            y: { beginAtZero: true, ticks: { color: textColor, callback: v => Number(v).toLocaleString('fr-FR') }, grid: { color: gridColor } }
+          }
+        }
+      }) : null;
     }
 
     document.addEventListener('DOMContentLoaded', async () => {

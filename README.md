@@ -23,3 +23,11 @@ Suivi de la production, du colisage industriel et des expéditions de l'usine de
 
 ## Mise à jour de la base Supabase
 Dans **Supabase > SQL Editor**, exécutez le contenu du fichier `sql/production.sql`. Ce script met à jour la table `production` et les règles de sécurité (RLS 48h) sans effacer aucune donnée existante.
+
+
+## Sécurité et mise à jour (v6 — correctif)
+
+- **Ne pas exécuter `sql/setup.sql` pour réinitialiser une base existante.** Le script a été rendu non destructif, mais toute mise à jour de schéma doit être précédée d'une sauvegarde.
+- Pour une base déjà utilisée, examiner puis exécuter `sql/security-hardening.sql` dans Supabase > SQL Editor. Ce script ne supprime aucune table ni aucune donnée ; il remplace les politiques RLS pour retirer la lecture publique et conserver l'accès à l'historique aux opérateurs autorisés.
+- Exécuter `sql/production.sql` pour les colonnes de production/colisage uniquement après sauvegarde et vérification des prérequis.
+- Après migration, tester avec une session déconnectée, un opérateur et un administrateur. La clé `service_role` Supabase ne doit jamais être placée dans le navigateur.

@@ -88,9 +88,10 @@
     </section>
 
     <!-- Chiffres du moment -->
-    <section class="grid grid-cols-3 gap-3 max-w-3xl mx-auto w-full">
+    <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-4xl mx-auto w-full">
       <div class="panel kpi text-center"><small>Envois ce mois</small><b id="kEnv">…</b></div>
       <div class="panel kpi text-center"><small>Cartons ce mois</small><b id="kCol" class="text-amber-500">…</b></div>
+      <div class="panel kpi text-center"><small>Lots expédiés</small><b id="kShippedLots" class="text-indigo-400">…</b></div>
       <div class="panel kpi text-center"><small>Lots à expédier</small><b id="kLots" class="text-emerald-500" title="Réservé aux opérateurs">…</b></div>
     </section>
 
@@ -218,7 +219,7 @@
     }
 
     async function loadLots() {
-      if (!isOperator) { $('#kLots').textContent = '—'; return; }
+      if (!isOperator) { $('#kLots').textContent = '—'; $('#kShippedLots').textContent = '—'; return; }
       try {
         const [p, l] = await Promise.all([
           sb.from('production').select('id,quantite_produite'),
@@ -227,8 +228,12 @@
         if (p.error || l.error) throw (p.error || l.error);
         const shipped = {};
         (l.data || []).forEach(x => { shipped[x.production_id] = (shipped[x.production_id] || 0) + intOf(x.quantite); });
-        $('#kLots').textContent = fmtNum((p.data || []).filter(x => x.quantite_produite > (shipped[x.id] || 0)).length);
-      } catch (e) { $('#kLots').textContent = '—'; }
+        const lots = p.data || [];
+        const shippedCount = lots.filter(x => (shipped[x.id] || 0) >= x.quantite_produite).length;
+        const openCount = lots.filter(x => x.quantite_produite > (shipped[x.id] || 0)).length;
+        $('#kShippedLots').textContent = fmtNum(shippedCount);
+        $('#kLots').textContent = fmtNum(openCount);
+      } catch (e) { $('#kLots').textContent = '—'; $('#kShippedLots').textContent = '—'; }
     }
 
     function renderStats() {
