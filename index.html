@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="LogiTrak — Envoi & Traçabilité • Eurequat Algérie, usine de Tlemcen">
-  <link rel="icon" type="image/png" href="assets/logo-eurequat.png">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <title>Accueil • LogiTrak Eurequat Algérie</title>
 
   <script>
     try {
-      if (localStorage.getItem('logitrak_theme') === 'light')
+      if (localStorage.getItem('logitrak_theme') !== 'dark')
         document.documentElement.classList.add('light');
     } catch(e) {}
   </script>
@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="css/style.css">
 
@@ -28,108 +28,110 @@
     .kpi small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim)}
     .kpi b{display:block;font-size:26px;font-weight:900;margin-top:2px}
 
-    .hub-card{position:relative;display:flex;flex-direction:column;gap:14px;padding:22px;border-radius:22px;overflow:hidden;
-      background:var(--bg-card);border:1px solid var(--border);text-decoration:none;color:inherit;
-      transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
-    .hub-card::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,var(--c1),var(--c2))}
-    .hub-card:hover{transform:translateY(-5px);border-color:var(--c1);box-shadow:0 22px 40px -22px var(--c1)}
-    .hub-ico{width:54px;height:54px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:23px;color:#fff;
-      background:linear-gradient(135deg,var(--c1),var(--c2));box-shadow:0 10px 24px -8px var(--c1)}
+    .hub-card{position:relative;display:flex;flex-direction:column;gap:13px;padding:19px;border-radius:var(--radius);
+      background:var(--bg-card);border:1px solid var(--border);box-shadow:var(--shadow-card);text-decoration:none;color:inherit;
+      transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+    .hub-card:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:var(--shadow-raised)}
+    .hub-ico{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;
+      color:var(--accent);background:var(--accent-wash)}
     .hub-card h3{font-size:18px;font-weight:800;letter-spacing:-.01em}
     .hub-card p{font-size:12.5px;line-height:1.5;color:var(--text-muted)}
-    .hub-go{margin-top:auto;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:var(--c1)}
+    .hub-go{margin-top:auto;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:var(--accent)}
     .hub-go i{transition:transform .25s}
     .hub-card:hover .hub-go i{transform:translateX(5px)}
     .hub-lock{position:absolute;top:14px;right:14px;font-size:10px;font-weight:800;padding:4px 9px;border-radius:99px;
       background:rgba(245,158,11,.14);color:#f59e0b;border:1px solid rgba(245,158,11,.35);display:none}
     body:not(.is-operator) .hub-card[data-op] .hub-lock{display:inline-flex;gap:5px;align-items:center}
-    .hub-soon{border:2px dashed var(--border-strong);background:transparent}
-    .hub-soon:hover{transform:none;box-shadow:none;border-color:var(--border-strong)}
     .recent-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--border)}
     .recent-row:first-child{border-top:0}
   </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased">
+<body data-module="index" class="min-h-screen flex flex-col antialiased">
 
-  <div class="bg-orbs fixed inset-0 overflow-hidden z-0">
-    <div class="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl animate-pulse-subtle"></div>
-    <div class="absolute top-1/3 -right-40 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl animate-pulse-subtle" style="animation-delay:2s"></div>
-    <div class="absolute -bottom-40 left-1/3 w-[32rem] h-[32rem] bg-purple-600/15 rounded-full blur-3xl animate-pulse-subtle" style="animation-delay:4s"></div>
-  </div>
 
-  <header class="relative z-30 backdrop-blur-xl border-b no-print" style="background:color-mix(in srgb, var(--bg) 88%, transparent); border-color:var(--border);">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+  <header class="app-header relative z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.25rem] py-2 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="h-12 px-3 rounded-2xl bg-white flex items-center flex-shrink-0 shadow-lg ring-1 ring-black/10">
-          <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" class="block" style="height:32px;width:auto;max-width:180px;object-fit:contain">
-        </div>
-        <div class="hidden sm:flex items-center h-12 px-3 rounded-2xl bg-white flex-shrink-0 shadow-lg ring-1 ring-black/10" title="LogiTrak — Envoi &amp; Traçabilité">
-          <img src="assets/logitrak-logo.png" alt="LogiTrak — Envoi &amp; Traçabilité" class="block" style="height:36px;width:auto;max-width:190px;object-fit:contain">
-        </div>
-        <p class="text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
+        <div class="app-brand"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536" decoding="async"></div>
+        <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
-      <div class="flex items-center gap-2">
-        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
+      <div id="headerActions" class="flex items-center gap-2">
+        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
       </div>
     </div>
   </header>
 
   <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full space-y-8">
 
-    <!-- Bandeau d'accueil -->
-    <section class="text-center space-y-4">
-      <div class="inline-flex items-center justify-center px-6 py-4 rounded-3xl bg-white shadow-xl ring-1 ring-black/10">
-        <img src="assets/logitrak-logo.png" alt="LogiTrak — Envoi &amp; Traçabilité" class="block" style="height:84px;width:auto;max-width:100%;object-fit:contain">
+    <section class="dashboard-hero" aria-labelledby="hello">
+      <div class="dashboard-intro">
+        <span class="dashboard-eyebrow"><i class="fa-solid fa-industry" aria-hidden="true"></i> Eurequat Algérie · Usine de Tlemcen</span>
+        <h1 id="hello">Pilotage des opérations</h1>
+        <p>Suivez les lots de production, organisez le colisage et retrouvez les expéditions de l’usine.</p>
+        <div class="dashboard-actions">
+          <a href="envois.html" class="btn dashboard-primary"><i class="fa-solid fa-truck-ramp-box" aria-hidden="true"></i> Consulter les envois</a>
+          <a href="production.html" class="btn dashboard-secondary"><i class="fa-solid fa-industry" aria-hidden="true"></i> Voir la production</a>
+        </div>
       </div>
-      <div>
-        <h1 id="hello" class="text-2xl sm:text-3xl font-extrabold tracking-tight">Bienvenue</h1>
-        <p class="text-sm mt-1" style="color:var(--text-muted)">Usine Tlemcen • Que voulez-vous faire ?</p>
+      <div class="dashboard-illustration" aria-hidden="true">
+        <div class="dashboard-step"><i class="fa-solid fa-industry"></i><span>Production</span></div>
+        <div class="dashboard-step"><i class="fa-solid fa-boxes-packing"></i><span>Colisage</span></div>
+        <div class="dashboard-step"><i class="fa-solid fa-truck-ramp-box"></i><span>Expédition</span></div>
       </div>
     </section>
 
-    <!-- Chiffres du moment -->
-    <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-4xl mx-auto w-full">
-      <div class="panel kpi text-center"><small>Envois ce mois</small><b id="kEnv">…</b></div>
-      <div class="panel kpi text-center"><small>Cartons ce mois</small><b id="kCol" class="text-amber-500">…</b></div>
-      <div class="panel kpi text-center"><small>Lots expédiés</small><b id="kShippedLots" class="text-indigo-400">…</b></div>
-      <div class="panel kpi text-center"><small>Lots à expédier</small><b id="kLots" class="text-emerald-500" title="Réservé aux opérateurs">…</b></div>
+    <div class="dashboard-section-label"><h2>Indicateurs d’activité</h2><span>Suivi de l’usine</span></div>
+    <section class="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full">
+      <div class="panel kpi"><small>Envois ce mois</small><b id="kEnv">…</b></div>
+      <div class="panel kpi"><small>Cartons ce mois</small><b id="kCol" class="text-amber-500">…</b></div>
+      <div class="panel kpi"><small>Lots expédiés</small><b id="kShippedLots" class="text-indigo-400" title="Lots entièrement expédiés dans des envois validés, jusqu’à aujourd’hui">…</b></div>
+      <div class="panel kpi"><small>Lots à expédier</small><b id="kLots" class="text-emerald-500" title="Réservé aux opérateurs">…</b></div>
     </section>
 
-    <!-- Modules -->
+    <div id="pendingBar" class="hidden max-w-4xl mx-auto w-full panel p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3" style="border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.06)"></div>
+
+    <div class="dashboard-section-label"><h2>Modules LogiTrak</h2><span>Accès aux outils</span></div>
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-      <a href="production.html" class="hub-card" data-op style="--c1:#10b981;--c2:#34d399">
+      <a href="production.html" data-module="production" class="hub-card" data-op style="--c1:#10b981;--c2:#34d399">
         <span class="hub-lock"><i class="fa-solid fa-lock"></i>Opérateurs</span>
         <div class="hub-ico"><i class="fa-solid fa-industry"></i></div>
-        <div><h3>Production</h3><p>Saisir les lots fabriqués (OF, quantité, carton, poids) et voir ce qu'il reste à expédier.</p></div>
+        <div><h3>Production</h3><p>Saisir les lots fabriqués (OF, référence, quantité), cocher ceux à expédier et voir ce qu'il reste.</p></div>
         <span class="hub-go">Ouvrir <i class="fa-solid fa-arrow-right"></i></span>
       </a>
 
-      <a href="colisage.html" class="hub-card" style="--c1:#f59e0b;--c2:#fbbf24">
+      <a href="colisage.html" data-module="colisage" class="hub-card" style="--c1:#f59e0b;--c2:#fbbf24">
         <div class="hub-ico"><i class="fa-solid fa-boxes-packing"></i></div>
-        <div><h3>Colisage</h3><p>Établir le colisage dès la sortie de production (Étiquettes, Rubans, Cartes PVC) et imprimer les fiches.</p></div>
+        <div><h3>Colisage</h3><p>Une fiche de colisage par référence (matière, gabarit, mandrin, poids, carton), la décision du reliquat et le bordereau des envois.</p></div>
         <span class="hub-go">Ouvrir <i class="fa-solid fa-arrow-right"></i></span>
       </a>
 
-      <a href="envois.html?new=1" class="hub-card" data-op style="--c1:#6366f1;--c2:#3b82f6">
+      <a href="envois.html?new=1" data-module="new" class="hub-card" data-op style="--c1:#6366f1;--c2:#3b82f6">
         <span class="hub-lock"><i class="fa-solid fa-lock"></i>Opérateurs</span>
         <div class="hub-ico"><i class="fa-solid fa-plus"></i></div>
         <div><h3>Nouvel envoi</h3><p>Créer un envoi en important des lots depuis la production ou en saisissant les lignes.</p></div>
         <span class="hub-go">Créer <i class="fa-solid fa-arrow-right"></i></span>
       </a>
 
-      <a href="envois.html" class="hub-card" style="--c1:#06b6d4;--c2:#6366f1">
+      <a href="envois.html" data-module="envois" class="hub-card" style="--c1:#06b6d4;--c2:#6366f1">
         <div class="hub-ico"><i class="fa-solid fa-truck-ramp-box"></i></div>
         <div><h3>Liste des envois</h3><p>Consulter, rechercher et exporter tous les envois, avec les statistiques.</p></div>
         <span class="hub-go">Ouvrir <i class="fa-solid fa-arrow-right"></i></span>
       </a>
 
-      <a href="statistiques.html" class="hub-card" style="--c1:#8b5cf6;--c2:#ec4899">
+      <a href="statistiques.html" data-module="statistiques" class="hub-card" style="--c1:#8b5cf6;--c2:#ec4899">
         <div class="hub-ico"><i class="fa-solid fa-chart-pie"></i></div>
-        <div><h3>Statistiques</h3><p>Graphiques annuels (Étiquettes, Rubans, RFID, Algérie Poste) du 1er janvier au 31 décembre.</p></div>
+        <div><h3>Statistiques</h3><p>Le Top 5 des destinataires par catégorie, Algérie Poste à part, et la production par mois.</p></div>
         <span class="hub-go">Ouvrir <i class="fa-solid fa-arrow-right"></i></span>
       </a>
 
-      <a href="pointage.html" class="hub-card" style="--c1:#ec4899;--c2:#a855f7">
+      <a href="algerie-poste.html" data-module="algerie-poste" class="hub-card" data-op style="--c1:#f59e0b;--c2:#f472b6">
+        <span class="hub-lock"><i class="fa-solid fa-lock"></i>Inscrits</span>
+        <div class="hub-ico"><i class="fa-solid fa-envelope-open-text"></i></div>
+        <div><h3>Algérie Poste</h3><p>Commandes UPW, suivi des impressions et colisage par paquets de 1 000 ID.</p></div>
+        <span class="hub-go">Bientôt <i class="fa-solid fa-arrow-right"></i></span>
+      </a>
+
+      <a href="pointage.html" data-module="pointage" class="hub-card" style="--c1:#ec4899;--c2:#a855f7">
         <div class="hub-ico"><i class="fa-solid fa-fingerprint"></i></div>
         <div><h3>Pointage</h3><p>Le portail de pointage de l'usine, affiché directement dans LogiTrak.</p></div>
         <span class="hub-go">Ouvrir <i class="fa-solid fa-arrow-right"></i></span>
@@ -147,10 +149,6 @@
         <span class="hub-go">Ouvrir <i class="fa-solid fa-arrow-up-right-from-square"></i></span>
       </a>
 
-      <div class="hub-card hub-soon sm:col-span-2 lg:col-span-1" style="--c1:#94a3b8;--c2:#cbd5e1">
-        <div class="hub-ico" style="background:var(--bg-input);color:var(--text-dim);box-shadow:none"><i class="fa-solid fa-plus"></i></div>
-        <div><h3 style="color:var(--text-muted)">D'autres modules bientôt</h3><p>Cet accueil est prêt à recevoir de nouvelles pages (étiquettes, contrôle de chargement, rapports…).</p></div>
-      </div>
     </section>
 
     <!-- Derniers envois -->
@@ -165,6 +163,8 @@
 
 
   <script src="js/config.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/data-pages.js"></script>
   <script>
     const THEME_KEY = 'logitrak_theme', LOCAL_KEY = 'eurequat_expeditions_v1';
     const $ = s => document.querySelector(s);
@@ -202,43 +202,62 @@
     async function loadExpeditions() {
       try {
         const [e, l] = await Promise.all([
-          sb.from('expeditions').select('id,date_envoi,numero_bl,transporteur').order('date_envoi', { ascending: false }),
+          sb.from('expeditions').select('id,date_envoi,numero_bl,transporteur,validation').order('date_envoi', { ascending: false }),
           sb.from('lignes_expedition').select('expedition_id,cartons'),
         ]);
         if (e.error || l.error) throw (e.error || l.error);
         expeditions = (e.data || []).map(x => ({
-          ...x, colis: (l.data || []).filter(y => y.expedition_id === x.id).reduce((s, y) => s + (parseInt(y.cartons) || 1), 0),
+          ...x, validation: x.validation || 'VALIDE',
+          colis: (l.data || []).filter(y => y.expedition_id === x.id).reduce((s, y) => s + (Number.isFinite(parseInt(y.cartons)) ? parseInt(y.cartons) : 1), 0),
         }));
         return;
       } catch (err) { /* on tente la copie locale */ }
       try {
         expeditions = JSON.parse(lsGet(LOCAL_KEY) || '[]').map(x => ({
-          ...x, colis: (x.items || []).reduce((s, y) => s + (parseInt(y.cartons) || 1), 0),
+          ...x, validation: x.validation || 'VALIDE', colis: (x.items || []).reduce((s, y) => s + (Number.isFinite(parseInt(y.cartons)) ? parseInt(y.cartons) : 1), 0),
         })).sort((a, b) => (b.date_envoi || '').localeCompare(a.date_envoi || ''));
       } catch { expeditions = []; }
     }
 
     async function loadLots() {
-      if (!isOperator) { $('#kLots').textContent = '—'; $('#kShippedLots').textContent = '—'; return; }
+      const lotsBox = $('#kLots'), shippedBox = $('#kShippedLots');
+      if (!isOperator) { lotsBox.textContent = '—'; shippedBox.textContent = '—'; return; }
       try {
-        const [p, l] = await Promise.all([
-          sb.from('production').select('id,quantite_produite'),
-          sb.from('lignes_expedition').select('production_id,quantite').not('production_id', 'is', null),
+        const [production, lines] = await Promise.all([
+          readLogiTrakRows(sb, 'production', 'id,quantite_produite'),
+          readLogiTrakRows(sb, 'lignes_expedition', 'id,production_id,quantite,expeditions(validation,date_envoi)'),
         ]);
-        if (p.error || l.error) throw (p.error || l.error);
-        const shipped = {};
-        (l.data || []).forEach(x => { shipped[x.production_id] = (shipped[x.production_id] || 0) + intOf(x.quantite); });
-        const lots = p.data || [];
-        const shippedCount = lots.filter(x => (shipped[x.id] || 0) >= x.quantite_produite).length;
-        const openCount = lots.filter(x => x.quantite_produite > (shipped[x.id] || 0)).length;
-        $('#kShippedLots').textContent = fmtNum(shippedCount);
-        $('#kLots').textContent = fmtNum(openCount);
-      } catch (e) { $('#kLots').textContent = '—'; $('#kShippedLots').textContent = '—'; }
+        const reserved = new Map(), shipped = new Map();
+        const today = logitrakToday();
+        for (const line of lines) {
+          if (!line.production_id) continue;
+          const quantity = intOf(line.quantite);
+          reserved.set(line.production_id, (reserved.get(line.production_id) || 0) + quantity);
+          if (line.expeditions?.validation === 'VALIDE' && line.expeditions.date_envoi &&
+              line.expeditions.date_envoi <= today) {
+            shipped.set(line.production_id, (shipped.get(line.production_id) || 0) + quantity);
+          }
+        }
+        lotsBox.textContent = fmtNum(production.filter(lot => lot.quantite_produite > (reserved.get(lot.id) || 0)).length);
+        shippedBox.textContent = fmtNum(production.filter(lot => (shipped.get(lot.id) || 0) >= lot.quantite_produite).length);
+      } catch (error) {
+        console.warn(error); lotsBox.textContent = '—'; shippedBox.textContent = '—';
+      }
     }
 
     function renderStats() {
-      const ym = new Date().toISOString().slice(0, 7);
-      const month = expeditions.filter(e => (e.date_envoi || '').startsWith(ym));
+      const today = logitrakToday();
+      const monthStart = today.slice(0, 7) + '-01';
+      const month = expeditions.filter(e => e.validation === 'VALIDE' && e.date_envoi >= monthStart && e.date_envoi <= today);   // seuls les envois validés sont comptabilisés
+      const pending = expeditions.filter(e => e.validation !== 'VALIDE').length;
+      if (window.LTNavRefreshPending) window.LTNavRefreshPending(isOperator ? pending : 0);
+      const pb = $('#pendingBar');
+      if (isOperator && pending) {
+        pb.innerHTML = `<div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(245,158,11,.18);color:#f59e0b"><i class="fa-solid fa-bell"></i></div>
+          <div><div class="text-sm font-extrabold">${pending} envoi(s) ${isAdmin ? 'à valider' : 'en attente de validation par un administrateur'}</div></div></div>
+          <a href="envois.html" class="btn btn-primary"><i class="fa-solid fa-truck-ramp-box"></i>${isAdmin ? 'Valider les envois' : 'Voir les envois'}</a>`;
+        pb.classList.remove('hidden');
+      } else pb.classList.add('hidden');
       $('#kEnv').textContent = fmtNum(month.length);
       $('#kCol').textContent = fmtNum(month.reduce((s, e) => s + e.colis, 0));
 
@@ -247,7 +266,7 @@
         <div class="recent-row">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(99,102,241,.14);color:#818cf8"><i class="fa-solid fa-truck-fast"></i></div>
           <div class="flex-1 min-w-0">
-            <div class="text-xs font-bold truncate"><span class="font-mono-code">${esc(e.numero_bl || 'SANS NUM')}</span> <span style="color:var(--text-dim)">•</span> ${esc(e.transporteur || '')}</div>
+            <div class="text-xs font-bold truncate"><span class="font-mono-code">${esc(e.numero_bl || 'SANS NUM')}</span> <span style="color:var(--text-dim)">•</span> ${esc(e.transporteur || '')}${e.validation !== 'VALIDE' ? ' <span class="badge" style="background:rgba(245,158,11,.14);color:#f59e0b;border-color:rgba(245,158,11,.4)">À valider</span>' : ''}</div>
             <div class="text-[11px]" style="color:var(--text-muted)">${esc(fmtDate(e.date_envoi))} • ${fmtNum(e.colis)} colis</div>
           </div>
           <a href="colisage.html?id=${encodeURIComponent(e.id)}" class="btn btn-secondary" title="Fiche de colisage"><i class="fa-solid fa-boxes-packing text-amber-500"></i><span class="hidden sm:inline">Colisage</span></a>
@@ -264,7 +283,7 @@
       if (sb) await loadRole();
       if (sb) await loadExpeditions(); else { try { await loadExpeditions(); } catch {} }
       renderStats();
-      if (sb) loadLots(); else $('#kLots').textContent = '—';
+      if (sb) loadLots(); else { $('#kLots').textContent = '—'; $('#kShippedLots').textContent = '—'; }
     })();
   </script>
   <script src="js/nav.js"></script>

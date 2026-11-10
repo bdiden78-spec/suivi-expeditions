@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Fabrication des étiquettes Algérie Poste — LogiTrak Eurequat Algérie">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <title>Algérie Poste • LogiTrak Eurequat Algérie</title>
+
+  <script>
+    try {
+      if (localStorage.getItem('logitrak_theme') !== 'dark')
+        document.documentElement.classList.add('light');
+    } catch(e) {}
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="css/style.css">
+
+  <style>
+    .kpi{padding:14px 16px}
+    .kpi small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim)}
+    .kpi b{display:block;font-size:20px;font-weight:900;margin-top:2px}
+    .colis-range{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;background:rgba(245,158,11,.14);color:#d97706;border:1px solid rgba(245,158,11,.35);white-space:nowrap}
+    .group-row td{background:var(--bg-hover);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+    .seg{padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text-muted);transition:all .15s}
+    .seg.active{background:#f59e0b;color:#fff}
+    .lbl{display:block;font-size:11px;font-weight:700;margin-bottom:5px}
+
+    #apPrintSheet{display:none}
+    @media print{
+      @page{size:A4;margin:12mm}
+      body > *:not(#apPrintSheet){display:none !important}
+      #apPrintSheet{display:block !important;color:#000;background:#fff;font:11px Arial,sans-serif}
+      #apPrintSheet table{width:100%;border-collapse:collapse;margin-top:14px}
+      #apPrintSheet th,#apPrintSheet td{border:1px solid #aab4be;padding:7px;text-align:left}
+      #apPrintSheet tr{break-inside:avoid}
+      #apPrintSheet h1{font-size:20px;margin-bottom:10px}
+    }
+      .chip-todo{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(245,158,11,.14);color:#d97706;border:1px solid rgba(245,158,11,.4);cursor:pointer;text-decoration:none}
+    .chip-todo:hover{background:rgba(245,158,11,.25)}
+  </style>
+</head>
+<body data-module="algerie-poste" class="min-h-screen flex flex-col antialiased">
+
+  <header class="app-header relative z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.25rem] py-2 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="app-brand"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536" decoding="async"></div>
+        <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
+      </div>
+      <div id="headerActions" class="flex items-center gap-2">
+        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full space-y-6">
+
+    <div class="page-heading flex items-center gap-3">
+      <div class="heading-icon"><i class="fa-solid fa-envelope-open-text"></i></div>
+      <div>
+        <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Fabrication d'étiquettes Algérie Poste</h2>
+        <p class="text-xs" style="color:var(--text-muted)">Commandes UPW, suivi des impressions et colisage par paquets de 1 000 identifiants.</p>
+      </div>
+    </div>
+
+    <section id="gate" class="panel p-6 max-w-md space-y-3 hidden"></section>
+
+    <div id="apApp" class="hidden space-y-5">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="panel kpi p-4"><small>Commandes</small><b id="apCount">0</b></div>
+        <div class="panel kpi p-4"><small>ID demandés</small><b id="apRequested">0</b></div>
+        <div class="panel kpi p-4"><small>ID imprimés</small><b id="apPrinted">0</b></div>
+        <div class="panel kpi p-4"><small>ID restant à imprimer</small><b id="apRemaining">0</b></div>
+      </div>
+
+      <section class="panel p-4 sm:p-5 space-y-4">
+        <h3 id="apOrderTitle" class="font-bold">Nouvelle commande UPW</h3>
+        <form id="apOrderForm" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div><label class="lbl" for="apClient">Agence / UPW *</label><input id="apClient" class="inp input-uppercase" list="apClients" required maxlength="160" placeholder="UPW…"></div>
+            <div><label class="lbl" for="apCategory">Catégorie *</label><select id="apCategory" class="inp" required><option value="NATIONAL">National</option><option value="INTERNATIONAL">International</option></select></div>
+            <div><label class="lbl" for="apSubtype">Sous-catégorie *</label><input id="apSubtype" class="inp" list="apSubtypes" required maxlength="180" placeholder="Ex. Régime intérieur RR 2 exemplaires"></div>
+            <div><label class="lbl" for="apQty">Quantité demandée (ID) *</label><input id="apQty" type="number" min="1" max="2147483647" step="1" class="inp" required></div>
+            <div><label class="lbl" for="apOrderDate">Date de commande *</label><input id="apOrderDate" type="date" class="inp" required></div>
+            <div><label class="lbl" for="apOrderNotes">Observations</label><input id="apOrderNotes" class="inp" maxlength="2000"></div>
+          </div>
+          <div class="flex flex-wrap justify-end gap-2">
+            <button id="apOrderCancel" type="button" class="btn btn-secondary hidden">Annuler</button>
+            <button id="apOrderSave" type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer la commande</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel p-4 sm:p-5 space-y-4">
+        <h3 id="apRunTitle" class="font-bold">Saisir une impression</h3>
+        <form id="apRunForm" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div class="sm:col-span-2"><label class="lbl" for="apRunOrder">Commande *</label><select id="apRunOrder" class="inp" required></select></div>
+            <div><label class="lbl" for="apRunDate">Date de production *</label><input id="apRunDate" type="date" class="inp" required></div>
+            <div><label class="lbl" for="apRunQty">Quantité imprimée (ID) *</label><input id="apRunQty" type="number" min="1" max="2147483647" step="1" class="inp" required></div>
+            <div><label class="lbl" for="apFirst">Premier numéro *</label><input id="apFirst" class="inp font-mono-code input-uppercase" required maxlength="80" autocomplete="off" placeholder="Ex. 00 378 601"></div>
+            <div><label class="lbl" for="apLast">Dernier numéro inclus *</label><input id="apLast" class="inp font-mono-code input-uppercase" required maxlength="80" autocomplete="off" placeholder="Ex. 00 403 600"></div>
+            <div class="sm:col-span-2 lg:col-span-3"><label class="lbl" for="apRunNotes">Observations d’impression</label><input id="apRunNotes" class="inp" maxlength="2000"></div>
+          </div>
+          <p id="apPackingPreview" class="panel-soft p-3 text-sm" aria-live="polite">Paquets de 1 000 ID. Un dernier paquet peut être incomplet.</p>
+          <p id="apRangeHint" class="text-xs" style="color:var(--text-muted)" aria-live="polite"></p>
+          <p id="apRunOrderHint" class="text-xs" style="color:var(--text-muted)" aria-live="polite"></p>
+          <div class="flex flex-wrap justify-end gap-2">
+            <button id="apRunCancel" type="button" class="btn btn-secondary hidden">Annuler</button>
+            <button id="apRunSave" type="submit" class="btn btn-primary"><i class="fa-solid fa-print"></i>Enregistrer l’impression</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="space-y-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <h3 class="font-bold">Commandes et colisage</h3>
+          <input id="apSearch" class="inp flex-1 min-w-[200px]" placeholder="Rechercher une UPW ou une sous-catégorie…" aria-label="Rechercher une commande">
+          <select id="apFilter" class="inp w-auto" aria-label="Filtrer par catégorie"><option value="">Toutes catégories</option><option value="NATIONAL">National</option><option value="INTERNATIONAL">International</option></select>
+          <button id="apReload" type="button" class="btn btn-secondary"><i class="fa-solid fa-rotate"></i>Actualiser</button>
+        </div>
+        <div id="apOrders" class="space-y-3"></div>
+      </section>
+    </div>
+    <datalist id="apClients"></datalist><datalist id="apSubtypes"></datalist>
+  </main>
+
+  <p id="apMessage" class="hidden max-w-7xl mx-auto px-6 py-3 text-sm" role="status"></p>
+  <section id="apPrintSheet"></section>
+  <div id="toasts" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none no-print"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/print-document.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/data-pages.js"></script>
+  <script src="js/ap-calc.js"></script>
+  <script src="js/algerie-poste.js"></script>
+  <script src="js/nav.js"></script>
+</body>
+</html>

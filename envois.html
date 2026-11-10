@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="LogiTrak — Suivi d'expéditions Eurequat Algérie">
-  <link rel="icon" type="image/png" href="assets/logo-eurequat.png">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <title>LogiTrak • Eurequat Algérie</title>
 
   <script>
     try {
-      if (localStorage.getItem('logitrak_theme') === 'light')
+      if (localStorage.getItem('logitrak_theme') !== 'dark')
         document.documentElement.classList.add('light');
     } catch(e) {}
   </script>
@@ -19,114 +19,73 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="css/style.css">
-  <style>
-    .list-hero{padding:4px 2px 0}
-    .list-hero-icon{width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;background:linear-gradient(135deg,#6366f1,#3b82f6);box-shadow:0 8px 24px -6px rgba(99,102,241,.55)}
-    .list-focus{border:1px solid rgba(99,102,241,.45)!important;box-shadow:0 0 0 3px rgba(99,102,241,.12),0 10px 30px -12px rgba(99,102,241,.45)}
-
-    /* ---- Menu Statistiques : panneau qui pousse la page vers la gauche ---- */
-    body{transition:padding-right .35s cubic-bezier(.22,.8,.3,1)}
-    #statsDrawer{position:fixed;top:0;right:0;bottom:0;z-index:71;width:min(480px,100vw);background:var(--bg);border-left:1px solid var(--border);box-shadow:-18px 0 40px -24px rgba(0,0,0,.55);transform:translateX(100%);visibility:hidden;transition:transform .35s cubic-bezier(.22,.8,.3,1),visibility .35s;display:flex;flex-direction:column}
-    #statsDrawer.open{transform:translateX(0);visibility:visible}
-    #statsDrawer .stats-body{overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;flex:1}
-    #statsDrawer .stat-card{position:relative;border-radius:18px;padding:18px 18px 14px;background:var(--bg-input);border:1px solid var(--border);overflow:hidden}
-    #statsDrawer .stat-card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--c1),var(--c2))}
-    #statsDrawer .stat-card h4{font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px}
-    #statsDrawer .stat-card p{font-size:11px;color:var(--text-muted);margin:2px 0 12px}
-    #statsDrawer .stat-dot{width:26px;height:26px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2))}
-    #statsDrawer .chart-box{position:relative;height:240px}
-    #statsDrawer .chart-box.tall{height:340px}
-    #statsDrawer .chart-box.short{height:170px}
-    #statsOverlay{position:fixed;inset:0;z-index:70;background:rgba(2,6,23,.55);opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s}
-    @media (min-width:1024px){
-      body.stats-open{padding-right:480px}
-      #statsOverlay{display:none}
-    }
-    @media (max-width:1023px){
-      #statsOverlay.open{opacity:1;visibility:visible}
-    }
-    #statsBtn.active{background:rgba(99,102,241,.18);border-color:rgba(99,102,241,.6)}
-    @media print{#statsOverlay,#statsDrawer{display:none!important} body.stats-open{padding-right:0!important}}
-  </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased">
+<body data-module="envois" class="min-h-screen flex flex-col antialiased">
 
-  <div class="bg-orbs fixed inset-0 overflow-hidden z-0">
-    <div class="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl animate-pulse-subtle"></div>
-    <div class="absolute top-1/3 -right-40 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl animate-pulse-subtle" style="animation-delay:2s"></div>
-    <div class="absolute -bottom-40 left-1/3 w-[32rem] h-[32rem] bg-purple-600/15 rounded-full blur-3xl animate-pulse-subtle" style="animation-delay:4s"></div>
-  </div>
 
-  <header class="relative z-30 backdrop-blur-xl border-b no-print" style="background:color-mix(in srgb, var(--bg) 88%, transparent); border-color:var(--border);">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+  <header class="app-header relative z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.25rem] py-2 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="h-12 px-3 rounded-2xl bg-white flex items-center flex-shrink-0 shadow-lg ring-1 ring-black/10">
-          <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" class="block" style="height:32px;width:auto;max-width:180px;object-fit:contain">
-        </div>
-        <div class="hidden sm:flex items-center h-12 px-3 rounded-2xl bg-white flex-shrink-0 shadow-lg ring-1 ring-black/10" title="LogiTrak — Envoi &amp; Traçabilité">
-          <img src="assets/logitrak-logo.png" alt="LogiTrak — Envoi &amp; Traçabilité" class="block" style="height:36px;width:auto;max-width:190px;object-fit:contain">
-        </div>
-        <p class="text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
+        <div class="app-brand"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536" decoding="async"></div>
+        <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
-      <div class="flex items-center gap-2">
-        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
+      <div id="headerActions" class="flex items-center gap-2">
+        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
       </div>
     </div>
   </header>
 
   <div id="visitorBar" class="no-print relative z-20 text-xs text-center py-2 px-4" style="background:rgba(99,102,241,.08); border-bottom:1px solid rgba(99,102,241,.2); color:#a5b4fc;">
-    Consultation en lecture seule. <button onclick="authAction()" class="underline font-bold hover:text-white">Connexion</button> pour ajouter ou modifier des envois.
+    Les envois sont réservés aux opérateurs connectés. <button onclick="authAction()" class="underline font-bold hover:text-white">Connexion</button> pour les consulter et les gérer.
   </div>
 
   <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
     
+    <!-- Titre mis en évidence de la liste d'envoi -->
+    <div class="page-heading flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-3">
+        <div class="heading-icon"><i class="fa-solid fa-truck-ramp-box"></i></div>
+        <div>
+          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Liste des envois</h2>
+          <p class="text-xs" style="color:var(--text-muted)">Recherchez, filtrez et consultez toutes les expéditions</p>
+        </div>
+      </div>
+    </div>
+
     <!-- KPI Cards -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="panel p-5 relative overflow-hidden group">
         <div class="flex items-center justify-between">
-          <div><p class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--text-dim)">Journées d'expédition</p><p class="text-3xl font-black mt-1" id="kpiDays">0</p></div>
+          <div><p class="metric-label" style="color:var(--text-dim)">Journées d'expédition</p><p class="metric-value" id="kpiDays">0</p></div>
           <div class="w-13 h-13 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-xl"><i class="fa-regular fa-calendar-check"></i></div>
         </div>
         <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-clock-rotate-left text-indigo-400 mr-1"></i><span id="kpiYear">Toutes années</span></p>
       </div>
       <div class="panel p-5 relative overflow-hidden">
         <div class="flex items-center justify-between">
-          <div><p class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--text-dim)">Références / Lignes</p><p class="text-3xl font-black mt-1" id="kpiItems">0</p></div>
+          <div><p class="metric-label" style="color:var(--text-dim)">Références / Lignes</p><p class="metric-value" id="kpiItems">0</p></div>
           <div class="w-13 h-13 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-xl"><i class="fa-solid fa-barcode"></i></div>
         </div>
         <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-tags text-cyan-400 mr-1"></i>Rubans, étiquettes & PVC</p>
       </div>
       <div class="panel p-5 relative overflow-hidden">
         <div class="flex items-center justify-between">
-          <div><p class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--text-dim)">Volume total colis</p><p class="text-3xl font-black mt-1" id="kpiCartons">0</p></div>
+          <div><p class="metric-label" style="color:var(--text-dim)">Volume total colis</p><p class="metric-value" id="kpiCartons">0</p></div>
           <div class="w-13 h-13 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center text-xl"><i class="fa-solid fa-boxes-stacked"></i></div>
         </div>
         <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-box-open text-amber-400 mr-1"></i>Colisage usine</p>
       </div>
       <div class="panel p-5 relative overflow-hidden">
         <div class="flex items-center justify-between">
-          <div class="min-w-0"><p class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--text-dim)">Transporteur principal</p><p class="text-2xl font-black mt-1 truncate" id="kpiCarrier">—</p></div>
+          <div class="min-w-0"><p class="metric-label" style="color:var(--text-dim)">Transporteur principal</p><p class="metric-value truncate" id="kpiCarrier">—</p></div>
           <div class="w-13 h-13 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center text-xl"><i class="fa-solid fa-truck-fast"></i></div>
         </div>
         <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-chart-pie text-purple-400 mr-1"></i><span id="kpiCarrierShare">—</span></p>
       </div>
     </section>
-
-    <!-- Titre mis en évidence de la liste d'envoi -->
-    <div class="list-hero flex items-center justify-between gap-3 flex-wrap">
-      <div class="flex items-center gap-3">
-        <div class="list-hero-icon"><i class="fa-solid fa-truck-ramp-box"></i></div>
-        <div>
-          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Liste des envois</h2>
-          <p class="text-xs" style="color:var(--text-muted)">Recherchez, filtrez et consultez toutes les expéditions</p>
-        </div>
-      </div>
-
-    </div>
 
     <section class="panel list-focus p-3 sm:p-4 flex flex-col lg:flex-row gap-3">
       <div class="flex flex-wrap items-center gap-2 flex-1">
@@ -143,14 +102,18 @@
       </div>
       <div class="flex items-center gap-2">
         <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input); border:1px solid var(--border)">
-          <button id="viewBtnDate" onclick="switchView('date')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-indigo-600 text-white"><i class="fa-solid fa-calendar-days mr-1"></i>Par date</button>
+          <button id="viewBtnDate" onclick="switchView('date')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition selected-view"><i class="fa-solid fa-calendar-days mr-1"></i>Par date</button>
           <button id="viewBtnTable" onclick="switchView('table')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition" style="color:var(--text-muted)"><i class="fa-solid fa-table-list mr-1"></i>Tableau</button>
         </div>
+        <button type="button" onclick="syncData(this)" class="btn-icon" title="Actualiser les envois" aria-label="Actualiser les envois"><i class="fa-solid fa-rotate"></i></button>
         <button onclick="exportCSV()" class="btn btn-secondary" title="Export CSV"><i class="fa-solid fa-file-excel text-emerald-400"></i><span class="hidden sm:inline">Export</span></button>
         <button onclick="toggleAllAccordions()" class="btn-icon" title="Déplier / replier tout"><i class="fa-solid fa-up-right-and-down-left-from-center text-xs"></i></button>
       </div>
     </section>
 
+    <div id="validationBar" class="hidden panel p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 no-print" style="border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.06)"></div>
+
+    <p id="envoisStatus" class="hidden text-sm" style="color:var(--text-muted)" role="status"></p>
     <section id="dateView" class="space-y-4"></section>
 
     <section id="tableView" class="panel overflow-hidden hidden">
@@ -191,7 +154,7 @@
         <input type="hidden" id="expId">
         <div class="panel-soft p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div><label for="formDate" class="block text-xs font-bold mb-1.5">Date *</label><input type="date" id="formDate" class="inp" required></div>
-          <div><label for="formBL" class="block text-xs font-bold mb-1.5">N° d'envoi</label><input type="text" id="formBL" class="inp font-mono-code input-uppercase" placeholder="ENVAAAAnnn"></div>
+          <div><label for="formBL" class="block text-xs font-bold mb-1.5">N° d'envoi <i id="blLock" class="fa-solid fa-lock text-[10px] text-amber-500 hidden" title="Verrouillé : seul l'administrateur peut le modifier"></i></label><input type="text" id="formBL" class="inp font-mono-code input-uppercase" placeholder="ENVAAAAnnn"></div>
           <div>
             <label for="formCarrier" class="block text-xs font-bold mb-1.5">Transporteur *</label>
             <input type="text" id="formCarrier" list="carriersList" class="inp input-uppercase" placeholder="Ex: YAZID">
@@ -251,7 +214,7 @@
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
             <input id="ppSearch" oninput="filterProdPicker()" class="inp pl-9" placeholder="Rechercher un OF, une référence…" aria-label="Rechercher un lot">
           </div>
-          <input id="ppDest" list="clientsList" class="inp input-uppercase" placeholder="Destinataire (STOCK)" title="Destinataire appliqué aux lignes importées (modifiable ensuite)">
+          <input id="ppDest" list="clientsList" class="inp input-uppercase" placeholder="Client du lot par défaut" title="Facultatif : remplace le client de toutes les lignes importées">
         </div>
         <div class="flex justify-end"><button type="button" onclick="toggleAllProdPicker()" class="btn btn-secondary"><i class="fa-solid fa-check-double text-xs"></i>Tout cocher / décocher</button></div>
         <div id="ppList" class="space-y-2"></div>
@@ -335,7 +298,7 @@
   <div id="printArea">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:14px;">
       <div>
-        <img src="assets/logo-eurequat.png" alt="Eurequat" style="height:48px;width:auto;display:block;">
+        <div class="print-brand"><img src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536"></div>
         <p style="font-size:10px;color:#475569;margin:4px 0 0">Identification Automatique, Rubans & Étiquettes</p>
         <p style="font-size:10px;color:#475569;margin:0">Zone Industrielle Tlemcen • Algérie</p>
       </div>
@@ -367,9 +330,7 @@
     <option value="YAZID"><option value="YALIDINE"><option value="DJALAL">
     <option value="CLIENT"><option value="AUTRE">
   </datalist>
-  <datalist id="unitsList">
-    <option value="UN"><option value="ID"><option value="BOBINE">
-  </datalist>
+  <datalist id="unitsList"></datalist>
 
   <!-- Style fin et moderne pour les 3 graphiques des statistiques -->
   <script>
@@ -457,6 +418,11 @@
   </script>
 
   <script src="js/config.js"></script>
+  <script src="js/print-document.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/listes.js"></script>
+  <script src="js/colisage-calc.js"></script>
+  <script src="js/data-pages.js"></script>
   <script src="js/app.js"></script>
   <script src="js/scanner.js"></script>
   <script src="js/nav.js"></script>

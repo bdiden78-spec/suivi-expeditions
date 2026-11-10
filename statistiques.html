@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="LogiTrak — Statistiques Annuelles Eurequat Algérie">
-  <link rel="icon" type="image/png" href="assets/logo-eurequat.png">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <title>Statistiques • LogiTrak Eurequat Algérie</title>
 
   <script>
     try {
-      if (localStorage.getItem('logitrak_theme') === 'light')
+      if (localStorage.getItem('logitrak_theme') !== 'dark')
         document.documentElement.classList.add('light');
     } catch(e) {}
   </script>
@@ -19,35 +19,30 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .stat-card{position:relative;border-radius:20px;padding:22px;background:var(--bg-card);border:1px solid var(--border);overflow:hidden}
-    .stat-card::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,var(--c1),var(--c2))}
+    .stat-card{position:relative;border-radius:var(--radius);padding:20px;background:var(--bg-card);border:1px solid var(--border);overflow:hidden}
+    .stat-card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--c1)}
     .stat-card h3{font-size:15px;font-weight:800;display:flex;align-items:center;gap:10px}
     .stat-card p{font-size:12px;color:var(--text-muted);margin:4px 0 16px}
-    .stat-dot{width:32px;height:32px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2))}
+    .stat-dot{width:32px;height:32px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;color:var(--accent);background:var(--accent-wash)}
     .chart-box{position:relative;height:300px;width:100%}
-    .production-chart-box{position:relative;height:380px;width:100%}
+    .production-chart-box{position:relative;height:275px;width:100%}
   </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased">
+<body data-module="statistiques" class="min-h-screen flex flex-col antialiased">
 
-  <header class="relative z-30 backdrop-blur-xl border-b no-print" style="background:color-mix(in srgb, var(--bg) 88%, transparent); border-color:var(--border);">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+  <header class="app-header relative z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.25rem] py-2 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="h-12 px-3 rounded-2xl bg-white flex items-center flex-shrink-0 shadow-lg ring-1 ring-black/10">
-          <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" class="block" style="height:32px;width:auto;max-width:180px;object-fit:contain">
-        </div>
-        <div class="hidden sm:flex items-center h-12 px-3 rounded-2xl bg-white flex-shrink-0 shadow-lg ring-1 ring-black/10" title="LogiTrak — Envoi &amp; Traçabilité">
-          <img src="assets/logitrak-logo.png" alt="LogiTrak — Envoi &amp; Traçabilité" class="block" style="height:36px;width:auto;max-width:190px;object-fit:contain">
-        </div>
-        <p class="text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Statistiques Annuelles</p>
+        <div class="app-brand"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536" decoding="async"></div>
+        <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
-      <div class="flex items-center gap-2">
-        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
+      <div id="headerActions" class="flex items-center gap-2">
+        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
       </div>
     </div>
   </header>
@@ -57,7 +52,7 @@
     <!-- En-tête -->
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl text-white" style="background:linear-gradient(135deg,#8b5cf6,#ec4899);box-shadow:0 8px 24px -6px rgba(139,92,246,.55)"><i class="fa-solid fa-chart-pie"></i></div>
+        <div class="heading-icon"><i class="fa-solid fa-chart-pie"></i></div>
         <div>
           <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Statistiques Annuelles</h2>
           <p id="statsPeriodLabel" class="text-xs font-bold text-indigo-400">Période du 1er janvier au 31 décembre</p>
@@ -69,43 +64,34 @@
       </div>
     </div>
 
-    <!-- Top 3 : trois cartes par rangée sur grand écran -->
+    <p class="text-xs" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Chaque Top 5 est classé selon la <b>catégorie</b> du produit : il montre les 5 destinataires qui ont reçu le plus (en quantité). Seuls les envois <b>validés</b> sont comptés ; les envois vers le stock ne le sont pas. <b>Algérie Poste</b> a aussi son propre classement, tous produits confondus.</p>
+
+    <!-- Un Top 5 par catégorie (liste dans js/colisage-calc.js) + Algérie Poste -->
+    <p id="statsStatus" class="empty:hidden text-sm" style="color:var(--text-muted)" role="status"></p>
+    <div id="statsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+    <p id="futureStatsNote" class="hidden text-xs" style="color:var(--text-muted)" role="status"></p>
+    <div id="statsNote" class="hidden px-4 py-3 rounded-xl text-xs" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);color:#f59e0b"></div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-      <div class="stat-card" style="--c1:#8b5cf6;--c2:#c084fc">
-        <h3><span class="stat-dot"><i class="fa-solid fa-scroll"></i></span>Top 3 Client — Étiquettes</h3>
-        <p>Clients les plus livrés en étiquettes standard (hors RFID)</p>
-        <div class="chart-box"><canvas id="chartEtq"></canvas></div>
-      </div>
-      <div class="stat-card" style="--c1:#10b981;--c2:#34d399">
-        <h3><span class="stat-dot"><i class="fa-solid fa-ribbon"></i></span>Top 3 Client — Rubans</h3>
-        <p>Clients les plus livrés en rubans TTR</p>
-        <div class="chart-box"><canvas id="chartRub"></canvas></div>
-      </div>
-      <div class="stat-card" style="--c1:#06b6d4;--c2:#38bdf8">
-        <h3><span class="stat-dot"><i class="fa-solid fa-tower-broadcast"></i></span>Top 3 Client — Étiquettes RFID</h3>
-        <p>Clients les plus livrés en étiquettes RFID</p>
-        <div class="chart-box"><canvas id="chartRfid"></canvas></div>
-      </div>
-      <div class="stat-card" style="--c1:#f59e0b;--c2:#f472b6">
-        <h3><span class="stat-dot"><i class="fa-solid fa-envelope-open-text"></i></span>Top 3 Client — Algérie Poste</h3>
-        <p>Destinataires principaux pour Algérie Poste / UPW</p>
-        <div class="chart-box"><canvas id="chartAp"></canvas></div>
-      </div>
-      <div class="stat-card xl:col-span-2" style="--c1:#0ea5e9;--c2:#10b981">
-        <h3><span class="stat-dot"><i class="fa-solid fa-industry"></i></span>Production générale (Tri-bâton : Étiquettes, Rubans, Cartes PVC)</h3>
-        <p>Évolution mensuelle de la production par famille de produit pour l’année sélectionnée</p>
-        <div class="production-chart-box"><canvas id="chartProduction"></canvas></div>
-      </div>
+    <div class="stat-card md:col-span-2 xl:col-span-3" style="--c1:#0ea5e9;--c2:#10b981">
+      <h3><span class="stat-dot"><i class="fa-solid fa-industry"></i></span>Production générale (par mois)</h3>
+      <p id="prodChartNote">Évolution mensuelle de la production par catégorie pour l’année sélectionnée</p>
+      <div class="production-chart-box"><canvas id="chartProduction"></canvas></div>
+    </div>
     </div>
   </main>
 
   <div id="toasts" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none no-print"></div>
 
   <script src="js/config.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/data-pages.js"></script>
+  <script src="js/colisage-calc.js"></script>
   <script>
-    const THEME_KEY = 'logitrak_theme', LOCAL_KEY = 'eurequat_expeditions_v1';
+    const THEME_KEY = 'logitrak_theme';
     let state = { expeditions: [], production: [] };
-    let chartEtq = null, chartRub = null, chartRfid = null, chartAp = null, chartProduction = null;
+    const charts = {};            // un graphique par catégorie (+ Algérie Poste)
+    let chartProduction = null;
 
     const $ = s => document.querySelector(s);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -121,38 +107,41 @@
     }
 
     async function loadData() {
+      const status = $('#statsStatus');
+      status.textContent = 'Chargement des données…';
+      const failures = [];
       try {
         const url = lsGet('supabase_url') || SUPABASE_URL, key = lsGet('supabase_key') || SUPABASE_ANON;
-        const sb = window.supabase.createClient(url, key);
-        const [exps, lines, production] = await Promise.all([
-          sb.from('expeditions').select('*').order('date_envoi', { ascending: false }),
-          sb.from('lignes_expedition').select('*'),
-          sb.from('production').select('*'),
+        const client = window.supabase.createClient(url, key);
+        const [shipments, production] = await Promise.allSettled([
+          Promise.all([
+            readLogiTrakRows(client, 'expeditions', 'id,date_envoi,created_at,validation'),
+            readLogiTrakRows(client, 'lignes_expedition', 'id,expedition_id,production_id,created_at,categorie,destinataire,quantite'),
+          ]),
+          readLogiTrakRows(client, 'production', 'id,date_production,categorie,type_produit,quantite_produite'),
         ]);
-        if (exps.error || lines.error) throw (exps.error || lines.error);
-        state.expeditions = (exps.data || []).map(e => ({
-          ...e,
-          items: (lines.data || []).filter(l => l.expedition_id === e.id)
-        }));
-        try { state.production = production && !production.error ? (production.data || []) : JSON.parse(lsGet('eurequat_production_v2') || '[]'); } catch { state.production = []; }
-      } catch (e) {
-        try { state.expeditions = JSON.parse(lsGet(LOCAL_KEY) || '[]'); } catch { state.expeditions = []; }
-        try { state.production = JSON.parse(lsGet('eurequat_production_v2') || '[]'); } catch { state.production = []; }
-      }
+        if (shipments.status === 'fulfilled') state.expeditions = attachLogiTrakItems(...shipments.value);
+        else { console.warn(shipments.reason); failures.push('Classements des envois indisponibles.'); }
+        if (production.status === 'fulfilled') state.production = production.value;
+        else { console.warn(production.reason); failures.push('Production mensuelle indisponible.'); }
+      } catch (error) { console.warn(error); failures.push('Connexion aux statistiques indisponible.'); }
+      status.textContent = failures.join(' ');
       fillYears();
       renderStatsPage();
     }
 
     function fillYears() {
-      const years = [...new Set([...state.expeditions.map(e => (e.date_envoi||'').slice(0,4)), ...state.production.map(p => (p.date_production||'').slice(0,4))].filter(Boolean))].sort().reverse();
-      const currentYear = String(new Date().getFullYear());
+      const today = logitrakToday();
+      const currentYear = today.slice(0, 4);
+      const dates = [...state.expeditions.map(e => e.date_envoi), ...state.production.map(p => p.date_production)];
+      const years = [...new Set(dates.filter(date => date && date <= today).map(date => date.slice(0, 4)))].sort().reverse();
       const statYears = [...new Set([currentYear, ...years])].sort().reverse();
       const sel = $('#statsYear');
       if (sel) {
         const prev = sel.value;
-        sel.innerHTML = statYears.map(y => `<option value="${esc(y)}">Année ${esc(y)} (01/01 au 31/12)</option>`).join('');
+        sel.innerHTML = statYears.map(y => `<option value="${esc(y)}">Année ${esc(y)}</option>`).join('');
         if (prev && statYears.includes(prev)) sel.value = prev;
-        else sel.value = currentYear;
+        else sel.value = years.includes(currentYear) ? currentYear : years[0] || currentYear;
       }
     }
 
@@ -163,7 +152,7 @@
         type: 'bar',
         data: {
           labels: entries.map(d => d[0]),
-          datasets: [{ label, data: entries.map(d => d[1]), backgroundColor: color, borderRadius: 8 }]
+          datasets: [{ label, data: entries.map(d => d[1]), backgroundColor: color, borderRadius: 8, maxBarThickness: 42 }]
         },
         options: {
           indexAxis: 'y',
@@ -177,110 +166,128 @@
       });
     }
 
+    // Une carte par catégorie + Algérie Poste
+    const AP_CARD = { id: 'AP', label: 'Algérie Poste', short: 'Algérie Poste', icon: 'fa-envelope-open-text', c1: '#f59e0b', c2: '#f472b6' };
+    function allCards() {
+      const theme = getComputedStyle(document.documentElement);
+      const colors = { ETQ:'blue', RFID:'violet', RUBAN:'green', PVC:'rose', TAG:'cyan', AP:'amber' };
+      return [...LTColis.CATEGORIES, AP_CARD].map(card => ({
+        ...card, c1: theme.getPropertyValue('--module-' + colors[card.id]).trim() || card.c1,
+      }));
+    }
+    function buildCards() {
+      $('#statsGrid').innerHTML = allCards().map(c => `
+        <div class="stat-card ${c.autoHide ? 'hidden' : ''}" id="card_${c.id}" style="--c1:${c.c1};--c2:${c.c2}">
+          <h3><span class="stat-dot"><i class="fa-solid ${c.icon}"></i></span>Top 5 — ${esc(c.label)}</h3>
+          <p id="sub_${c.id}">…</p>
+          <div class="chart-box" id="box_${c.id}"></div>
+        </div>`).join('');
+    }
+
     function renderStatsPage() {
-      const isLight = document.documentElement.classList.contains('light');
-      const textColor = isLight ? '#475569' : '#94a3b8';
-      const gridColor = isLight ? '#94a3b8' : '#334155';
+      const theme = getComputedStyle(document.documentElement);
+      const textColor = theme.getPropertyValue('--text-muted').trim();
+      const gridColor = theme.getPropertyValue('--border').trim();
+      const fmt = n => Number(n).toLocaleString('fr-FR');
 
-      const colors = {
-        purple: 'rgba(139, 92, 246, 0.8)',
-        emerald: 'rgba(16, 185, 129, 0.8)',
-        cyan: 'rgba(6, 182, 212, 0.8)',
-        amber: 'rgba(245, 158, 11, 0.8)',
-      };
+      const today = logitrakToday();
+      const year = $('#statsYear')?.value || today.slice(0, 4);
+      const startDate = `${year}-01-01`, lastOfYear = `${year}-12-31`;
+      const endDate = lastOfYear < today ? lastOfYear : today;
+      const [yyyy, mm, dd] = endDate.split('-');
+      $('#statsPeriodLabel').textContent = `Période du 01/01/${year} au ${dd}/${mm}/${yyyy} (heure d’Algérie)`;
 
-      const clientEtqData = {};
-      const clientRubData = {};
-      const clientRfidData = {};
-      const clientApData = {};
+      const afterToday = date => date > today && date.startsWith(year + '-');
+      const planned = state.expeditions.filter(e => (e.validation || 'VALIDE') === 'VALIDE' && afterToday(e.date_envoi || '')).length;
+      const futureLots = state.production.filter(p => afterToday(p.date_production || '')).length;
+      const futureNote = $('#futureStatsNote');
+      futureNote.textContent = planned || futureLots
+        ? `Dates futures exclues des statistiques : ${planned} envoi(s) validé(s), ${futureLots} lot(s) de production.` : '';
+      futureNote.classList.toggle('hidden', !futureNote.textContent);
 
-      const year = $('#statsYear') ? $('#statsYear').value : String(new Date().getFullYear());
-      const startDate = `${year}-01-01`;
-      const endDate   = `${year}-12-31`;
+      // données[carte][destinataire] = quantité
+      const data = {}, totals = {};
+      allCards().forEach(c => { data[c.id] = Object.create(null); totals[c.id] = 0; });
+      const productionById = new Map(state.production.map(row => [row.id, row]));
+      const unknown = Object.create(null); let unknownQty = 0, unknownLines = 0;
 
-      if ($('#statsPeriodLabel')) {
-        $('#statsPeriodLabel').textContent = `Période du 1er janvier au 31 décembre ${year}`;
-      }
-
-      const annualExpeditions = state.expeditions.filter(e => {
+      state.expeditions.filter(e => {
+        if ((e.validation || 'VALIDE') !== 'VALIDE') return false;       // seuls les envois validés sont comptabilisés
         const d = String(e.date_envoi || '').slice(0, 10);
         return d >= startDate && d <= endDate;
-      });
-
-      annualExpeditions.forEach(e => {
-        (e.items || []).forEach(it => {
-          const q = parseQty(it.quantite);
-          if (q <= 0) return;
-          const dest = String(it.destinataire || 'STOCK').trim().toUpperCase();
-          if (!dest || dest === 'STOCK') return;
-
-          const cat = String(it.categorie || '').trim().toUpperCase();
-          const ref = String(it.reference || '').trim().toUpperCase();
-          const des = String(it.designation || '').trim().toUpperCase();
-          const txt = `${dest} ${cat} ${des} ${ref}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
-
-          const isAP = txt.includes('ALGERIE POSTE') || txt.includes('POSTE') || /UPW/.test(txt) || /AP/.test(txt);
-          const isRFID = txt.includes('RFID') || cat.includes('RFID') || ref.includes('RFID');
-          const isRuban = txt.includes('RUBAN') || cat.includes('RUBAN') || ref.startsWith('R2') || ref.startsWith('R1');
-          const isEtq = !isRFID && !isRuban && (txt.includes('ETIQUETTE') || cat.includes('ETIQUETTE') || ref.startsWith('E0') || ref.startsWith('ETQ') || true);
-
-          if (isAP) {
-            clientApData[dest] = (clientApData[dest] || 0) + q;
-          } else if (isRFID) {
-            clientRfidData[dest] = (clientRfidData[dest] || 0) + q;
-          } else if (isRuban) {
-            clientRubData[dest] = (clientRubData[dest] || 0) + q;
-          } else if (isEtq) {
-            clientEtqData[dest] = (clientEtqData[dest] || 0) + q;
-          }
-        });
-      });
-
-      const top3 = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, 3);
-
-      [chartEtq, chartRub, chartRfid, chartAp, chartProduction].forEach(c => { if (c) c.destroy(); });
-
-      chartEtq  = makeHBar('chartEtq',  top3(clientEtqData),  'Quantité', colors.purple,  textColor, gridColor);
-      chartRub  = makeHBar('chartRub',  top3(clientRubData),  'Quantité', colors.emerald, textColor, gridColor);
-      chartRfid = makeHBar('chartRfid', top3(clientRfidData), 'Quantité', colors.cyan,    textColor, gridColor);
-      chartAp   = makeHBar('chartAp',   top3(clientApData),   'Quantité', colors.amber,   textColor, gridColor);
-
-      // Tri-bâton production générale par mois (Étiquettes, Rubans, Cartes PVC)
-      const monthLabels = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-      const monthlyEtq = Array(12).fill(0);
-      const monthlyRub = Array(12).fill(0);
-      const monthlyPvc = Array(12).fill(0);
-
-      state.production.forEach(row => {
-        const d = String(row.date_production || '').slice(0, 10);
-        if (d.slice(0, 4) === year) {
-          const m = Number(d.slice(5, 7));
-          if (m >= 1 && m <= 12) {
-            const q = parseQty(row.quantite_produite);
-            const t = String(row.type_produit || '').toUpperCase();
-            const u = String(row.unite || '').toUpperCase();
-            if (t === 'RUBAN' || u === 'UN') {
-              monthlyRub[m - 1] += q;
-            } else if (t === 'CARTE_PVC' || u === 'LOT') {
-              monthlyPvc[m - 1] += q;
-            } else {
-              monthlyEtq[m - 1] += q; // ETIQUETTE / BOBINE par défaut
-            }
-          }
+      }).forEach(e => (e.items || []).forEach(it => {
+        const q = parseQty(it.quantite);
+        if (q <= 0) return;
+        const dest = String(it.destinataire || 'STOCK').trim().toUpperCase();
+        if (!dest || dest === 'STOCK') return;                      // le stock n'est pas un client
+        const lot = productionById.get(it.production_id);
+        const catId = LTColis.categoryId(it.categorie) || LTColis.categoryId(lot?.categorie) ||
+          (!String(lot?.categorie || '').trim() ? LTColis.categoryId(lot?.type_produit) : null);
+        const isPoste = LTColis.isAlgeriePoste(dest) || catId === 'AP';
+        if (isPoste) {
+          data.AP[dest] = (data.AP[dest] || 0) + q;
+          totals.AP += q;
+          if (!catId || catId === 'AP') return;
         }
+        if (!catId || !data[catId]) {
+          const raw = String(it.categorie || '').trim().toUpperCase() || '(vide)';
+          unknown[raw] = (unknown[raw] || 0) + q; unknownQty += q; unknownLines++;
+          return;
+        }
+        data[catId][dest] = (data[catId][dest] || 0) + q; totals[catId] += q;
+      }));
+
+      const top5 = obj => Object.entries(obj).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr')).slice(0, 5);
+      const rgba = hex => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, 0.85)`; };
+
+      allCards().forEach(c => {
+        if (charts[c.id]) { charts[c.id].destroy(); charts[c.id] = null; }
+        const entries = top5(data[c.id]);
+        const card = $('#card_' + c.id), box = $('#box_' + c.id);
+        card.style.setProperty('--c1', c.c1);
+        if (c.autoHide) card.classList.toggle('hidden', entries.length === 0);    // Carte PVC et Tag : visibles dès qu'il y a des données
+        const nb = Object.keys(data[c.id]).length;
+        $('#sub_' + c.id).textContent = entries.length
+          ? `${fmt(totals[c.id])} au total • ${nb} destinataire${nb > 1 ? 's' : ''}`
+          : (c.id === 'AP' ? 'Destinataires Algérie Poste / UPW (tous produits)' : `Destinataires principaux — ${c.short}`);
+        if (!entries.length) {
+          box.innerHTML = `<div class="h-full flex items-center justify-center text-xs text-center" style="color:var(--text-dim)">Aucune livraison en ${esc(year)}.</div>`;
+          return;
+        }
+        box.innerHTML = `<canvas id="chart_${c.id}"></canvas>`;
+        charts[c.id] = makeHBar('chart_' + c.id, entries, 'Quantité', rgba(c.c1), textColor, gridColor);
       });
 
+      const note = $('#statsNote');
+      if (unknownQty > 0) {
+        const list = Object.entries(unknown).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => `${esc(k)} (${fmt(v)})`).join(', ');
+        note.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i><b>${fmt(unknownLines)} ligne(s)</b> (${fmt(unknownQty)} unités) n'ont pas de catégorie reconnue et ne sont pas comptées : ${list}. Vérifiez la catégorie sur la ligne d’envoi et sur son lot de production.`;
+        note.classList.remove('hidden');
+      } else note.classList.add('hidden');
+
+      if (chartProduction) chartProduction.destroy();
+      const monthLabels = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'].slice(0, Number(mm));
+      const known = new Map(allCards().map(c => [c.id, c]));
+      const monthly = new Map();
+      for (const row of state.production) {
+        const date = String(row.date_production || '').slice(0, 10);
+        if (date < startDate || date > endDate) continue;
+        const month = Number(date.slice(5, 7));
+        if (!Number.isInteger(month) || month < 1 || month > 12) continue;
+        const raw = String(row.categorie || '').trim();
+        const category = known.get(LTColis.categoryId(raw || row.type_produit));
+        const label = category?.label || LTColis.normSpaced(raw) || 'Sans catégorie';
+        if (!monthly.has(label)) monthly.set(label, { label, data: Array(monthLabels.length).fill(0), backgroundColor: category?.c1 || '#64748b', borderRadius: 6, maxBarThickness: 22 });
+        monthly.get(label).data[month - 1] += parseQty(row.quantite_produite);
+      }
+      const datasets = [...monthly.values()].sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+      $('#prodChartNote').textContent = datasets.length
+        ? 'Quantités produites par catégorie, selon la date de production du lot.'
+        : 'Aucune production accessible pour cette année. Connectez-vous si nécessaire.';
       const pctx = document.getElementById('chartProduction');
       chartProduction = pctx ? new Chart(pctx, {
         type: 'bar',
-        data: {
-          labels: monthLabels,
-          datasets: [
-            { label: 'Étiquettes', data: monthlyEtq, backgroundColor: 'rgba(139,92,246,0.85)', borderRadius: 6, maxBarThickness: 24 },
-            { label: 'Rubans TTR', data: monthlyRub, backgroundColor: 'rgba(16,185,129,0.85)', borderRadius: 6, maxBarThickness: 24 },
-            { label: 'Cartes PVC', data: monthlyPvc, backgroundColor: 'rgba(245,158,11,0.85)', borderRadius: 6, maxBarThickness: 24 }
-          ]
-        },
+        data: { labels: monthLabels, datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
@@ -297,6 +304,7 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
       syncThemeIcon();
+      buildCards();
       await loadData();
     });
   </script>

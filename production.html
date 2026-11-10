@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="LogiTrak — Saisie de la production Eurequat Algérie">
-  <link rel="icon" type="image/png" href="assets/logo-eurequat.png">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <title>Production • LogiTrak Eurequat Algérie</title>
 
   <script>
     try {
-      if (localStorage.getItem('logitrak_theme') === 'light')
+      if (localStorage.getItem('logitrak_theme') !== 'dark')
         document.documentElement.classList.add('light');
     } catch(e) {}
   </script>
@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="css/style.css">
 
@@ -28,44 +28,39 @@
     .kpi small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim)}
     .kpi b{display:block;font-size:22px;font-weight:900;margin-top:2px}
     .seg{padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text-muted);transition:all .15s}
-    .seg.active{background:#4f46e5;color:#fff}
+    .seg.active{background:var(--accent-wash);color:var(--accent)}
     .lbl{display:block;font-size:11px;font-weight:700;margin-bottom:6px}
     .bar{height:6px;border-radius:99px;background:var(--bg-input);overflow:hidden;min-width:70px}
-    .bar > i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#6366f1,#22d3ee)}
-    .st-done{background:rgba(16,185,129,.14);color:#10b981;border-color:rgba(16,185,129,.35)}
-    .st-part{background:rgba(245,158,11,.14);color:#f59e0b;border-color:rgba(245,158,11,.35)}
-    .st-new{background:rgba(99,102,241,.14);color:#818cf8;border-color:rgba(99,102,241,.35)}
+    .bar > i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+    .st-done{background:var(--success-bg);color:var(--success);border-color:var(--success)}
+    .st-part{background:var(--warning-bg);color:var(--warning);border-color:var(--warning)}
+    .st-new{background:var(--accent-wash);color:var(--accent);border-color:var(--accent)}
     .type-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:12px;font-size:12px;font-weight:800;cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-input);color:var(--text-muted);transition:all .15s}
     .type-pill.active{background:linear-gradient(135deg,#10b981,#059669);color:#fff;border-color:transparent;box-shadow:0 6px 16px -6px rgba(16,185,129,.55)}
   </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased">
+<body data-module="production" class="min-h-screen flex flex-col antialiased">
 
-  <header class="relative z-30 backdrop-blur-xl border-b no-print" style="background:color-mix(in srgb, var(--bg) 88%, transparent); border-color:var(--border);">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+  <header class="app-header relative z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.25rem] py-2 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="h-12 px-3 rounded-2xl bg-white flex items-center flex-shrink-0 shadow-lg ring-1 ring-black/10">
-          <img src="assets/logo-eurequat.png" alt="Eurequat Algérie" class="block" style="height:32px;width:auto;max-width:180px;object-fit:contain">
-        </div>
-        <div class="hidden sm:flex items-center h-12 px-3 rounded-2xl bg-white flex-shrink-0 shadow-lg ring-1 ring-black/10" title="LogiTrak — Envoi &amp; Traçabilité">
-          <img src="assets/logitrak-logo.png" alt="LogiTrak — Envoi &amp; Traçabilité" class="block" style="height:36px;width:auto;max-width:190px;object-fit:contain">
-        </div>
-        <p class="text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
+        <div class="app-brand"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536" decoding="async"></div>
+        <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
-      <div class="flex items-center gap-2">
-        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
+      <div id="headerActions" class="flex items-center gap-2">
+        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
       </div>
     </div>
   </header>
 
   <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
 
-    <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div class="page-heading flex items-center justify-between gap-3 flex-wrap">
       <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl text-white" style="background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 8px 24px -6px rgba(16,185,129,.55)"><i class="fa-solid fa-industry"></i></div>
+        <div class="heading-icon"><i class="fa-solid fa-industry"></i></div>
         <div>
           <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Production &amp; Conditionnement</h2>
-          <p class="text-xs" style="color:var(--text-muted)">1. Saisissez la production (Bobines, Unités ou Lots PVC) • 2. Validez son Colisage • 3. Expédiez</p>
+          <p class="text-xs" style="color:var(--text-muted)">1. Saisissez la production • 2. Le colisage de la référence se remplit tout seul (ou à saisir pour une nouvelle référence) • 3. Cochez les lots à expédier</p>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -92,53 +87,59 @@
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h3 id="formTitle" class="text-sm font-extrabold"><i class="fa-solid fa-plus text-emerald-400 mr-2"></i>Nouveau lot de production</h3>
           <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-bold" style="color:var(--text-muted)">Type de produit :</span>
-            <button type="button" class="type-pill active" data-type="ETIQUETTE" onclick="setProductType('ETIQUETTE')"><i class="fa-solid fa-scroll"></i>Étiquettes (Bobines)</button>
-            <button type="button" class="type-pill" data-type="RUBAN" onclick="setProductType('RUBAN')"><i class="fa-solid fa-ribbon"></i>Rubans TTR (Unités)</button>
-            <button type="button" class="type-pill" data-type="CARTE_PVC" onclick="setProductType('CARTE_PVC')"><i class="fa-solid fa-id-card"></i>Cartes PVC (Lots/Paquets)</button>
             <button id="btnCancelEdit" type="button" onclick="resetForm()" class="btn btn-secondary hidden"><i class="fa-solid fa-xmark text-xs"></i>Annuler</button>
           </div>
         </div>
 
         <input type="hidden" id="fType" value="ETIQUETTE">
-
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div><label class="lbl" for="fOF">Ordre de fabrication (OF) *</label><input id="fOF" class="inp font-mono-code input-uppercase" placeholder="Ex : OF-2026-0142" autocomplete="off"></div>
+          <div><label class="lbl" for="fOF">Ordre de fabrication (OF) * <span style="color:var(--text-dim);font-weight:500">MOyymm-xxxx</span></label><input id="fOF" class="inp font-mono-code input-uppercase" placeholder="MO2610-0000" maxlength="11" autocomplete="off" spellcheck="false" title="Format imposé : MOyymm-xxxx (ex. MO2610-0000)"></div>
           <div><label class="lbl" for="fRef">Référence * <span style="color:var(--text-dim);font-weight:500">(toucher = scanner)</span></label><input id="fRef" data-field="reference" class="inp font-mono-code input-uppercase" list="refList" placeholder="📷 Réf" autocomplete="off"></div>
-          <div><label class="lbl" for="fCat">Catégorie / Famille</label><input id="fCat" class="inp input-uppercase" list="catList" placeholder="Ex : ETIQUETTES, ALGÉRIE POSTE…" autocomplete="off"></div>
+          <div><label class="lbl" for="fCat">Catégorie * <button type="button" class="lst-btn adm-only" onclick="Listes.manage('categories')" title="Ajouter / retirer une catégorie"><i class="fa-solid fa-gear"></i></button></label><select id="fCat" class="inp font-bold"></select></div>
           <div><label class="lbl" for="fDes">Désignation</label><input id="fDes" class="inp input-uppercase" placeholder="Ex : ETIQUETTE TT 100x150" autocomplete="off"></div>
-
-          <!-- Champs techniques selon le type de produit -->
-          <div id="wrapEtqBob"><label class="lbl" for="fEtqBob">Nb étiquettes / bobine</label><input id="fEtqBob" class="inp text-right font-mono-code" inputmode="numeric" placeholder="Ex : 1000" autocomplete="off"></div>
-          <div id="wrapMandrin"><label class="lbl" for="fMandrin">Mandrin</label><input id="fMandrin" class="inp input-uppercase" list="mandrinList" placeholder="Ex : 40MM, 76MM, 1&quot;" autocomplete="off"></div>
-          <div id="wrapPvcPack" class="hidden"><label class="lbl" for="fCartesPaquet">Cartes par paquet (Lot)</label>
-            <select id="fCartesPaquet" class="inp font-mono-code font-bold" onchange="updatePreview()">
-              <option value="100">Paquet de 100 cartes</option>
-              <option value="50">Paquet de 50 cartes</option>
-              <option value="20">Paquet de 20 cartes</option>
-            </select>
-          </div>
-          <div><label class="lbl" for="fMatiere">Matière / Qualité</label><input id="fMatiere" class="inp input-uppercase" list="matiereList" placeholder="Ex : THERMIQUE, VELIN, CIRE, PVC…" autocomplete="off"></div>
-          <div><label class="lbl" for="fUni">Unité de comptage</label><input id="fUni" class="inp input-uppercase text-center font-bold" list="uniList" value="BOBINE" autocomplete="off"></div>
-
-          <div><label class="lbl" id="lblQty" for="fQty">Quantité produite (Bobines) *</label><input id="fQty" class="inp text-right font-mono-code font-bold" inputmode="numeric" pattern="[0-9]*" maxlength="9" placeholder="Ex : 10" autocomplete="off" title="Nombre entier uniquement"></div>
-          <div><label class="lbl" id="lblQpc" for="fQpc">Capacité carton plein (Bobines/carton) *</label><input id="fQpc" class="inp text-right font-mono-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Ex : 12" autocomplete="off" title="Nombre entier uniquement"></div>
-          <div><label class="lbl" for="fCarton">Type carton standard (Plein)</label><input id="fCarton" class="inp input-uppercase font-bold text-amber-400" list="cartonList" value="H2" placeholder="Ex : H2" autocomplete="off"></div>
-          <div><label class="lbl" for="fPoids">Poids d'un carton plein (kg)</label><input id="fPoids" class="inp text-right font-mono-code" inputmode="decimal" maxlength="9" placeholder="Ex : 8.5" autocomplete="off"></div>
-
+          <div><label class="lbl" for="fUni">Unité de comptage <button type="button" class="lst-btn adm-only" onclick="Listes.manage('unites')" title="Ajouter / retirer une unité"><i class="fa-solid fa-gear"></i></button></label><select id="fUni" class="inp font-bold"></select></div>
+          <div><label class="lbl" id="lblQty" for="fQty">Quantité produite *</label><input id="fQty" class="inp text-right font-mono-code font-bold" inputmode="numeric" pattern="[0-9]*" maxlength="9" placeholder="Ex : 100" autocomplete="off" title="Nombre entier uniquement"></div>
           <div><label class="lbl" for="fDate">Date de production</label><input id="fDate" type="date" class="inp"></div>
-          <div class="col-span-2 lg:col-span-3 flex items-end">
-            <div id="preview" class="w-full px-4 py-2.5 rounded-xl text-xs font-semibold" style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);color:var(--text-muted)">Renseignez la quantité et la capacité par carton pour calculer automatiquement les cartons (H2 / H1 sans virgule).</div>
-          </div>
+          <div><label class="lbl" for="fClient">Client</label><input id="fClient" class="inp input-uppercase" list="prodClients" placeholder="STOCK" autocomplete="off"><datalist id="prodClients"></datalist></div>
+          <!-- Colisage de la référence : rempli automatiquement depuis la page Colisage -->
+          <div id="colisInfo" class="col-span-2 lg:col-span-4 px-4 py-3 rounded-xl text-xs" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--text-muted)"></div>
         </div>
-
         <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <p class="text-[11px]" style="color:var(--text-dim)"><i class="fa-solid fa-circle-info mr-1 text-emerald-400"></i>Modification et suppression autorisées pour l'opérateur sous <b>48h</b> (illimité pour l'administrateur). Le colisage détaillé se valide dans l'onglet <b>Colisage</b>.</p>
+          <p class="text-[11px]" style="color:var(--text-dim)"><i class="fa-solid fa-circle-info mr-1 text-emerald-400"></i>Modification et suppression : opérateur pendant <b>48 h</b> après la création du lot, administrateur à tout moment. Le colisage se saisit dans la page <b>Colisage</b>, une seule fois par référence.</p>
           <div class="flex items-center gap-2">
-            <button id="btnSaveAndColisage" type="button" onclick="saveLot(true)" class="btn btn-secondary"><i class="fa-solid fa-boxes-packing text-amber-500"></i>Enregistrer &amp; Ouvrir Colisage</button>
-            <button id="btnSave" type="button" onclick="saveLot(false)" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer le lot</button>
+            <button id="btnSave" type="button" onclick="saveLot()" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer le lot</button>
           </div>
         </div>
+      </section>
+
+      <section class="panel p-4 sm:p-5 space-y-3 op-only" aria-labelledby="stockTitle">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 id="stockTitle" class="text-sm font-extrabold"><i class="fa-solid fa-boxes-stacked text-amber-400 mr-2"></i>Cartons en stock</h3>
+            <p class="text-xs" style="color:var(--text-muted)">Regroupez les références qui restent en vrac ou dans des cartons partiels. Vous pouvez rouvrir un carton tant qu’il est en stock.</p>
+          </div>
+          <button type="button" id="stockNew" class="btn btn-primary" onclick="editStockCarton()"><i class="fa-solid fa-plus"></i>Composer un carton</button>
+        </div>
+        <div id="stockList" class="space-y-2" aria-live="polite"></div>
+        <form id="stockEditor" class="hidden space-y-3 rounded-xl p-3" style="background:var(--bg-input)" onsubmit="saveStockCarton(event)">
+          <div class="flex flex-wrap gap-3 items-end">
+            <div>
+              <label class="lbl" for="stockType">Carton utilisé</label>
+              <select id="stockType" class="inp" onchange="updateStockWeight()">
+                <option value="">Choix automatique selon la sélection</option>
+                <option value="H1">H1</option>
+                <option value="H2">H2</option>
+              </select>
+            </div>
+            <span id="stockWeight" class="text-xs font-bold" aria-live="polite"></span>
+          </div>
+          <p class="text-xs" style="color:var(--text-muted)">Saisissez la quantité de chaque lot à placer dans le même carton. Laissez vide pour ignorer un lot.</p>
+          <div id="stockChoices" class="space-y-2 max-h-80 overflow-auto" oninput="updateStockWeight()"></div>
+          <div class="flex flex-wrap justify-end gap-2">
+            <button type="button" class="btn btn-secondary" onclick="closeStockEditor()">Annuler</button>
+            <button type="submit" id="stockSave" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer le carton</button>
+          </div>
+        </form>
       </section>
 
       <!-- Liste -->
@@ -155,8 +156,9 @@
         </div>
         <div class="panel overflow-hidden">
           <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs" style="min-width:1050px">
+            <table class="w-full text-left text-xs" style="min-width:1100px">
               <thead style="background:var(--bg-input)"><tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
+                <th class="p-3 pl-4 op-only w-8"><input type="checkbox" id="chkAll" class="w-4 h-4 accent-indigo-500" title="Tout cocher (lots expédiables)" onchange="toggleAllSel(this.checked)"></th>
                 <th class="p-3 pl-5">OF / Date</th>
                 <th class="p-3">Produit &amp; Spécifications</th>
                 <th class="p-3 text-right">Produit</th>
@@ -182,16 +184,27 @@
     </div>
   </div>
 
-  <datalist id="refList"></datalist><datalist id="catList"></datalist><datalist id="uniList"></datalist>
-  <datalist id="cartonList"><option value="H2"><option value="H1"><option value="H3"><option value="CAISSE"></datalist>
-  <datalist id="mandrinList"><option value="40MM"><option value="76MM"><option value="25MM"><option value="1 POUCE"><option value="1/2 POUCE"></datalist>
-  <datalist id="matiereList"><option value="THERMIQUE"><option value="VELIN"><option value="COUCHÉ"><option value="POLYPROPYLÈNE"><option value="CIRE"><option value="CIRE/RÉSINE"><option value="RÉSINE"><option value="PVC BLANC 0.76MM"></datalist>
+  <!-- Barre : expédier les lots cochés -->
+  <div id="shipBar" class="hidden fixed left-1/2 -translate-x-1/2 bottom-5 z-[55] no-print px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3" style="background:var(--bg-card);border:1px solid rgba(99,102,241,.6)">
+    <span class="text-xs font-bold"><i class="fa-solid fa-square-check text-indigo-400 mr-1.5"></i><span id="shipCount">0</span> lot(s) sélectionné(s)</span>
+    <button type="button" onclick="clearSel()" class="btn btn-secondary">Vider</button>
+    <button type="button" onclick="goShip()" class="btn btn-primary"><i class="fa-solid fa-truck-fast"></i>Créer un envoi avec la sélection</button>
+  </div>
+
+  <datalist id="refList"></datalist>
   <div id="toasts" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none no-print"></div>
 
   <script src="js/config.js"></script>
+  <script src="js/listes.js"></script>
+  <script src="js/colisage-calc.js"></script>
+  <script src="js/reliquat.js"></script>
+  <script src="js/cartons-stock.js"></script>
+  <script src="js/data-pages.js"></script>
+  <script src="js/ap-order-picker.js"></script>
   <script>
-    const THEME_KEY = 'logitrak_theme', PROD_LOCAL_KEY = 'eurequat_production_v2';
-    const state = { sb: null, session: null, isOperator: false, isAdmin: false, username: '', lots: [], shipped: {}, editId: null, filter: 'open' };
+    const THEME_KEY = 'logitrak_theme';
+    const state = { sb: null, session: null, isOperator: false, isAdmin: false, username: '',
+                    lots: [], fiches: {}, shippedN: {}, shippedM: {}, pending: {}, editId: null, filter: 'open', sel: new Set() };
 
     const $ = s => document.querySelector(s);
     const $$ = s => [...document.querySelectorAll(s)];
@@ -203,6 +216,7 @@
     const fmtDate = d => { if (!d) return '—'; const [y,m,day] = String(d).split('-'); return `${day}/${m}/${y}`; };
     const intOf = v => parseInt(String(v ?? '').replace(/[^0-9]/g, ''), 10) || 0;
     const up = id => ($(id)?.value || '').trim().toUpperCase();
+    const AGE_48H = 48 * 3600 * 1000;
 
     function toast(msg, type = 'info') {
       const cfg = {
@@ -217,13 +231,14 @@
       el.innerHTML = `<i class="fa-solid ${cfg.ic}"></i><span>${esc(msg)}</span>`;
       $('#toasts').appendChild(el);
       requestAnimationFrame(() => el.classList.remove('translate-y-4','opacity-0'));
-      setTimeout(() => { el.classList.add('translate-y-4','opacity-0'); setTimeout(() => el.remove(), 300); }, 3800);
+      setTimeout(() => { el.classList.add('translate-y-4','opacity-0'); setTimeout(() => el.remove(), 300); }, 4200);
     }
 
-    function confirmDialog(msg) {
+    function confirmDialog(msg, yesLabel = 'Confirmer', noLabel = 'Annuler') {
       return new Promise(resolve => {
         const m = $('#confirmModal'); m.querySelector('[data-msg]').textContent = msg;
         const yes = m.querySelector('[data-yes]'), no = m.querySelector('[data-no]');
+        yes.textContent = yesLabel; no.textContent = noLabel;
         const done = v => { yes.removeEventListener('click', onYes); no.removeEventListener('click', onNo); m.classList.remove('open'); resolve(v); };
         const onYes = () => done(true), onNo = () => done(false);
         yes.addEventListener('click', onYes); no.addEventListener('click', onNo); m.classList.add('open');
@@ -237,79 +252,81 @@
       syncThemeIcon();
     }
 
-    /* ----- Calcul intelligent des cartons (H2 / H1 sans virgule) ----- */
-    function computeSmartBoxes(qty, qpc, fullBoxType = 'H2') {
-      qty = Math.max(0, parseInt(qty) || 0);
-      qpc = Math.max(1, parseInt(qpc) || 1);
-      fullBoxType = (fullBoxType || 'H2').toUpperCase();
-      if (qty === 0) return { totalBoxes: 0, fullBoxes: 0, remQty: 0, fullBoxType, remBoxType: '', summary: '0 carton' };
-
-      const fullBoxes = Math.floor(qty / qpc);
-      const remQty = qty % qpc;
-      const totalBoxes = fullBoxes + (remQty > 0 ? 1 : 0); // Toujours entier sans virgule
-      let remBoxType = '';
-      if (remQty > 0) {
-        // Si le reliquat est inférieur ou égal à la moitié de la capacité (ex: <= 6 sur 12 pour H2), on utilise un H1
-        if (remQty <= Math.floor(qpc / 2)) {
-          remBoxType = (fullBoxType === 'H2') ? 'H1' : 'PETIT CARTON';
-        } else {
-          // Ex: 10 bobines sur 12 -> utilise toujours un H2
-          remBoxType = fullBoxType;
-        }
-      }
-
-      const parts = [];
-      if (fullBoxes > 0) parts.push(`${fullBoxes}×${fullBoxType} (${qpc})`);
-      if (remQty > 0) parts.push(`1×${remBoxType} (${remQty})`);
-      return {
-        totalBoxes,
-        fullBoxes,
-        remQty,
-        fullBoxType,
-        remBoxType,
-        summary: `${totalBoxes} carton(s) [${parts.join(' + ')}]`
-      };
+    /* ----- Règles de modification (identiques à la base de données) ----- */
+    // Production (OF, référence, quantité…) : opérateur 48 h après la création du lot, admin à tout moment
+    function canModifyLot(lot) {
+      if (!state.isOperator) return false;
+      if (state.isAdmin) return true;
+      return (Date.now() - new Date(lot.created_at).getTime()) < AGE_48H;
     }
+    // Décision du reliquat : libre la première fois, puis 48 h après la validation du colisage
+    function canDecideReliquat(lot) {
+      if (!state.isOperator) return false;
+      if (state.isAdmin || !String(lot.reliquat_mode || '')) return true;
+      return (Date.now() - new Date(lot.colisage_at || lot.created_at).getTime()) < AGE_48H;
+    }
+    const LOCK_MSG = 'Délai de 48h dépassé. Seul un administrateur peut modifier ou supprimer cette production.';
 
-    /* ----- Type de produit (Étiquettes = Bobine, Rubans = Unité, Cartes PVC = Lot/Paquet) ----- */
-    function setProductType(type) {
+    /* ----- Catégorie -> type de produit ----- */
+    function typeFromCat(cat) {
+      const c = String(cat || '').toUpperCase();
+      if (c.includes('RUBAN')) return 'RUBAN';
+      if (c.includes('PVC')) return 'CARTE_PVC';
+      if (/\bTAG/.test(c)) return 'AUTRE';
+      return 'ETIQUETTE';
+    }
+    function refreshLabels() {
+      const u = $('#fUni').value || 'UN';
+      $('#lblQty').textContent = `Quantité produite (${u}) *`;
+    }
+    function applyCategoryUI(resetUnit) {
+      const type = typeFromCat($('#fCat').value);
       $('#fType').value = type;
-      $$('.type-pill').forEach(b => b.classList.toggle('active', b.dataset.type === type));
-      if (type === 'ETIQUETTE') {
-        $('#fUni').value = 'BOBINE';
-        $('#lblQty').textContent = 'Quantité produite (Bobines) *';
-        $('#lblQpc').textContent = 'Bobines par carton plein *';
-        $('#wrapEtqBob').classList.remove('hidden');
-        $('#wrapMandrin').classList.remove('hidden');
-        $('#wrapPvcPack').classList.add('hidden');
-        if (!$('#fCarton').value) $('#fCarton').value = 'H2';
-      } else if (type === 'RUBAN') {
-        $('#fUni').value = 'UN';
-        $('#lblQty').textContent = 'Quantité produite (Unités/Pièces) *';
-        $('#lblQpc').textContent = 'Unités par carton plein *';
-        $('#wrapEtqBob').classList.add('hidden');
-        $('#wrapMandrin').classList.remove('hidden');
-        $('#wrapPvcPack').classList.add('hidden');
-        if (!$('#fCarton').value) $('#fCarton').value = 'H2';
-      } else if (type === 'CARTE_PVC') {
-        $('#fUni').value = 'LOT';
-        $('#lblQty').textContent = 'Quantité produite (Lots / Paquets) *';
-        $('#lblQpc').textContent = 'Paquets par carton plein *';
-        $('#wrapEtqBob').classList.add('hidden');
-        $('#wrapMandrin').classList.add('hidden');
-        $('#wrapPvcPack').classList.remove('hidden');
-        if (!$('#fCarton').value) $('#fCarton').value = 'H2';
+      if (resetUnit) {
+        const want = type === 'CARTE_PVC' ? 'PAQUET' : 'UN';
+        if ([...$('#fUni').options].some(o => o.value === want)) $('#fUni').value = want;
       }
-      updatePreview();
+      refreshLabels();
+      renderColisInfo();
     }
 
-    /* ----- Connexion & Rôles ----- */
+    /* ----- Ordre de fabrication verrouillé : MOyymm-xxxx ----- */
+    const OF_RE = /^MO\d{2}(0[1-9]|1[0-2])-\d{4}$/;
+    function ofPrefix(dateStr) {
+      const d = dateStr ? new Date(dateStr + 'T00:00') : new Date();
+      return 'MO' + String(d.getFullYear()).slice(-2) + String(d.getMonth() + 1).padStart(2, '0') + '-';
+    }
+    function formatOF(raw) {
+      const digits = String(raw || '').toUpperCase().replace(/^MO/, '').replace(/[^0-9]/g, '').slice(0, 8);
+      return 'MO' + digits.slice(0, 4) + (digits.length > 4 || (digits.length === 4 && /-$/.test(String(raw))) ? '-' + digits.slice(4) : '');
+    }
+
+    /* ----- Connexion & rôles ----- */
     function showGate(html) { const g = $('#gate'); g.innerHTML = html; g.classList.remove('hidden'); $('#app').classList.add('hidden'); }
-    async function loadRole() {
+    function loginGate() {
+      showGate(`
+        <h3 class="text-base font-extrabold"><i class="fa-solid fa-lock text-indigo-400 mr-2"></i>Connexion opérateur</h3>
+        <p class="text-xs" style="color:var(--text-muted)">La saisie de la production est réservée aux opérateurs.</p>
+        <form onsubmit="doLogin(event)" class="space-y-3">
+          <input id="loginUsername" class="inp" required placeholder="Pseudo" autocomplete="username">
+          <input id="loginPassword" type="password" class="inp" required placeholder="Mot de passe" autocomplete="current-password">
+          <p id="loginMsg" class="text-xs text-rose-400 hidden"></p>
+          <button type="submit" class="btn btn-primary w-full justify-center">Se connecter</button>
+        </form>`);
+    }
+    async function doLogin(e) {
+      e.preventDefault();
+      const msg = $('#loginMsg'); msg.classList.add('hidden');
+      const email = $('#loginUsername').value.trim().toLowerCase() + '@logitrak.internal';
+      const { data, error } = await state.sb.auth.signInWithPassword({ email, password: $('#loginPassword').value });
+      if (error || !data?.session) { msg.textContent = 'Pseudo ou mot de passe incorrect.'; msg.classList.remove('hidden'); return; }
+      $('#loginPassword').value = '';
+      window.location.assign('index.html');
+    }
+    async function loadRole(session) {
       state.isOperator = false; state.isAdmin = false; state.username = '';
       try {
-        const { data } = await state.sb.auth.getSession();
-        state.session = data.session;
+        state.session = session === undefined ? (await state.sb.auth.getSession()).data.session : session;
         if (state.session?.user?.email) {
           state.username = state.session.user.email.split('@')[0];
           const r = await state.sb.from('operateurs').select('role').eq('username', state.username).maybeSingle();
@@ -320,45 +337,64 @@
       document.body.classList.toggle('is-admin', state.isAdmin);
     }
 
-    /* ----- Données ----- */
+    /* ----- Données (aucune copie gardée dans le navigateur, aucune sauvegarde « silencieuse ») ----- */
     async function loadData() {
-      try {
-        const [p, l] = await Promise.all([
-          state.sb.from('production').select('*').order('date_production', { ascending: false }).order('created_at', { ascending: false }),
-          state.sb.from('lignes_expedition').select('production_id,quantite').not('production_id', 'is', null),
-        ]);
-        if (p.error) throw p.error;
-        state.lots = (p.data || []).map(x => ({
-          ...x,
-          quantite_produite: +x.quantite_produite,
-          qte_par_carton: +x.qte_par_carton || 1,
-          poids_carton: +x.poids_carton || 0,
-          etq_par_bobine: +x.etq_par_bobine || 0,
-          cartes_par_paquet: +x.cartes_par_paquet || 100
-        }));
-        lsSet(PROD_LOCAL_KEY, JSON.stringify(state.lots));
-        state.shipped = {};
-        (l.data || []).forEach(x => { state.shipped[x.production_id] = (state.shipped[x.production_id] || 0) + intOf(x.quantite); });
-        return true;
-      } catch (err) {
-        try {
-          state.lots = JSON.parse(lsGet(PROD_LOCAL_KEY) || '[]');
-          return true;
-        } catch {
-          return false;
-        }
+      let [p, l, f] = await Promise.all([
+        state.sb.from('production').select('*').order('date_production', { ascending: false }).order('created_at', { ascending: false }),
+        state.sb.from('lignes_expedition').select('production_id,quantite,colisage_detail,expeditions(validation)').not('production_id', 'is', null),
+        state.sb.from('colisage_ref').select('*'),
+      ]);
+      // base sans la colonne « validation » (script v2.2 pas encore exécuté) : on relit sans elle
+      if (l.error && /validation/i.test(l.error.message || '')) l = await state.sb.from('lignes_expedition').select('production_id,quantite,colisage_detail').not('production_id', 'is', null);
+      const err = p.error || l.error || f.error;
+      if (err) {
+        console.error(err);
+        const schema = /column|relation|does not exist|colisage_ref|reliquat|colisage_detail/i.test(err.message || '');
+        showGate(`
+          <h3 class="text-base font-extrabold"><i class="fa-solid fa-database text-amber-500 mr-2"></i>${schema ? 'Base à mettre à jour' : 'Chargement impossible'}</h3>
+          <p class="text-xs" style="color:var(--text-muted)">${schema
+            ? 'Dans Supabase, ouvre <b>SQL Editor</b>, colle le contenu de <b>sql/v21-colisage-reference.sql</b> et clique sur <b>Run</b> (une seule fois, sans risque pour les données). Puis recharge cette page.'
+            : 'Vérifiez votre connexion internet puis rechargez la page.'}</p>
+          <p class="text-[11px]" style="color:var(--text-dim)">Détail : ${esc(err.message || err)}</p>`);
+        return false;
       }
+      state.lots = (p.data || []).map(x => ({
+        ...x,
+        quantite_produite: +x.quantite_produite,
+        qte_par_carton: +x.qte_par_carton || 1,
+        poids_carton: +x.poids_carton || 0,
+        poids_bobine: +x.poids_bobine || 0,
+        poids_carton_vide: +x.poids_carton_vide || 0,
+        etq_par_bobine: +x.etq_par_bobine || 0,
+        cartes_par_paquet: +x.cartes_par_paquet || 100,
+        qte_reliquat: +x.qte_reliquat || 0,
+      }));
+      state.fiches = {};
+      (f.data || []).forEach(x => { state.fiches[String(x.reference || '').toUpperCase()] = x; });
+      state.shippedN = {}; state.shippedM = {}; state.pending = {};
+      (l.data || []).forEach(x => {
+        const q = intOf(x.quantite), mixte = x.colisage_detail && x.colisage_detail.mixte;
+        const bag = mixte ? state.shippedM : state.shippedN;
+        bag[x.production_id] = (bag[x.production_id] || 0) + q;                                // quantité réservée (validée ou non)
+        if (x.expeditions && x.expeditions.validation && x.expeditions.validation !== 'VALIDE')
+          state.pending[x.production_id] = (state.pending[x.production_id] || 0) + q;           // dont envois en attente de validation
+      });
+      await loadStockCartons();
+      return true;
     }
-    const shippedOf = lot => state.shipped[lot.id] || 0;
-    const restOf = lot => Math.max(0, lot.quantite_produite - shippedOf(lot));
+    const shippedOf = lot => (state.shippedN[lot.id] || 0) + (state.shippedM[lot.id] || 0);
+    const pendingOf = lot => Math.min(shippedOf(lot), state.pending[lot.id] || 0);
+    const validatedOf = lot => shippedOf(lot) - pendingOf(lot);     // « expédié » = envois validés seulement
+    const restOf = lot => Math.max(0, lot.quantite_produite - shippedOf(lot));      // le reste tient compte des envois à valider (réservés)
+    const ficheOf = ref => state.fiches[String(ref || '').toUpperCase()];
+    const availOf = lot => LTColis.availability(lot, state.shippedN[lot.id] || 0, state.shippedM[lot.id] || 0, stockReserved(lot.id));
 
     function fillLists() {
-      const uniq = f => [...new Set(state.lots.map(f).filter(Boolean))].sort();
-      const opts = arr => arr.map(v => `<option value="${esc(v)}">`).join('');
-      $('#refList').innerHTML = [...new Map(state.lots.filter(l => l.reference).map(l => [l.reference, l])).values()]
-        .map(l => `<option value="${esc(l.reference)}" label="${esc(l.designation)}">`).join('');
-      $('#catList').innerHTML = opts(uniq(l => l.categorie));
-      $('#uniList').innerHTML = opts([...new Set(['BOBINE','UN','LOT','ID', ...uniq(l => l.unite)])]);
+      $('#prodClients').innerHTML = [...new Set(state.lots.map(l => l.client).filter(Boolean))].sort().map(c => '<option value="' + esc(c) + '"></option>').join('');
+      const refs = new Map();
+      Object.values(state.fiches).forEach(f => refs.set(f.reference, f.designation));
+      state.lots.forEach(l => { if (l.reference && !refs.has(l.reference)) refs.set(l.reference, l.designation); });
+      $('#refList').innerHTML = [...refs.entries()].map(([r, d]) => `<option value="${esc(r)}" label="${esc(d || '')}">`).join('');
     }
 
     /* ----- Formulaire ----- */
@@ -367,140 +403,167 @@
       const d = String(i.value).replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
       if (d !== i.value) { i.value = d; flash(i); }
     }
-    function cleanDec(i) {
-      let v = i.value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
-      const p = v.split('.');
-      if (p.length > 2) v = p[0] + '.' + p.slice(1).join('');
-      const q = v.split('.'); if (q[1] && q[1].length > 3) v = q[0] + '.' + q[1].slice(0, 3);
-      if (v !== i.value) { i.value = v; flash(i); }
+    function bad(sel, msg) { const i = $(sel); i.classList.add('inp-error'); i.focus(); toast(msg, 'error'); }
+
+    // Lot « virtuel » construit à partir de la fiche de colisage de la référence et de la quantité saisie
+    function lotFromFiche(f, qty, extra = {}) {
+      return {
+        quantite_produite: qty, qte_par_carton: f.qte_par_carton, type_carton: f.type_carton,
+        poids_bobine: +f.poids_bobine || 0, poids_carton_vide: +f.poids_carton_vide || 0, poids_carton: 0,
+        reliquat_carton: '', ...extra,
+      };
     }
 
-    function updatePreview() {
-      const q = intOf($('#fQty').value), c = intOf($('#fQpc').value), w = parseFloat($('#fPoids').value) || 0;
-      const cartonType = up('#fCarton') || 'H2';
-      const type = $('#fType').value;
-      const box = $('#preview');
-      if (!q || !c) {
-        box.textContent = 'Renseignez la quantité et la capacité par carton pour calculer automatiquement les cartons (H2 / H1 sans virgule).';
+    // Panneau « Colisage de la référence » : rempli automatiquement, ou invitation à le saisir
+    function renderColisInfo() {
+      const box = $('#colisInfo'), ref = up('#fRef'), qty = intOf($('#fQty').value);
+      const f = ficheOf(ref);
+      if (!ref) {
+        box.style.cssText = 'background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:var(--text-muted)';
+        box.innerHTML = '<i class="fa-solid fa-boxes-packing text-amber-500 mr-1.5"></i>Saisissez une référence : si son colisage existe, ses détails (matière, mandrin, carton…) se remplissent automatiquement.';
         return;
       }
-      const res = computeSmartBoxes(q, c, cartonType);
-      let extra = '';
-      if (type === 'ETIQUETTE') {
-        const epb = intOf($('#fEtqBob').value);
-        if (epb > 0) extra = ` • Total : ${fmtNum(q * epb)} étiquettes`;
-      } else if (type === 'CARTE_PVC') {
-        const cpp = intOf($('#fCartesPaquet').value) || 100;
-        extra = ` • Total : ${fmtNum(q * cpp)} cartes PVC (${q} paquets de ${cpp})`;
+      if (!f) {
+        box.style.cssText = 'background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.4);color:#fb7185';
+        const q = new URLSearchParams({ ref, cat: $('#fCat').value || '', des: $('#fDes').value || '' });
+        box.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-3"><span><i class="fa-solid fa-triangle-exclamation mr-1.5"></i><b>Nouvelle référence ${esc(ref)}</b> : son colisage n'existe pas encore. Il faut le remplir (catégorie, matière, gabarit, mandrin, poids d'une bobine, carton…) avant de pouvoir l'expédier.</span>
+          <a href="colisage.html?${q.toString()}" class="btn btn-primary"><i class="fa-solid fa-boxes-packing"></i>Remplir le colisage</a></div>`;
+        return;
       }
-      if (w) extra += ` • Poids estimé ≈ ${fmtKg(res.totalBoxes * w)} kg`;
-      box.innerHTML = `<i class="fa-solid fa-boxes-packing text-amber-400 mr-1.5"></i><b>${esc(res.summary)}</b>${esc(extra)}`;
+      box.style.cssText = 'background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.35);color:var(--text-muted)';
+      const specs = [];
+      if (f.matiere) specs.push('Matière : ' + f.matiere);
+      if (f.gabarit) specs.push('Gabarit : ' + f.gabarit);
+      if (f.etq_par_bobine > 0) specs.push(fmtNum(f.etq_par_bobine) + ' étiq./bobine');
+      if (f.type_produit === 'CARTE_PVC') specs.push('Paquet de ' + f.cartes_par_paquet + ' cartes');
+      if (f.mandrin) specs.push('Mandrin ' + f.mandrin);
+      if (+f.poids_bobine > 0) specs.push('Bobine ' + fmtKg(f.poids_bobine) + ' kg');
+      specs.push(`Carton ${f.type_carton} : ${f.qte_par_carton} par carton`);
+      let line = '';
+      if (qty > 0) {
+        const lot = lotFromFiche(f, qty);
+        const R = LTColis.remainderOf(lot);
+        const pk = LTColis.packing({ ...lot, reliquat_carton: f.type_carton }, qty);
+        line = `<div class="mt-1.5 font-bold" style="color:var(--text)"><i class="fa-solid fa-boxes-stacked text-amber-400 mr-1"></i>${fmtNum(qty)} → ${esc(String(Math.floor(qty / f.qte_par_carton)))} carton(s) plein(s) de ${f.qte_par_carton}${R ? ` + <span class="text-amber-500">reliquat de ${R}</span> (vous choisirez : carton ou stock)` : ''}</div>`;
+        if (pk && pk.heavy) line += `<div class="text-amber-500 font-bold mt-1"><i class="fa-solid fa-weight-hanging mr-1"></i>Attention : un carton dépasse ${LTColis.MAX_CARTON_KG} kg.</div>`;
+      }
+      box.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 mr-1.5"></i><b style="color:var(--text)">Colisage de la référence ${esc(f.reference)}</b> — ${esc(specs.join(' • '))}${line}`;
+    }
+
+    function onRefChange() {
+      if (state.editId) { renderColisInfo(); return; }
+      const ref = up('#fRef');
+      const previous = state.lots.find(l => ref && l.reference?.toUpperCase() === ref);
+      if (!$('#fClient').dataset.manual) $('#fClient').value = previous?.client || '';
+      const f = ficheOf(ref);
+      if (f) {
+        if (f.categorie) Listes.setValue('#fCat', f.categorie);
+        if (!$('#fDes').value.trim() && f.designation) $('#fDes').value = f.designation;
+        applyCategoryUI(true);
+      } else {
+        const lot = state.lots.find(l => (l.reference || '').toUpperCase() === up('#fRef'));
+        if (lot) {
+          if (lot.categorie) Listes.setValue('#fCat', lot.categorie);
+          if (!$('#fDes').value.trim()) $('#fDes').value = lot.designation || '';
+          applyCategoryUI(false);
+        }
+      }
+      renderColisInfo();
     }
 
     function resetForm() {
       state.editId = null;
-      ['#fOF','#fRef','#fCat','#fDes','#fQty','#fQpc','#fPoids','#fEtqBob','#fMandrin','#fMatiere'].forEach(s => { if($(s)) $(s).value = ''; });
-      $('#fCarton').value = 'H2';
+      delete $('#fClient').dataset.manual;
+      ['#fRef', '#fDes', '#fQty', '#fClient'].forEach(s => { $(s).value = ''; });
       $('#fDate').value = new Date().toISOString().slice(0, 10);
-      setProductType('ETIQUETTE');
+      $('#fOF').value = ofPrefix($('#fDate').value);
+      $('#fCat').value = '';
+      applyCategoryUI(true);
       $('#formTitle').innerHTML = '<i class="fa-solid fa-plus text-emerald-400 mr-2"></i>Nouveau lot de production';
       $('#btnSave').innerHTML = '<i class="fa-solid fa-floppy-disk"></i>Enregistrer le lot';
       $('#btnCancelEdit').classList.add('hidden');
-      updatePreview();
-    }
-
-    function canModifyLot(lot) {
-      if (!state.isOperator) return false;
-      if (state.isAdmin) return true;
-      const isExpired = (new Date() - new Date(lot.created_at)) > 48 * 3600 * 1000;
-      return !isExpired;
     }
 
     function editLot(id) {
       const l = state.lots.find(x => x.id === id); if (!l) return;
-      if (!canModifyLot(l)) return toast("Délai de 48h dépassé. Seul un administrateur peut modifier cette production.", "warning");
+      if (!canModifyLot(l)) return toast(LOCK_MSG, 'warning');
       state.editId = id;
-      setProductType(l.type_produit || (l.unite === 'BOBINE' ? 'ETIQUETTE' : l.unite === 'LOT' ? 'CARTE_PVC' : 'RUBAN'));
       $('#fOF').value = l.of_numero || '';
       $('#fRef').value = l.reference || '';
-      $('#fCat').value = l.categorie || '';
+      Listes.setValue('#fCat', l.categorie || '');
       $('#fDes').value = l.designation || '';
-      $('#fUni').value = l.unite || 'BOBINE';
+      $('#fClient').value = l.client || '';
+      Listes.setValue('#fUni', l.unite || 'UN');
       $('#fQty').value = l.quantite_produite;
-      $('#fQpc').value = l.qte_par_carton;
-      $('#fCarton').value = l.type_carton || 'H2';
-      $('#fPoids').value = l.poids_carton || '';
-      $('#fEtqBob').value = l.etq_par_bobine || '';
-      $('#fMandrin').value = l.mandrin || '';
-      $('#fMatiere').value = l.matiere || '';
-      if (l.cartes_par_paquet) $('#fCartesPaquet').value = String(l.cartes_par_paquet);
       $('#fDate').value = l.date_production || '';
+      applyCategoryUI(false);
       $('#formTitle').innerHTML = '<i class="fa-solid fa-pen text-amber-500 mr-2"></i>Modifier le lot ' + esc(l.of_numero);
       $('#btnSave').innerHTML = '<i class="fa-solid fa-floppy-disk"></i>Enregistrer les modifications';
       $('#btnCancelEdit').classList.remove('hidden');
-      updatePreview();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function bad(sel, msg) { const i = $(sel); i.classList.add('inp-error'); i.focus(); toast(msg, 'error'); }
+    // Colonnes du colisage recopiées de la fiche de la référence dans le lot (copie figée)
+    function colisageColumns(f, qty) {
+      const qpc = f.qte_par_carton, R = qty % qpc;
+      const lot = lotFromFiche(f, qty);
+      return {
+        type_produit: f.type_produit, matiere: f.matiere || '', mandrin: f.mandrin || '', etq_par_bobine: f.etq_par_bobine || 0,
+        cartes_par_paquet: f.cartes_par_paquet || 100, dim_produit: f.gabarit || '', gabarit: f.gabarit || '',
+        poids_bobine: +f.poids_bobine || 0, diametre_bobine: f.diametre_bobine || 0,
+        type_carton: f.type_carton, qte_par_carton: qpc, poids_carton_vide: +f.poids_carton_vide || LTColis.tareOf(f.type_carton),
+        poids_carton: LTColis.boxWeight(f.type_carton, qpc, lot),
+        nb_cartons_total: Math.floor(qty / qpc) + (R > 0 ? 1 : 0), type_carton_partiel: '', qte_carton_partiel: R,
+        colisage_valide: true, colisage_ref_id: f.id,
+      };
+    }
 
-    async function saveLot(goToColisage = false) {
+    async function saveLot() {
       if (!state.isOperator) return toast('Connexion opérateur requise.', 'warning');
+      if (!state.editId && isAPProductionCategory($('#fCat').value)) return chooseAPProductionOrder();
       const of = up('#fOF'), ref = up('#fRef'), des = up('#fDes');
-      const qty = intOf($('#fQty').value), qpc = intOf($('#fQpc').value);
+      const qty = intOf($('#fQty').value);
+      const ofBefore = state.editId ? (state.lots.find(x => x.id === state.editId)?.of_numero || '') : '';
       if (!of) return bad('#fOF', "L'ordre de fabrication est obligatoire.");
+      if (!state.isAdmin && !OF_RE.test(of) && !(state.editId && of === ofBefore)) return bad('#fOF', 'Format OF imposé : MOyymm-xxxx (ex. MO2610-0000).');
+      if (!$('#fCat').value) return bad('#fCat', 'Choisissez une catégorie.');
       if (!ref && !des) return bad('#fRef', 'Renseignez une référence ou une désignation.');
+      if (!$('#fUni').value) return bad('#fUni', "L'unité de comptage est obligatoire.");
       if (qty < 1) return bad('#fQty', 'Quantité produite : nombre entier supérieur à 0.');
-      if (qpc < 1) return bad('#fQpc', 'Capacité par carton : nombre entier supérieur à 0.');
 
-      const fullCarton = up('#fCarton') || 'H2';
-      const smart = computeSmartBoxes(qty, qpc, fullCarton);
-      const typeProd = $('#fType').value || 'ETIQUETTE';
-
-      const baseRow = {
-        of_numero: of,
-        reference: ref,
-        categorie: up('#fCat'),
-        designation: des,
-        unite: up('#fUni') || 'BOBINE',
-        quantite_produite: qty,
-        qte_par_carton: qpc,
-        type_carton: fullCarton,
-        poids_carton: parseFloat($('#fPoids').value) || 0,
-        date_production: $('#fDate').value || new Date().toISOString().slice(0, 10),
+      const fiche = ref ? ficheOf(ref) : null;
+      const core = {
+        of_numero: of, reference: ref, categorie: up('#fCat'), designation: des, client: up('#fClient'),
+        type_produit: $('#fType').value || 'ETIQUETTE', unite: $('#fUni').value,
+        quantite_produite: qty, date_production: $('#fDate').value || new Date().toISOString().slice(0, 10),
       };
 
-      const extendedRow = {
-        ...baseRow,
-        type_produit: typeProd,
-        type_carton_partiel: smart.remBoxType || fullCarton,
-        qte_carton_partiel: smart.remQty || 0,
-        nb_cartons_total: smart.totalBoxes,
-        etq_par_bobine: typeProd === 'ETIQUETTE' ? intOf($('#fEtqBob').value) : 0,
-        mandrin: up('#fMandrin'),
-        matiere: up('#fMatiere'),
-        cartes_par_paquet: typeProd === 'CARTE_PVC' ? (intOf($('#fCartesPaquet').value) || 100) : 100,
-      };
-
-      let savedId = state.editId;
+      let savedId = state.editId, lot = null;
       try {
         if (state.editId) {
-          const lot = state.lots.find(x => x.id === state.editId);
-          if (lot && !canModifyLot(lot)) return toast("Modification refusée : délai de 48h dépassé.", "error");
+          lot = state.lots.find(x => x.id === state.editId);
+          if (lot && !canModifyLot(lot)) return toast(LOCK_MSG, 'error');
           if (lot && qty < shippedOf(lot)) return bad('#fQty', `Déjà ${fmtNum(shippedOf(lot))} expédiés : la quantité produite ne peut pas être inférieure.`);
-          let { error } = await state.sb.from('production').update({ ...extendedRow, updated_at: new Date().toISOString() }).eq('id', state.editId);
-          if (error && /column/i.test(error.message)) {
-            const retry = await state.sb.from('production').update({ ...baseRow, updated_at: new Date().toISOString() }).eq('id', state.editId);
-            error = retry.error;
+          const upd = { ...core };
+          const refChanged = lot && String(lot.reference || '').toUpperCase() !== ref;
+          if (refChanged || (lot && !lot.colisage_valide)) {
+            // autre référence (ou colisage encore absent) : on reprend la fiche de la nouvelle référence
+            if (fiche) Object.assign(upd, colisageColumns(fiche, qty), { reliquat_mode: '', reliquat_carton: '', qte_reliquat: qty % fiche.qte_par_carton });
+            else Object.assign(upd, { colisage_valide: false, colisage_ref_id: null, reliquat_mode: '', reliquat_carton: '', qte_reliquat: 0 });
+          } else if (lot && lot.colisage_valide) {
+            // quantité modifiée : on recalcule les valeurs dérivées ; si le reliquat change, la décision est à refaire
+            const qpc = lot.qte_par_carton, R = qty % qpc;
+            upd.nb_cartons_total = Math.floor(qty / qpc) + (R > 0 ? 1 : 0);
+            upd.qte_carton_partiel = R;
+            if (R !== (lot.qte_reliquat || 0)) { upd.reliquat_mode = ''; upd.reliquat_carton = ''; upd.qte_reliquat = R; }
           }
+          const { error } = await state.sb.from('production').update(upd).eq('id', state.editId);
           if (error) throw error;
           toast('Lot de production modifié.', 'success');
         } else {
-          let { data, error } = await state.sb.from('production').insert({ ...extendedRow, created_by: state.username }).select('id').single();
-          if (error && /column/i.test(error.message)) {
-            const retry = await state.sb.from('production').insert({ ...baseRow, created_by: state.username }).select('id').single();
-            data = retry.data; error = retry.error;
-          }
+          const row = { ...core, created_by: state.username };
+          if (fiche) Object.assign(row, colisageColumns(fiche, qty), { qte_reliquat: qty % fiche.qte_par_carton, reliquat_mode: '', reliquat_carton: '' });
+          const { data, error } = await state.sb.from('production').insert(row).select('id').single();
           if (error) throw error;
           savedId = data?.id;
           toast('Lot de production enregistré.', 'success');
@@ -511,20 +574,54 @@
       await loadData();
       fillLists();
       render();
-      if (goToColisage && savedId) {
-        location.href = `colisage.html?prod=${encodeURIComponent(savedId)}`;
+
+      const saved = state.lots.find(x => x.id === savedId);
+      if (ref && !fiche && savedId) {
+        // Nouvelle référence : le colisage doit être rempli
+        const go = await confirmDialog(`Nouvelle référence ${ref} : son colisage n'existe pas encore. Voulez-vous le remplir maintenant ?`, 'Remplir le colisage', 'Plus tard');
+        if (go) { location.href = 'colisage.html?' + new URLSearchParams({ ref, cat: core.categorie, des, prod: savedId }).toString(); return; }
+        toast(`Colisage de la référence ${ref} à remplir (page Colisage) : le lot ne peut pas être expédié avant.`, 'warning');
+      } else if (saved && LTColis.needsDecision(saved)) {
+        await askReliquat(saved);     // reste-t-il des bobines hors carton ? l'opérateur décide
       }
     }
 
     async function deleteLot(id) {
       const l = state.lots.find(x => x.id === id); if (!l) return;
-      if (!canModifyLot(l)) return toast('Délai de 48h dépassé. Seul un administrateur peut supprimer cette production.', 'warning');
+      if (!canModifyLot(l)) return toast(LOCK_MSG, 'warning');
       if (shippedOf(l) > 0 && !state.isAdmin) return toast('Ce lot a déjà des envois rattachés. Seul un administrateur peut le supprimer.', 'error');
       if (!await confirmDialog(`Supprimer définitivement la production OF ${l.of_numero} (${l.reference || l.designation}) ?`)) return;
       const { error } = await state.sb.from('production').delete().eq('id', id);
       if (error) return toast('Suppression impossible : ' + (error.message || error), 'error');
+      state.sel.delete(id);
       toast('Lot supprimé.', 'success');
       if (await loadData()) { fillLists(); render(); }
+    }
+
+    /* ----- Reliquat : l'opérateur décide (carton ou stock pour carton mixte) ----- */
+    function askReliquat(lot) {
+      return LTReliquat.ask(lot, { sb: state.sb, toast, reload: async () => { await loadData(); render(); } });
+    }
+    async function decideReliquat(id) {
+      const l = state.lots.find(x => x.id === id); if (!l) return;
+      if (!canDecideReliquat(l)) return toast(LOCK_MSG, 'warning');
+      if (!LTColis.remainderOf(l)) return toast('Ce lot n\'a pas de reliquat.', 'info');
+      await askReliquat(l);
+    }
+
+    /* ----- Sélection pour l'expédition ----- */
+    function toggleSel(id, on) { if (on) state.sel.add(id); else state.sel.delete(id); updateShipBar(); }
+    function toggleAllSel(on) {
+      $$('.chk-ship:not(:disabled)').forEach(c => { c.checked = on; toggleSel(c.dataset.id, on); });
+    }
+    function clearSel() { state.sel.clear(); $$('.chk-ship').forEach(c => { c.checked = false; }); if ($('#chkAll')) $('#chkAll').checked = false; updateShipBar(); }
+    function updateShipBar() {
+      $('#shipCount').textContent = state.sel.size;
+      $('#shipBar').classList.toggle('hidden', state.sel.size === 0);
+    }
+    function goShip() {
+      if (!state.sel.size) return;
+      location.href = 'envois.html?new=1&lots=' + [...state.sel].map(encodeURIComponent).join(',');
     }
 
     /* ----- Liste ----- */
@@ -541,34 +638,65 @@
       const open = all.filter(l => restOf(l) > 0);
       $('#kLots').textContent = fmtNum(open.length);
       $('#kProd').textContent = fmtNum(all.reduce((s, l) => s + l.quantite_produite, 0));
-      $('#kShip').textContent = fmtNum(all.reduce((s, l) => s + Math.min(shippedOf(l), l.quantite_produite), 0));
+      $('#kShip').textContent = fmtNum(all.reduce((s, l) => s + Math.min(validatedOf(l), l.quantite_produite), 0));
       $('#kRest').textContent = fmtNum(open.reduce((s, l) => s + restOf(l), 0));
 
+      // les lignes cochées qui n'existent plus sont retirées
+      [...state.sel].forEach(id => { if (!all.some(l => l.id === id)) state.sel.delete(id); });
+
       const list = all.filter(l => (state.filter === 'all' || restOf(l) > 0) &&
-        (!q || [l.of_numero, l.reference, l.designation, l.categorie, l.type_carton, l.matiere, l.mandrin].join(' ').toLowerCase().includes(q)));
+        (!q || [l.of_numero, l.reference, l.designation, l.categorie, l.client, l.type_carton, l.matiere, l.mandrin].join(' ').toLowerCase().includes(q)));
 
       $('#rows').innerHTML = list.length ? list.map(l => {
-        const sh = Math.min(shippedOf(l), l.quantite_produite), rest = restOf(l);
-        const pct = Math.round(sh / l.quantite_produite * 100);
+        const sh = Math.min(validatedOf(l), l.quantite_produite), rest = restOf(l), pend = pendingOf(l);
+        const pct = Math.round((sh + pend) / l.quantite_produite * 100);
         const st = rest === 0 ? '<span class="badge st-done">Soldé</span>' : sh > 0 ? '<span class="badge st-part">Partiel</span>' : '<span class="badge st-new">À expédier</span>';
-        const smartAll = computeSmartBoxes(l.quantite_produite, l.qte_par_carton, l.type_carton || 'H2');
-        const smartRest = computeSmartBoxes(rest, l.qte_par_carton, l.type_carton || 'H2');
+        const R = LTColis.remainderOf(l), mode = String(l.reliquat_mode || '');
+        const av = availOf(l);
+        const enCarton = stockReserved(l.id);
+        const pkAll = l.colisage_valide ? LTColis.packing({ ...l, reliquat_carton: l.reliquat_carton || l.type_carton }, l.quantite_produite) : null;
 
-        // Détails techniques
         const specs = [];
         if (l.categorie) specs.push(l.categorie);
         if (l.matiere) specs.push(l.matiere);
+        if (l.gabarit || l.dim_produit) specs.push(l.gabarit || l.dim_produit);
         if (l.mandrin) specs.push('Mandrin ' + l.mandrin);
         if (l.etq_par_bobine > 0) specs.push(`${fmtNum(l.etq_par_bobine)} étq/bob`);
-        if (l.unite === 'LOT' && l.cartes_par_paquet) specs.push(`Paquet de ${l.cartes_par_paquet} cartes`);
+        if (l.type_produit === 'CARTE_PVC' && l.cartes_par_paquet) specs.push(`Paquet de ${l.cartes_par_paquet} cartes`);
+
+        // Colisage (cartons) et décision du reliquat
+        let colis;
+        if (!l.colisage_valide) {
+          const qs = new URLSearchParams({ ref: l.reference || '', cat: l.categorie || '', des: l.designation || '', prod: l.id });
+          colis = `<a href="colisage.html?${qs.toString()}" class="badge st-part" title="Remplir le colisage de cette référence"><i class="fa-solid fa-triangle-exclamation"></i>Colisage à remplir</a>`;
+        } else {
+          let reliq = '';
+          if (R > 0 && !mode && av.blocked) reliq = `<button type="button" class="badge st-part op-only" style="cursor:pointer" onclick="decideReliquat('${esc(l.id)}')"><i class="fa-solid fa-circle-question"></i>Reliquat de ${R} à décider</button>`;
+          else if (mode === 'STOCK' && av.mixte > 0) reliq = `<span class="badge st-part" title="Partira dans un carton mixte"><i class="fa-solid fa-warehouse"></i>${av.mixte} en vrac (carton mixte)</span>`;
+          else if (mode === 'CARTON') reliq = `<span class="badge st-new"><i class="fa-solid fa-box"></i>Reliquat ${R} → ${esc(l.reliquat_carton || l.type_carton)}</span>`;
+          colis = `<div class="font-bold text-amber-400">${pkAll ? esc(LTColis.text(pkAll.parts)) : '—'}</div>
+            <div class="text-[11px]" style="color:var(--text-muted)">${l.qte_par_carton} ${esc(l.unite)} / ${esc(l.type_carton)}${pkAll && pkAll.kg ? ' • ≈ ' + fmtKg(pkAll.kg) + ' kg' : ''}</div>
+            ${reliq ? `<div class="mt-1">${reliq}</div>` : ''}
+            ${enCarton ? `<div class="mt-1 text-xs text-indigo-400">${fmtNum(enCarton)} affectés à un carton en stock</div>` : ''}`;
+        }
+
+        const restHtml = (l.colisage_valide && mode === 'STOCK' && R > 0)
+          ? `<div class="font-extrabold text-amber-500 text-sm">${fmtNum(rest)} ${esc(l.unite)}</div><div class="text-[11px]" style="color:var(--text-muted)">dont ${fmtNum(av.mixte)} en stock</div>`
+          : `<div class="font-extrabold text-amber-500 text-sm">${fmtNum(rest)} ${esc(l.unite)}</div>`;
 
         const canEdit = canModifyLot(l);
         const actionBtns = canEdit
           ? `<button class="btn-icon op-only" onclick="editLot('${esc(l.id)}')" title="Modifier"><i class="fa-solid fa-pen-to-square text-amber-400 text-xs"></i></button>
              <button class="btn-icon op-only" onclick="deleteLot('${esc(l.id)}')" title="Supprimer"><i class="fa-regular fa-trash-can text-rose-400 text-xs"></i></button>`
-          : `<button class="btn-icon op-only" onclick="toast('Délai de 48h dépassé. Seul un admin peut modifier ou supprimer.','warning')" title="Délai de 48h dépassé"><i class="fa-solid fa-lock text-slate-500 text-xs"></i></button>`;
+          : `<button class="btn-icon op-only" onclick="toast(LOCK_MSG,'warning')" title="Délai de 48h dépassé"><i class="fa-solid fa-lock text-slate-500 text-xs"></i></button>`;
+
+        // case de sélection : seulement si le lot peut partir (colisage validé, reliquat décidé, reste > 0)
+        const canShip = (l.colisage_valide || state.isAdmin) && (!av.blocked || state.isAdmin) && rest > stockReserved(l.id);
+        const why = canShip ? 'Cocher pour expédier' : rest <= 0 ? 'Lot soldé' : rest <= enCarton ? 'Quantité affectée à un carton en stock' : !l.colisage_valide ? 'Colisage à remplir' : 'Reliquat à décider';
+        const chk = `<input type="checkbox" class="chk-ship w-4 h-4 accent-indigo-500" data-id="${esc(l.id)}" ${canShip ? '' : 'disabled'} ${state.sel.has(l.id) && canShip ? 'checked' : ''} title="${esc(why)}" onchange="toggleSel('${esc(l.id)}', this.checked)">`;
 
         return `<tr class="hover:bg-[var(--bg-hover)] transition">
+          <td class="p-3 pl-4 op-only">${chk}</td>
           <td class="p-3 pl-5">
             <div class="font-mono-code font-bold text-amber-500">${esc(l.of_numero)}</div>
             <div class="text-[11px]" style="color:var(--text-muted)">${esc(fmtDate(l.date_production))}</div>
@@ -576,42 +704,49 @@
           <td class="p-3">
             <div class="flex items-center gap-2">
               <span class="font-mono-code font-bold text-indigo-400">${esc(l.reference || '-')}</span>
-              ${l.colisage_valide ? '<span class="badge st-done" title="Fiche de colisage validée"><i class="fa-solid fa-check"></i>Colisage OK</span>' : ''}
+              ${l.colisage_valide ? '<span class="badge st-done" title="Colisage rempli"><i class="fa-solid fa-check"></i>Colisage OK</span>' : ''}
             </div>
             <div class="font-semibold">${esc(l.designation || '')}</div>
+            ${l.client ? '<div class="text-xs" style="color:var(--text-muted)">Client · ' + esc(l.client) + '</div>' : ''}
             ${specs.length ? `<div class="text-[11px]" style="color:var(--text-dim)">${esc(specs.join(' • '))}</div>` : ''}
           </td>
           <td class="p-3 text-right font-bold">${fmtNum(l.quantite_produite)} <span style="color:var(--text-dim);font-weight:600">${esc(l.unite)}</span></td>
-          <td class="p-3 text-center">
-            <div class="font-bold text-amber-400">${esc(smartAll.summary)}</div>
-            <div class="text-[11px]" style="color:var(--text-muted)">Capacité : ${fmtNum(l.qte_par_carton)} ${esc(l.unite)}/${esc(l.type_carton || 'H2')}${l.poids_carton ? ' • ' + fmtKg(l.poids_carton) + ' kg' : ''}</div>
-          </td>
-          <td class="p-3 text-right text-emerald-500 font-bold">${fmtNum(sh)}</td>
-          <td class="p-3 text-right">
-            <div class="font-extrabold text-amber-500 text-sm">${fmtNum(rest)} ${esc(l.unite)}</div>
-            ${rest ? `<div class="text-[11px]" style="color:var(--text-muted)">${esc(smartRest.summary)}</div>` : ''}
-          </td>
+          <td class="p-3 text-center">${colis}</td>
+          <td class="p-3 text-right"><div class="text-emerald-500 font-bold">${fmtNum(sh)}</div>${pend ? `<div class="text-[11px] text-amber-500" title="Envois créés, en attente de validation par un administrateur">+ ${fmtNum(pend)} à valider</div>` : ''}</td>
+          <td class="p-3 text-right">${restHtml}</td>
           <td class="p-3"><div class="bar"><i style="width:${pct}%"></i></div><div class="mt-1">${st}</div></td>
           <td class="p-3 pr-5 text-right whitespace-nowrap">
             <div class="inline-flex items-center gap-1.5">
-              <a href="colisage.html?prod=${encodeURIComponent(l.id)}" class="btn-icon" title="Configurer / Imprimer le Colisage de ce lot"><i class="fa-solid fa-boxes-packing text-amber-500 text-xs"></i></a>
+              <a href="colisage.html?prod=${encodeURIComponent(l.id)}" class="btn-icon" title="Voir le colisage de ce lot"><i class="fa-solid fa-boxes-packing text-amber-500 text-xs"></i></a>
               ${actionBtns}
             </div>
           </td></tr>`;
-      }).join('') : `<tr><td colspan="8" class="p-10 text-center" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-3xl mb-2 block" style="color:var(--text-dim)"></i>${state.lots.length ? 'Aucun lot ne correspond.' : 'Aucun lot de production pour le moment. Saisissez le premier ci-dessus.'}</td></tr>`;
+      }).join('') : `<tr><td colspan="9" class="p-10 text-center" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-3xl mb-2 block" style="color:var(--text-dim)"></i>${state.lots.length ? 'Aucun lot ne correspond.' : 'Aucun lot de production pour le moment. Saisissez le premier ci-dessus.'}</td></tr>`;
+      updateShipBar();
     }
 
     /* ----- Démarrage ----- */
-    async function start() {
-      await loadRole();
-      await loadData();
+    async function start(session) {
+      await loadRole(session);
+      Listes.setAdmin(state.isAdmin);
+      if (state.isAdmin) { $('#fOF').removeAttribute('maxlength'); $('#fOF').title = 'Ordre de fabrication'; }
+      else { $('#fOF').maxLength = 11; $('#fOF').title = 'Format : MOyymm-xxxx'; }
+      if (!state.isOperator) {
+        if (state.session) showGate('<h3 class="text-base font-extrabold">Accès refusé</h3><p class="text-xs" style="color:var(--text-muted)">Ce compte n\'est pas un compte opérateur.</p>');
+        else loginGate();
+        return;
+      }
+      await Listes.init(state.sb, state.isAdmin);
+      if (!(await loadData())) return;
       $('#gate').classList.add('hidden');
       $('#app').classList.remove('hidden');
       fillLists();
       resetForm();
       render();
-      const editParam = new URLSearchParams(location.search).get('edit');
+      const params = new URLSearchParams(location.search);
+      const editParam = params.get('edit');
       if (editParam && state.lots.some(x => x.id === editParam)) editLot(editParam);
+      else if (params.get('ref')) { $('#fRef').value = params.get('ref').toUpperCase(); onRefChange(); }
     }
 
     (function init() {
@@ -619,30 +754,25 @@
       try {
         const url = lsGet('supabase_url') || SUPABASE_URL, key = lsGet('supabase_key') || SUPABASE_ANON;
         state.sb = window.supabase.createClient(url, key);
-      } catch (e) {}
-      $('#fQty').addEventListener('input', e => { cleanInt(e.target); updatePreview(); });
-      $('#fQpc').addEventListener('input', e => { cleanInt(e.target); updatePreview(); });
-      $('#fEtqBob').addEventListener('input', e => { cleanInt(e.target); updatePreview(); });
-      $('#fCarton').addEventListener('input', () => updatePreview());
-      $('#fPoids').addEventListener('input', e => { cleanDec(e.target); updatePreview(); });
-      // Auto-complétion intelligente d'une référence déjà produite
-      $('#fRef').addEventListener('change', () => {
-        if (state.editId) return;
-        const r = up('#fRef'), lot = state.lots.find(l => l.reference === r);
-        if (!lot) return;
-        if (lot.type_produit) setProductType(lot.type_produit);
-        const setIfEmpty = (sel, v) => { if (v && !$(sel).value.trim()) $(sel).value = v; };
-        setIfEmpty('#fCat', lot.categorie);
-        setIfEmpty('#fDes', lot.designation);
-        setIfEmpty('#fQpc', lot.qte_par_carton);
-        setIfEmpty('#fCarton', lot.type_carton);
-        setIfEmpty('#fPoids', lot.poids_carton || '');
-        setIfEmpty('#fEtqBob', lot.etq_par_bobine || '');
-        setIfEmpty('#fMandrin', lot.mandrin || '');
-        setIfEmpty('#fMatiere', lot.matiere || '');
-        if (lot.unite) $('#fUni').value = lot.unite;
-        updatePreview();
+      } catch (e) {
+        return showGate('<h3 class="text-base font-extrabold">Base indisponible</h3><p class="text-xs" style="color:var(--text-muted)">Impossible de joindre Supabase. Vérifiez votre connexion internet.</p>');
+      }
+      $('#fQty').addEventListener('input', e => { cleanInt(e.target); renderColisInfo(); });
+      $('#fCat').addEventListener('change', () => {
+        applyCategoryUI(true);
+        if (isAPProductionCategory($('#fCat').value)) chooseAPProductionOrder();
       });
+      $('#fUni').addEventListener('change', () => { refreshLabels(); renderColisInfo(); });
+      $('#fOF').addEventListener('input', e => { e.target.value = state.isAdmin ? e.target.value.toUpperCase() : formatOF(e.target.value); });
+      $('#fDate').addEventListener('change', () => { if (/^MO\d{0,4}-?$/.test($('#fOF').value) && !state.editId) $('#fOF').value = ofPrefix($('#fDate').value); });
+      $('#fRef').addEventListener('change', onRefChange);
+      $('#fClient').addEventListener('input', e => { e.target.dataset.manual = '1'; });
+      // Saisie ou scan de la référence : dès qu'elle correspond à une fiche de colisage, les détails se remplissent
+      $('#fRef').addEventListener('input', () => {
+        if (!state.editId && ficheOf(up('#fRef'))) onRefChange(); else renderColisInfo();
+      });
+      Listes.bind('#fCat', 'categories', { placeholder: '— Choisir —' });
+      Listes.bind('#fUni', 'unites');
       start();
     })();
   </script>
