@@ -33,8 +33,8 @@
   /* ---------- Styles ---------- */
   const st = document.createElement('style');
   st.textContent = `
-    .frame-wrap{position:relative;flex:1;min-height:72vh;border-radius:20px;overflow:hidden;background:#fff;
-      border:1px solid var(--border-strong);box-shadow:0 24px 50px -24px rgba(0,0,0,.55);
+    .frame-wrap{position:relative;flex:1;min-height:72vh;border-radius:var(--radius);overflow:hidden;background:#fff;
+      border:1px solid var(--border-strong);box-shadow:var(--shadow-card);
       animation:frameOpen .6s cubic-bezier(.22,.8,.3,1) both}
     @keyframes frameOpen{from{opacity:0;transform:scale(.97) translateY(16px)}to{opacity:1;transform:none}}
     .frame-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
@@ -50,8 +50,8 @@
   /* ---------- Contenu de la page ---------- */
   root.className = 'relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex-1 w-full flex flex-col gap-3 no-print';
   root.innerHTML = `
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <p class="text-xs" style="color:var(--text-muted)"><i class="fa-solid ${esc(icon)} mr-1" style="color:var(--ec1)"></i>« ${esc(name)} » s'affiche ici, dans LogiTrak. Les onglets restent à votre disposition.</p>
+    <div class="page-heading flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3"><div class="heading-icon"><i class="fa-solid ${esc(icon)}"></i></div><div><h1 class="text-xl">${esc(name)}</h1><p class="text-xs" style="color:var(--text-muted)">Accès au portail de pointage Eurequat.</p></div></div>
       <div class="flex items-center gap-2">
         <button id="embReload" class="btn btn-secondary" title="Recharger"><i class="fa-solid fa-rotate-right text-xs"></i><span class="hidden sm:inline">Recharger</span></button>
         <button id="embFull" class="btn btn-secondary" title="Plein écran"><i class="fa-solid fa-expand text-xs"></i><span class="hidden sm:inline">Plein écran</span></button>
