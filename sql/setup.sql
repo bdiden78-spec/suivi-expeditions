@@ -134,6 +134,8 @@ begin
 end; $$;
 
 -- 5. RPC : Sauvegarde transactionnelle
+-- ⚠️ Cette version simple est REMPLACÉE par celle de sql/v18-listes-et-verrous.sql (liens production, N° d'envoi verrouillé).
+--    Après tout passage de setup.sql, exécutez de nouveau sql/v18-listes-et-verrous.sql en dernier.
 create or replace function save_expedition(
   p_id uuid, p_date_envoi date, p_numero_bl text, p_transporteur text, p_observations text, p_items jsonb
 ) returns uuid language plpgsql security invoker as $$
