@@ -118,17 +118,21 @@
       try {
         const url = lsGet('supabase_url') || SUPABASE_URL, key = lsGet('supabase_key') || SUPABASE_ANON;
         const client = window.supabase.createClient(url, key);
-        const [shipments, production] = await Promise.allSettled([
+        const [shipments, production, apProduction] = await Promise.allSettled([
           Promise.all([
             readLogiTrakRows(client, 'expeditions', 'id,date_envoi,created_at,validation'),
             readLogiTrakRows(client, 'lignes_expedition', 'id,expedition_id,production_id,created_at,categorie,destinataire,quantite'),
           ]),
           readLogiTrakRows(client, 'production', 'id,date_production,categorie,type_produit,quantite_produite'),
+          readLogiTrakRows(client,'ap_productions','id,date_production,statut,quantite_imprimee'),
         ]);
         if (shipments.status === 'fulfilled') state.expeditions = attachLogiTrakItems(...shipments.value);
         else { console.warn(shipments.reason); failures.push('Classements des envois indisponibles.'); }
         if (production.status === 'fulfilled') state.production = production.value;
         else { console.warn(production.reason); failures.push('Production mensuelle indisponible.'); }
+        if(apProduction.status==='fulfilled') state.production.push(...apProduction.value.filter(run=>run.statut==='TERMINE').map(run=>({
+          ...run,categorie:'ALGERIE POSTE',type_produit:'ETIQUETTE',quantite_produite:run.quantite_imprimee,
+        })));
       } catch (error) { console.warn(error); failures.push('Connexion aux statistiques indisponible.'); }
       status.textContent = failures.join(' ');
       fillYears();

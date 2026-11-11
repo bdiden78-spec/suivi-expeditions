@@ -1,6 +1,38 @@
-# LogiTrak — Eurequat Algérie (v3.7)
+# LogiTrak — Eurequat Algérie (v3.8.4)
 
 Suivi de la production, du colisage industriel et des expéditions de l'usine de Tlemcen.
+
+## Version 3.8.1
+
+Depuis une commande Algérie Poste, Préparer un envoi ouvre directement Nouvel envoi avec les tirages validés disponibles. Retirer les lignes à garder pour un autre envoi, puis enregistrer depuis le formulaire habituel. La migration v3.8 suffit.
+
+## Version 3.8
+
+Exécuter sql/v38-flux-algerie-poste.sql après la migration v3.7.4. Pour chaque commande Algérie Poste, démarrer une plage numérique inclusive avec son imprimante. Un opérateur peut avoir quatre machines en cours, avec une seule plage active par machine. La validation libère l’imprimante et ajoute le tirage à Production. Préparer un envoi depuis la commande en sélectionnant les tirages validés à expédier. Les envois suivent la validation habituelle et les tirages validés alimentent la production mensuelle.
+
+## Version 3.7.4
+
+Exécuter sql/v374-declaration-algerie-poste.sql après la migration v3.7.2. Dans Production, saisir uniquement la commande en cours, la quantité en ID et la date. La déclaration réserve cette quantité. Dans Algérie Poste, ouvrir la commande puis choisir Compléter et valider dans son historique de fabrication. Renseigner l’imprimante et les numéros inclusifs pour valider le tirage. Le colisage des tirages validés est calculé avec les paramètres du produit.
+
+## Version 3.7.3
+
+Dans Production, choisir Algérie Poste, sélectionner une commande en cours et saisir la quantité produite en ID. Le colisage est calculé automatiquement. Les réglages restent accessibles dans Ajuster le colisage. Aucune migration supplémentaire après la v3.7.2.
+
+## Version 3.7.2
+
+Exécuter sql/v372-colisage-algerie-poste.sql après la migration v3.7.1, puis publier les fichiers.
+
+Les tirages Algérie Poste sont saisis en paquets complets de 1 000 ID et en ID du dernier paquet incomplet. H1 est proposé par défaut. Le type de carton, les paquets par carton et le poids du paquet complet sont enregistrés par tirage et modifiables depuis Production ou Colisage selon les droits habituels. La quantité de la commande reste vérifiée en ID.
+
+## Version 3.7.1
+
+Exécuter sql/v371-commandes-algerie-poste.sql après la migration v3.7, puis publier le dossier sur le site HTTPS existant.
+
+Algérie Poste sert à enregistrer et consulter les commandes. Chaque commande s’ouvre sur ses tirages, ses opérateurs, ses imprimantes et les événements historiques. Les cinq types de produit fixent le régime, les couleurs, la référence, le gabarit et le nombre d’exemplaires. Pour les commandes antérieures, un opérateur habilité ou un administrateur doit choisir le type exact avant de déclarer un nouveau tirage.
+
+Dans Production, sélectionner Algérie Poste puis une commande existante. La quantité cumulée des tirages validés et des réservations en cours est limitée à la quantité commandée dans Supabase. Les anciens tirages en cours peuvent être terminés dans Production. Le délai de 48 h reste applicable aux opérateurs.
+
+Dans Colisage, choisir la commande pour afficher ou imprimer la fiche. Les cartons H1 contiennent 20 000 ID en 2 exemplaires et 14 000 ID en 3 exemplaires. Les paquets complets contiennent 1 000 ID. Le dernier paquet incomplet est pesé par estimation proportionnelle. Le poids brut inclut la tare H1 existante de 0,420 kg. Les tirages sont conditionnés séparément pour conserver leur traçabilité.
 
 ## Version 3.7
 
@@ -133,3 +165,11 @@ Top 3 par catégorie (+ Algérie Poste reconnu sur le destinataire), poids des c
 `index.html` • `production.html` • `colisage.html` • `envois.html` • `statistiques.html` • `algerie-poste.html` • `pointage.html`
 `js/` : `app.js` (envois), `colisage-calc.js`, `reliquat.js`, `listes.js`, `nav.js`, `scanner.js`, `embed.js`, `config.js`
 `sql/` : voir l'ordre ci-dessus
+
+## Envois partiels Algérie Poste
+
+Appliquer sql/v383-envois-partiels-algerie-poste.sql dans Supabase après la migration v3.8. Ouvrir un envoi en préparation, choisir Ajouter Algérie Poste, sélectionner un tirage validé et saisir la quantité à expédier.
+
+## Commandes et impressions Algérie Poste
+
+Depuis les impressions en cours, choisir une commande puis saisir l’imprimante et le premier ID. La fin inclusive est calculée sur 1 000 ID ou sur le solde si celui-ci est inférieur. Les droits de modification et de suppression existants s’appliquent dès la création. Aucune migration supplémentaire après la v3.8.3.

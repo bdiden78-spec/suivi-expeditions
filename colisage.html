@@ -70,6 +70,21 @@
   </header>
 
   <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
+    <section id="apColisage" class="panel p-4 space-y-3 hidden">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="font-bold">Colisage Algérie Poste</h2>
+        <button id="apPackingPrint" type="button" class="btn btn-secondary" disabled>Imprimer la fiche</button>
+      </div>
+      <label class="lbl" for="apPackingOrder">Commande Algérie Poste</label>
+      <select id="apPackingOrder" class="inp"></select>
+      <div id="apPackingOutput" class="space-y-2 text-sm" aria-live="polite"></div>
+      <form id="apPackingEditor" class="space-y-3" hidden>
+        <label class="lbl">Réglages du tirage<select name="run" class="inp"></select></label>
+        <div data-packing-fields class="grid grid-cols-1 sm:grid-cols-3 gap-3" hidden></div>
+        <button type="submit" class="btn btn-primary" hidden>Enregistrer le colisage</button>
+      </form>
+      <p id="apPackingStatus" class="text-sm" role="status"></p>
+    </section>
 
     <div class="page-heading flex items-center justify-between gap-3 flex-wrap no-print">
       <div class="flex items-center gap-3">
@@ -189,6 +204,7 @@
 
   <!-- Feuille imprimable (A4) -->
   <div id="sheet"></div>
+  <div id="apPackingSheet"></div>
 
   <datalist id="refList"></datalist>
   <datalist id="mandrinList"><option value="25MM"><option value="40MM"><option value="76MM"><option value="1 POUCE"></datalist>
@@ -200,6 +216,10 @@
   <script src="js/listes.js"></script>
   <script src="js/colisage-calc.js"></script>
   <script src="js/reliquat.js"></script>
+  <script src="js/data-pages.js"></script>
+  <script src="js/ap-products.js"></script>
+  <script src="js/ap-calc.js"></script>
+  <script src="js/ap-packing.js"></script>
   <script>
     const THEME_KEY = 'logitrak_theme', LOCAL_KEY = 'eurequat_expeditions_v1';
     const state = {
@@ -887,6 +907,7 @@
     /* ----- Démarrage ----- */
     async function boot(session) {
       await detectRole(session);
+      loadAPColisage();
       Listes.setAdmin(state.isAdmin);
       if (state.isOperator) { hideGate(); await Listes.init(state.sb, state.isAdmin); }
       else if (!state.session) loginGate();

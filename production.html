@@ -97,7 +97,7 @@
         </div>
 
         <input type="hidden" id="fType" value="ETIQUETTE">
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div id="productionFields" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div><label class="lbl" for="fOF">Ordre de fabrication (OF) * <span style="color:var(--text-dim);font-weight:500">MOyymm-xxxx</span></label><input id="fOF" class="inp font-mono-code input-uppercase" placeholder="MO2610-0000" maxlength="11" autocomplete="off" spellcheck="false" title="Format imposé : MOyymm-xxxx (ex. MO2610-0000)"></div>
           <div><label class="lbl" for="fRef">Référence * <span style="color:var(--text-dim);font-weight:500">(toucher = scanner)</span></label><input id="fRef" data-field="reference" class="inp font-mono-code input-uppercase" list="refList" placeholder="📷 Réf" autocomplete="off"></div>
           <div><label class="lbl" for="fCat">Catégorie * <button type="button" class="lst-btn adm-only" onclick="Listes.manage('categories')" title="Ajouter / retirer une catégorie"><i class="fa-solid fa-gear"></i></button></label><select id="fCat" class="inp font-bold"></select></div>
@@ -117,6 +117,13 @@
         </div>
       </section>
 
+      <section class="panel p-4 sm:p-5 space-y-3 op-only" aria-labelledby="apProductionTitle">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 id="apProductionTitle" class="font-bold">Production Algérie Poste validée</h3>
+          <a href="algerie-poste.html" class="btn btn-secondary">Commandes et impressions</a>
+        </div>
+        <div id="apValidatedProduction" class="overflow-x-auto" aria-live="polite"></div>
+      </section>
       <section class="panel p-4 sm:p-5 space-y-3 op-only" aria-labelledby="stockTitle">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -205,6 +212,9 @@
   <script src="js/reliquat.js"></script>
   <script src="js/cartons-stock.js"></script>
   <script src="js/data-pages.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/ap-calc.js"></script>
+  <script src="js/ap-products.js"></script>
   <script src="js/ap-order-picker.js"></script>
   <script>
     const THEME_KEY = 'logitrak_theme';
@@ -285,6 +295,7 @@
       $('#lblQty').textContent = `Quantité produite (${u}) *`;
     }
     function applyCategoryUI(resetUnit) {
+      $('#productionFields').classList.toggle('ap-production-mode', !state.editId && isAPProductionCategory($('#fCat').value));
       const type = typeFromCat($('#fCat').value);
       $('#fType').value = type;
       if (resetUnit) {
@@ -745,6 +756,7 @@
       if (!(await loadData())) return;
       $('#gate').classList.add('hidden');
       $('#app').classList.remove('hidden');
+      loadAPValidatedProduction();
       fillLists();
       resetForm();
       render();

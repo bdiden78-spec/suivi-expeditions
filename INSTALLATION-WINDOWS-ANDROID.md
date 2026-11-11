@@ -1,4 +1,4 @@
-# Installer LogiTrak v3.7 sur Windows et Android
+# Installer LogiTrak v3.8.4 sur Windows et Android
 
 ## Publier la version installable
 
@@ -8,7 +8,7 @@
 4. Ouvrir le site avec son adresse HTTPS. Une ouverture directe des fichiers sur le disque ne permet pas l'installation.
 5. Conserver la même adresse et le même dossier de publication lors des prochaines versions.
 
-Avant publication, exécuter sql/v37-tracabilite-algerie-poste.sql dans Supabase après l’installation du module Algérie Poste. Cette migration ajoute les imprimantes, les états des tirages et leur historique. La connexion Supabase reste celle de l’application.
+Avant publication, exécuter sql/v38-flux-algerie-poste.sql dans Supabase après la migration v3.7.4 si ce script n’a pas déjà été appliqué. La connexion Supabase reste celle de l’application.
 
 ## Windows
 
@@ -55,3 +55,7 @@ Les tests locaux de cette livraison couvrent le manifeste, les dimensions des ic
 - Installation dans Edge. https://learn.microsoft.com/en-us/microsoft-edge/progressive-web-apps/ux
 - Installation des applications web. https://web.dev/learn/pwa/installation
 - Manifeste d'application. https://web.dev/learn/pwa/web-app-manifest
+
+## Envois partiels Algérie Poste
+
+Appliquer sql/v383-envois-partiels-algerie-poste.sql dans Supabase après la migration v3.8. Ouvrir un envoi en préparation, choisir Ajouter Algérie Poste, sélectionner un tirage validé et saisir la quantité à expédier.

@@ -92,7 +92,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div><label class="lbl" for="apClient">Agence / UPW *</label><input id="apClient" class="inp input-uppercase" list="apClients" required maxlength="160" placeholder="UPW…"></div>
             <div><label class="lbl" for="apCategory">Catégorie *</label><select id="apCategory" class="inp" required><option value="NATIONAL">National</option><option value="INTERNATIONAL">International</option></select></div>
-            <div><label class="lbl" for="apSubtype">Sous-catégorie *</label><input id="apSubtype" class="inp" list="apSubtypes" required maxlength="180" placeholder="Ex. Régime intérieur RR 2 exemplaires"></div>
+            <div><label class="lbl" for="apSubtype">Type de produit *</label><select id="apSubtype" class="inp" required></select></div>
             <div><label class="lbl" for="apQty">Quantité demandée (ID) *</label><input id="apQty" type="number" min="1" max="2147483647" step="1" class="inp" required></div>
             <div><label class="lbl" for="apOrderDate">Date de commande *</label><input id="apOrderDate" type="date" class="inp" required></div>
             <div><label class="lbl" for="apOrderNotes">Observations</label><input id="apOrderNotes" class="inp" maxlength="2000"></div>
@@ -104,29 +104,7 @@
         </form>
       </section>
 
-      <section class="panel p-4 sm:p-5 space-y-4">
-        <h3 id="apRunTitle" class="font-bold">Démarrer une impression</h3>
-        <form id="apRunForm" class="space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div class="sm:col-span-2"><label class="lbl" for="apRunOrder">Commande *</label><select id="apRunOrder" class="inp" required></select></div>
-            <div><label class="lbl" for="apRunDate">Date de production *</label><input id="apRunDate" type="date" class="inp" required></div>
-            <div><label class="lbl" for="apRunQty"><span id="apRunQtyLabel">Quantité prévue (ID) *</span></label><input id="apRunQty" type="number" min="1" max="2147483647" step="1" class="inp" required></div>
-            <div><label class="lbl" for="apFirst">Premier numéro *</label><input id="apFirst" class="inp font-mono-code input-uppercase" required maxlength="80" autocomplete="off" placeholder="Ex. 00 378 601"></div>
-            <div><label class="lbl" for="apLast">Dernier numéro inclus <span id="apLastRequired"></span></label><input id="apLast" class="inp font-mono-code input-uppercase" maxlength="80" autocomplete="off" placeholder="Ex. 00 403 600"></div>
-            <div><label class="lbl" for="apPrinter">Imprimante / machine *</label><input id="apPrinter" class="inp input-uppercase" list="apPrinters" required maxlength="160" placeholder="Nom ou numéro de série de l’imprimante"></div>
-            <div class="sm:col-span-2 lg:col-span-3"><label class="lbl" for="apRunNotes">Observations d’impression</label><input id="apRunNotes" class="inp" maxlength="2000"></div>
-          </div>
-          <label class="panel-soft p-3 flex items-center gap-3 text-sm"><input id="apRunFinished" type="checkbox" class="w-5 h-5"><span><b>Impression terminée · valider le tirage</b><br>Renseigner la quantité réellement imprimée et le dernier numéro avant validation.</span></label>
-          <p class="text-xs" style="color:var(--text-muted)">Un tirage correspond à une imprimante. Si vous changez de machine, démarrez un autre tirage. Modification pendant 48 h après la saisie initiale, administrateur à tout moment.</p>
-          <p id="apPackingPreview" class="panel-soft p-3 text-sm" aria-live="polite">Paquets de 1 000 ID. Un dernier paquet peut être incomplet.</p>
-          <p id="apRangeHint" class="text-xs" style="color:var(--text-muted)" aria-live="polite"></p>
-          <p id="apRunOrderHint" class="text-xs" style="color:var(--text-muted)" aria-live="polite"></p>
-          <div class="flex flex-wrap justify-end gap-2">
-            <button id="apRunCancel" type="button" class="btn btn-secondary hidden">Annuler</button>
-            <button id="apRunSave" type="submit" class="btn btn-primary"><i class="fa-solid fa-print"></i>Démarrer l’impression</button>
-          </div>
-        </form>
-      </section>
+
 
       <section class="space-y-3">
         <div class="flex flex-wrap items-center gap-2">
@@ -135,6 +113,10 @@
           <select id="apFilter" class="inp w-auto" aria-label="Filtrer par catégorie"><option value="">Toutes catégories</option><option value="NATIONAL">National</option><option value="INTERNATIONAL">International</option></select>
           <button id="apReload" type="button" class="btn btn-secondary"><i class="fa-solid fa-rotate"></i>Actualiser</button>
         </div>
+        <h3 class="font-bold">Impressions en cours par imprimante</h3>
+        <label class="lbl">Commande à imprimer<select id="apPrintOrder" class="inp"></select></label>
+        <button id="apPrintStart" type="button" class="btn btn-primary" disabled>Démarrer une plage</button>
+        <div id="apActive" class="space-y-2"></div>
         <div id="apOrders" class="space-y-3"></div>
       </section>
 
@@ -153,7 +135,7 @@
         </tr></thead><tbody id="apTraceRows"></tbody></table></div>
       </section>
     </div>
-    <datalist id="apClients"></datalist><datalist id="apSubtypes"></datalist><datalist id="apPrinters"></datalist>
+    <datalist id="apClients"></datalist>
   </main>
 
   <p id="apMessage" class="hidden max-w-7xl mx-auto px-6 py-3 text-sm" role="status"></p>
@@ -165,6 +147,8 @@
   <script src="js/calendar.js"></script>
   <script src="js/data-pages.js"></script>
   <script src="js/ap-calc.js"></script>
+  <script src="js/ap-products.js"></script>
+  <script src="js/colisage-calc.js"></script>
   <script src="js/ap-trace.js"></script>
   <script src="js/algerie-poste.js"></script>
   <script src="js/nav.js"></script>
