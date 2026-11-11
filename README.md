@@ -1,6 +1,24 @@
-# LogiTrak — Eurequat Algérie (v3.5)
+# LogiTrak — Eurequat Algérie (v3.7)
 
 Suivi de la production, du colisage industriel et des expéditions de l'usine de Tlemcen.
+
+## Version 3.7
+
+Exécuter sql/v37-tracabilite-algerie-poste.sql dans Supabase après l’installation du module Algérie Poste, puis publier les fichiers. Le script peut être relancé.
+
+Un tirage correspond à une imprimante. Saisir la commande, la machine, la quantité prévue et le premier numéro, puis démarrer l’impression. Le dernier numéro peut être complété à la fin. Les tirages en cours réservent leur quantité dans la commande. Seules les impressions terminées et validées alimentent le total imprimé et le colisage imprimable.
+
+À la fin, cocher Terminé sur la ligne. Si le dernier numéro et la machine sont déjà renseignés et que la quantité prévue correspond à la production, la validation s’enregistre directement. Sinon, le formulaire s’ouvre pour confirmer la quantité réelle et la plage puis valider. La date/heure de validation et l’utilisateur sont enregistrés par la base, en conservant le début du tirage et l’opérateur initial.
+
+La règle de modification et suppression reste de 48 h après la création du tirage. Au-delà, un administrateur intervient. Décocher Terminé remet le tirage en cours et conserve l’ancienne validation dans l’historique. Les administrateurs peuvent modifier à tout moment.
+
+L’historique conserve les démarrages, validations, corrections, réouvertures et suppressions avec leurs états avant/après et la commande concernée. Cet historique reste consultable après suppression d’une impression ou d’une commande et n’est pas modifiable depuis l’application. Une recherche d’ID numérique retrouve les plages correspondantes, les machines et les opérateurs. Pour un ID alphanumérique, utiliser un numéro de début/fin ou les filtres de machine, agence et opérateur.
+
+Les impressions antérieures sont reprises comme terminées. Une machine inconnue ou une validation non horodatée n’est pas inventée et reste signalée. Une ligne de reprise de l’historique indique la migration et ne constitue pas la date réelle de validation.
+
+## Version 3.6
+
+Application web installable sur Windows et Android avec manifeste, icônes du logo, bouton Installer, écran hors connexion et mise à jour avec confirmation. Publier tous les fichiers sur le site HTTPS actuel. Voir INSTALLATION-WINDOWS-ANDROID.md. Aucune nouvelle migration SQL depuis la v3.5.
 
 ## Version 3.5
 

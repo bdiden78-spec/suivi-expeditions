@@ -1,0 +1,48 @@
+{
+  "id": "./",
+  "name": "LogiTrak — Eurequat Algérie",
+  "short_name": "LogiTrak",
+  "description": "Production, colisage et suivi des expéditions Eurequat Algérie.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f6fa",
+  "theme_color": "#14395f",
+  "icons": [
+    {
+      "src": "assets/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/app-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Production",
+      "url": "./production.html"
+    },
+    {
+      "name": "Envois",
+      "url": "./envois.html"
+    },
+    {
+      "name": "Algérie Poste",
+      "url": "./algerie-poste.html"
+    }
+  ],
+  "prefer_related_applications": false
+}
