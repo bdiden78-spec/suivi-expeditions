@@ -377,3 +377,17 @@ html.light {
 @media(max-width:600px) {
   .app-brand { width:188px; height:64px; }
 }
+
+
+/* Installation sur Windows et Android */
+#pwaInstallButton[hidden], #pwaUpdateButton[hidden] { display:none !important; }
+.pwa-dialog { width:min(560px,calc(100vw - 32px)); max-height:85vh; overflow:auto; padding:24px; color:var(--text); }
+.pwa-dialog::backdrop { background:#081729aa; }
+.pwa-dialog h2 { font-size:20px; font-weight:750; margin:0 0 12px; }
+.pwa-dialog p, .pwa-dialog li { font-size:14px; line-height:1.6; margin-bottom:12px; }
+.pwa-dialog ol { padding-left:20px; list-style:decimal; }
+@media(display-mode:standalone) {
+  body { overscroll-behavior-y:none; }
+  .app-header { padding-top:env(safe-area-inset-top,0px); }
+  #appFooter { padding-bottom:calc(26px + env(safe-area-inset-bottom,0px)); }
+}
