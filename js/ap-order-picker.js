@@ -15,35 +15,61 @@ function pendingAPOrders(orders, runs) {
 }
 let apOrderPicker;
 async function chooseAPProductionOrder() {
-  if (!apOrderPicker) {
-    apOrderPicker = document.createElement('dialog');
-    apOrderPicker.id = 'apOrderPicker';
-    apOrderPicker.className = 'panel p-5 space-y-4';
-    apOrderPicker.setAttribute('aria-labelledby', 'apPickerTitle');
-    apOrderPicker.innerHTML = '<div class="flex items-center justify-between gap-3"><h3 id="apPickerTitle" class="font-bold">Choisir une commande Algérie Poste à produire</h3>' +
-      '<button type="button" class="btn-icon" aria-label="Fermer" data-close-picker><i class="fa-solid fa-xmark"></i></button></div>' +
-      '<p class="text-sm" style="color:var(--text-muted)">Sélectionnez une commande UPW qui dispose encore d’une quantité à lancer, après déduction des impressions validées et des tirages en cours. Vous pourrez saisir la quantité et les numéros de l’impression.</p>' +
-      '<div id="apPickerOrders" class="space-y-2" aria-live="polite"></div>' +
-      '<div class="flex flex-wrap justify-end gap-2"><button type="button" class="btn btn-secondary" data-close-picker>Annuler</button>' +
-      '<a href="algerie-poste.html" class="btn btn-secondary">Gérer les commandes</a></div>';
-    apOrderPicker.querySelectorAll('[data-close-picker]').forEach(button => button.addEventListener('click',()=>apOrderPicker.close()));
-    document.body.appendChild(apOrderPicker);
-  }
-  if (apOrderPicker.open) return;
-  const list = apOrderPicker.querySelector('#apPickerOrders');
-  list.textContent = 'Chargement des commandes…';
-  apOrderPicker.showModal();
+  if(apOrderPicker?.open) return;
+  const dialog=document.createElement('dialog');
+  apOrderPicker=dialog;
+  dialog.id='apOrderPicker';
+  dialog.className='panel p-5 space-y-4';
+  dialog.setAttribute('aria-labelledby','apPickerTitle');
+  dialog.innerHTML='<div class="flex justify-between items-center gap-3"><h3 id="apPickerTitle" class="font-bold">Production Algérie Poste</h3><button type="button" data-close class="btn btn-secondary">Fermer</button></div>'+
+    '<p data-status role="status" class="text-sm">Chargement des commandes…</p>'+
+    '<form hidden class="space-y-3"><label class="lbl">Commande en cours<select class="inp" name="order" required></select></label>'+
+    '<button type="submit" class="btn btn-primary">Ouvrir les impressions de la commande</button></form>'+
+    '<a href="algerie-poste.html" class="btn btn-secondary">Commandes et historique de fabrication</a>';
+  dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+  document.body.appendChild(dialog);
+  dialog.showModal();
+  const status=dialog.querySelector('[data-status]'),form=dialog.querySelector('form');
+  const fields=form.elements,save=form.querySelector('[type="submit"]');
   try {
-    const [orders,runs] = await Promise.all([readLogiTrakRows(state.sb,'ap_commandes'),readLogiTrakRows(state.sb,'ap_productions')]);
-    const available = pendingAPOrders(orders,runs);
-    list.innerHTML = available.map(order => '<a class="panel-soft p-3 block" style="text-decoration:none" href="algerie-poste.html?commande=' +
-      encodeURIComponent(order.id) + '&amp;production=1"><b>' + esc(order.client) + '</b><div class="text-xs">' +
-      esc((order.categorie === 'NATIONAL' ? 'National' : 'International') + ' · ' + order.sous_categorie + ' · ' + order.date_commande) +
-      '</div><div class="text-sm mt-1">Demandés ' + fmtNum(order.quantite_demandee) + ' · Imprimés ' + fmtNum(order.printed) + ' · En cours ' + fmtNum(order.running) +
-      ' · <b>À lancer ' + fmtNum(order.remaining) + ' ID</b></div></a>').join('') ||
-      '<p class="panel-soft p-4 text-sm">Aucune commande en attente. Créez une commande Algérie Poste pour commencer.</p>';
-  } catch(error) {
-    console.warn(error);
-    list.textContent = 'Commandes indisponibles. Vérifiez la connexion et l’installation du module Algérie Poste.';
-  }
+    const [orders,runs]=await Promise.all([readLogiTrakRows(state.sb,'ap_commandes'),readLogiTrakRows(state.sb,'ap_productions')]);
+    if(!dialog.open) return;
+    const active=pendingAPOrders(orders.filter(order=>apProductSpec(order.type_produit)),runs);
+    if(!active.length) { status.textContent='Aucune commande en cours avec une quantité disponible.'; return; }
+    fields.order.innerHTML='<option value="">Choisir une commande en cours</option>'+active.map(order=>
+      '<option value="'+esc(order.id)+'">'+esc(order.client+' · '+order.sous_categorie+' · '+order.date_commande)+'</option>').join('');
+    const selected=()=>active.find(order=>order.id===fields.order.value);
+    function refresh() {
+      const order=selected();
+      save.disabled=!order;
+      status.textContent=order?'Disponible pour cette commande · '+fmtNum(order.remaining)+' ID':'Choisissez une commande en cours.';
+    }
+    fields.order.addEventListener('change',refresh);
+    form.addEventListener('submit',event=>{
+      event.preventDefault();
+      const order=selected();
+      if(order) location.href='algerie-poste.html?impression='+encodeURIComponent(order.id);
+    });
+    form.hidden=false;
+    refresh();
+  } catch(error) { status.textContent=error.message||'Commandes indisponibles.'; }
+}
+
+
+async function loadAPValidatedProduction() {
+  const output=document.getElementById('apValidatedProduction');
+  try {
+    const [orders,runs]=await Promise.all([readLogiTrakRows(state.sb,'ap_commandes'),readLogiTrakRows(state.sb,'ap_productions')]);
+    const byId=new Map(orders.map(order=>[order.id,order]));
+    const rows=runs.filter(run=>run.statut==='TERMINE').sort((a,b)=>b.date_production.localeCompare(a.date_production)).map(run=>{
+      const order=byId.get(run.commande_id);
+      return '<tr><td class="p-3">'+esc(run.date_production)+'</td><td class="p-3">'+esc(order?.client||'')+
+        '</td><td class="p-3">'+esc(run.imprimante||'Non renseignée')+'</td><td class="p-3">'+esc(run.numero_debut)+' → '+esc(run.numero_fin)+
+        '</td><td class="p-3">'+fmtNum(run.quantite_imprimee)+'</td><td class="p-3"><a class="underline" href="colisage.html?commande-ap='+
+        encodeURIComponent(run.commande_id)+'">Colisage</a></td></tr>';
+    }).join('');
+    output.innerHTML=rows?'<table class="w-full text-xs text-left"><thead><tr><th class="p-3">Date</th><th class="p-3">Client</th><th class="p-3">Imprimante</th>'+
+      '<th class="p-3">Plage</th><th class="p-3">ID validés</th><th class="p-3">Colisage</th></tr></thead><tbody>'+rows+'</tbody></table>':'<p class="text-sm">Aucun tirage validé.</p>';
+  } catch(error) { output.textContent='Production Algérie Poste indisponible.'; }
 }

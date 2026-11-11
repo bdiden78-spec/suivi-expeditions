@@ -531,6 +531,11 @@ function addItemRow(item = {}) {
   const det = item.colisage_detail && Object.keys(item.colisage_detail).length ? item.colisage_detail : null;
   tr.dataset.detail = det ? JSON.stringify(det) : '';
   if (det && det.mixte) tr.dataset.mixte = '1';
+  if (det?.ap_production_id) {
+    for (const field of ['reference','categorie','designation','destinataire','unite','cartons',...(!det.ap_pack?['quantite']:[])]) {
+      tr.querySelector('[data-field="'+field+'"]').readOnly = true;
+    }
+  }
   if (det?.stock_box_id) {
     tr.dataset.stockBox = det.stock_box_id;
     tr.querySelector('[data-field="reference"]').readOnly = true;
@@ -559,7 +564,11 @@ function addItemRow(item = {}) {
     if (clean !== qtyInput.value) { qtyInput.value = clean; flashError(qtyInput); }
     qtyInput.classList.remove('inp-error');
     const d = getDetail(tr);
-    if (d && d.mixte) { d.qte = parseInt(clean, 10) || 0; setDetail(tr, d); }
+    if (d?.ap_pack && Number(clean)>0) {
+      d.parts=apShipmentParts(Number(clean),apProductSpec(d.ap_pack.type),d.ap_pack.settings);
+      setDetail(tr,d);
+      tr.querySelector('[data-field="cartons"]').value=d.parts.reduce((sum,part)=>sum+part.nb,0);
+    } else if (d && d.mixte) { d.qte = parseInt(clean, 10) || 0; setDetail(tr, d); }
     else if (d && d.qpc && tr.dataset.cartonsManual !== '1') {
       // ligne issue d'un colisage : les cartons se recalculent à partir de la quantité
       const pk = packingFromDetail(d, clean);
@@ -930,11 +939,100 @@ async function syncData(button) {
   try { await fetchData(); } finally { button.disabled = false; }
 }
 
+function apShipmentParts(quantity, spec, settings) {
+  return apCartons(quantity,spec,settings).map(group=>({type:group.carton,nb:group.count,qte:group.ids,poids:group.grossKg??group.netKg}));
+}
+async function availableAPShipmentItems(orderId, includeDraft) {
+  const [orders,runs]=await Promise.all([
+    readLogiTrakRows(state.supabase,'ap_commandes','id,client,type_produit'),
+    readLogiTrakRows(state.supabase,'ap_productions'),
+  ]);
+  const byOrder=new Map(orders.map(order=>[order.id,order]));
+  if(orderId&&!apProductSpec(byOrder.get(orderId)?.type_produit)) throw new Error('Commande Algérie Poste introuvable ou type de produit manquant.');
+  const reserved=new Map();
+  const add=(id,qty)=>{ if(id) reserved.set(id,(reserved.get(id)||0)+Number(qty||0)); };
+  const editingId=includeDraft?$('#expId').value:'';
+  for(const expedition of state.expeditions) {
+    if(expedition.id===editingId) continue;
+    for(const item of expedition.items) add(item.colisage_detail?.ap_production_id,item.quantite);
+  }
+  if(includeDraft) {
+    for(const row of $$('#itemsBody tr')) add(getDetail(row)?.ap_production_id,row.querySelector('[data-field="quantite"]').value);
+  }
+  const items=[];
+  for(const run of runs) {
+    if(run.statut!=='TERMINE'||(orderId&&run.commande_id!==orderId)) continue;
+    const order=byOrder.get(run.commande_id);
+    const spec=apProductSpec(order?.type_produit);
+    const remaining=run.quantite_imprimee-(reserved.get(run.id)||0);
+    if(!spec||remaining<=0) continue;
+    const settings={type_carton_ap:run.type_carton_ap,paquets_par_carton_ap:run.paquets_par_carton_ap,poids_paquet_ap:run.poids_paquet_ap};
+    const parts=apShipmentParts(remaining,spec,settings);
+    items.push({
+      reference:spec.reference,categorie:'ALGERIE POSTE',designation:spec.label+' · Tirage '+run.numero_debut+' → '+run.numero_fin,
+      destinataire:order.client,unite:'ID',quantite:String(remaining),cartons:parts.reduce((sum,part)=>sum+part.nb,0),
+      colisage_detail:{ap_production_id:run.id,ap_pack:{type:order.type_produit,settings},parts},
+    });
+  }
+  return items;
+}
+async function openAPShipment(orderId) {
+  try {
+    const items=await availableAPShipmentItems(orderId,false);
+    if(!items.length) throw new Error('Aucun tirage validé disponible pour cette commande.');
+    openExpeditionModal();
+    $('#formObs').value='Algérie Poste · '+items[0].destinataire;
+    $('#itemsBody').innerHTML='';
+    items.forEach(addItemRow);
+    updateModalTotals();
+  } catch(error) { toast(error.message||'Impossible de charger la commande.','error'); }
+}
+async function openAPShipmentPicker() {
+  try {
+    const items=await availableAPShipmentItems(null,true);
+    if(!items.length) return toast('Aucun tirage Algérie Poste disponible.','warning');
+    const dialog=document.createElement('dialog');
+    dialog.id='apOrderPicker';
+    dialog.className='panel p-5 space-y-4';
+    dialog.setAttribute('aria-labelledby','apShipmentPickerTitle');
+    dialog.innerHTML='<h3 id="apShipmentPickerTitle" class="font-bold">Ajouter des ID Algérie Poste</h3>'+
+      '<form class="space-y-3">'+items.map((item,index)=>'<label class="panel-soft p-3 flex flex-wrap items-center justify-between gap-2">'+
+        '<span>'+esc(item.destinataire)+' · '+esc(item.designation)+'<br>'+fmtNum(item.quantite)+' ID disponibles</span>'+
+        '<input class="inp max-w-[150px]" name="qty'+index+'" aria-label="Quantité à envoyer pour '+esc(item.designation)+
+        '" type="number" min="0" max="'+item.quantite+'" step="1" value="0"></label>').join('')+
+      '<div class="flex gap-2"><button type="submit" class="btn btn-primary">Ajouter à l’envoi</button>'+
+      '<button type="button" class="btn btn-secondary" data-close>Annuler</button></div></form>';
+    dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+    dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+    dialog.querySelector('form').addEventListener('submit',event=>{
+      event.preventDefault();
+      const fields=event.currentTarget.elements;
+      const selected=items.flatMap((item,index)=>{
+        const quantity=Number(fields['qty'+index].value);
+        if(!Number.isInteger(quantity)||quantity<1||quantity>Number(item.quantite)) return [];
+        const detail=item.colisage_detail;
+        const parts=apShipmentParts(quantity,apProductSpec(detail.ap_pack.type),detail.ap_pack.settings);
+        return [{...item,quantite:String(quantity),cartons:parts.reduce((sum,part)=>sum+part.nb,0),colisage_detail:{...detail,parts}}];
+      });
+      if(!selected.length) return toast('Saisissez une quantité à ajouter.','warning');
+      for(const row of $$('#itemsBody tr')) {
+        if(!row.querySelector('[data-field="reference"]').value.trim()&&!row.querySelector('[data-field="designation"]').value.trim()) row.remove();
+      }
+      selected.forEach(addItemRow);
+      updateModalTotals();
+      dialog.close();
+    });
+    document.body.appendChild(dialog);
+    dialog.showModal();
+  } catch(error) { toast(error.message||'Impossible de charger les tirages.','error'); }
+}
+
 let requestedShipment = null;
 async function openRequestedShipment() {
   const request = requestedShipment;
   if (!state.isOperator || !request) return;
   requestedShipment = null;
+  if (request.apOrder) return openAPShipment(request.apOrder);
   openExpeditionModal();
   if (request.lots) await importLotsByIds(request.lots.split(',').filter(Boolean));
   if (request.carton) await importStockCartonById(request.carton);
@@ -947,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (q.has('new') || q.has('login') || q.has('admin')) history.replaceState(null, '', location.pathname);
   if (q.has('lots') || q.has('carton')) history.replaceState(null, '', location.pathname);
   if (q.get('new') === '1') {
-    requestedShipment = { lots: q.get('lots'), carton: q.get('carton') };
+    requestedShipment = { lots: q.get('lots'), carton: q.get('carton'), apOrder: q.get('commande-ap') };
     if (state.isOperator) await openRequestedShipment(); else requireOperator();
   }
   if (q.get('login') === '1') authAction();

@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = 'v3.7';          // affichée à côté de la signature (changer ici à chaque nouvelle version)
+  const APP_VERSION = 'v3.8.4';          // affichée à côté de la signature (changer ici à chaque nouvelle version)
 
   const TABS = [
     { id: 'index',        href: 'index.html',        icon: 'fa-house',           label: 'Accueil',      c1: '#6366f1', c2: '#3b82f6' },
@@ -49,7 +49,7 @@
     @media(max-width:600px){.nav-bar{position:relative}.nav-inner{flex-wrap:wrap}.nav-tabs{order:2;flex-basis:100%}.nav-right{margin-left:auto}}
     #appFooter{position:relative;z-index:10;text-align:center;padding:22px 16px 26px;margin-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--text-dim)}
     #appFooter p + p{margin-top:3px;font-weight:700;color:var(--text-muted)}
-    .dz-dots{display:inline-flex;gap:4px;vertical-align:middle;margin:0 .4em}.dz-dots i{width:7px;height:7px;border-radius:50%;background:var(--dot);box-shadow:0 0 0 1px var(--border-strong, #888)}
+    .dz-dots{display:inline-flex;gap:4px;vertical-align:middle;margin:0 .4em}.dz-dots i{width:13px;height:8px;border-radius:3px;background:var(--dot);box-shadow:0 0 0 1px var(--border-strong, #888)}
     @media print{.nav-bar,#appFooter{display:none !important}}
   `;
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);

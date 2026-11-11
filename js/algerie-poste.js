@@ -1,7 +1,7 @@
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = value => Number(value || 0).toLocaleString('fr-FR');
-const apState = { orders: [], runs: [], history: [], admin: false, orderEdit: null, runEdit: null };
+const apState = { orders: [], runs: [], history: [], shipments: [], admin: false, orderEdit: null };
 let sb;
 function syncThemeIcon() {
   $('#themeIcon').className = 'fa-solid text-sm ' + (document.documentElement.classList.contains('light') ? 'fa-moon' : 'fa-sun');
@@ -21,11 +21,7 @@ function canEdit(row) {
 }
 function orderRuns(id) { return apState.runs.filter(row => row.commande_id === id); }
 function printed(id) { return orderRuns(id).filter(run=>APtrace.completed(run)).reduce((sum,row)=>sum+row.quantite_imprimee,0); }
-function running(id, excludeId) { return orderRuns(id).filter(run=>!APtrace.completed(run) && run.id!==excludeId).reduce((sum,row)=>sum+row.quantite_prevue,0); }
-function availableToStart(order) { return Math.max(0,order.quantite_demandee-printed(order.id)-running(order.id)); }
 function runStateLabel(run) { return APtrace.completed(run) ? 'Terminé / validé' : 'En cours'; }
-function runBadge(run) { return '<span class="badge" style="background:var(--'+(APtrace.completed(run)?'success':'warning')+'-bg);color:var(--'+(APtrace.completed(run)?'success':'warning')+')">'+runStateLabel(run)+'</span>'; }
-function runReference(run) { return run.id.slice(0,8).toUpperCase(); }
 function runValidation(run) {
   if (!APtrace.completed(run)) return 'Validation en attente';
   return run.termine_at ? 'Validé le '+APtrace.timestamp(run.termine_at)+' par '+(run.termine_par || 'Non renseigné') : 'Historique : date de validation non renseignée';
@@ -40,98 +36,72 @@ function resetOrder() {
   $('#apOrderCancel').classList.add('hidden');
   fillSubtypes();
 }
-function resetRun() {
-  apState.runEdit = null;
-  $('#apRunForm').reset();
-  $('#apRunDate').value = logitrakToday();
-  $('#apRunOrder').disabled = false;
-  $('#apRunTitle').textContent = 'Démarrer une impression';
-  $('#apRunCancel').classList.add('hidden');
-  updatePreview();
-}
-function fillSubtypes() {
+function fillSubtypes(selected = '') {
   const category = $('#apCategory').value;
-  const defaults = category === 'NATIONAL' ? ['Régime intérieur RR 2 exemplaires', 'Régime intérieur RR 3 exemplaires', 'Régime intérieur RC Grand-comptes 2EX'] : [];
-  const values = [...new Set([...defaults, ...apState.orders.filter(o => o.categorie === category).map(o => o.sous_categorie)])];
-  $('#apSubtypes').innerHTML = values.map(value => '<option value="' + esc(value) + '">').join('');
+  $('#apSubtype').innerHTML = '<option value="">Choisir un produit</option>' + Object.entries(APproducts)
+    .filter(([,product])=>product.category===category)
+    .map(([code,product])=>'<option value="'+code+'">'+esc(product.label+' · '+product.copies+' exemplaires')+'</option>').join('');
+  $('#apSubtype').value=selected;
 }
 async function loadAP() {
-  const [orders, runs, history] = await Promise.all([
-    readLogiTrakRows(sb, 'ap_commandes'), readLogiTrakRows(sb, 'ap_productions'), readLogiTrakRows(sb, 'ap_historique'),
+  const [orders, runs, history, shipments] = await Promise.all([
+    readLogiTrakRows(sb, 'ap_commandes'), readLogiTrakRows(sb, 'ap_productions'), readLogiTrakRows(sb, 'ap_historique'), readLogiTrakRows(sb,'lignes_expedition','id,ap_production_id,quantite,expedition_id,expeditions(numero_bl,validation,date_envoi)'),
   ]);
-  if (runs.some(run=>!run.statut)) throw new Error('Installez la migration sql/v37-tracabilite-algerie-poste.sql.');
+  if (runs.some(run=>!run.statut)) throw new Error('Installez la migration sql/v38-flux-algerie-poste.sql.');
+  apState.shipments=shipments.filter(line=>line.ap_production_id);
   apState.history = history.sort((a,b)=>b.horodatage.localeCompare(a.horodatage)||b.id.localeCompare(a.id));
   apState.orders = orders.sort((a,b) => b.date_commande.localeCompare(a.date_commande) || b.created_at.localeCompare(a.created_at));
   apState.runs = runs.sort((a,b) => a.date_production.localeCompare(b.date_production) || a.created_at.localeCompare(b.created_at));
-  const selected = $('#apRunOrder').value;
-  $('#apRunOrder').innerHTML = '<option value="">Choisir une commande</option>' + orders.map(order =>
-    '<option value="' + esc(order.id) + '">' + esc(order.client + ' · ' + order.sous_categorie + ' · ' + order.date_commande) + '</option>').join('');
-  if (orders.some(order => order.id === selected)) $('#apRunOrder').value = selected;
   $('#apClients').innerHTML = [...new Set(orders.map(o => o.client))].sort().map(value => '<option value="' + esc(value) + '">').join('');
   const printers = [...new Set([...runs, ...history.flatMap(event=>[event.avant,event.apres].filter(Boolean))].map(run=>run.imprimante).filter(Boolean))].sort();
-  $('#apPrinters').innerHTML=printers.map(value=>'<option value="'+esc(value)+'">').join('');
   const machine=$('#apTraceMachine').value;
   $('#apTraceMachine').innerHTML='<option value="">Toutes les imprimantes</option>'+printers.map(value=>'<option value="'+esc(value)+'">'+esc(value)+'</option>').join('');
   if(printers.includes(machine)) $('#apTraceMachine').value=machine;
-  fillSubtypes(); renderOrders(); renderTrace(); updatePreview();
+  renderOrders(); renderTrace();
 }
 function renderOrders() {
+  renderAPActive();
   $('#apCount').textContent=fmt(apState.orders.length);
-  $('#apRequested').textContent=fmt(apState.orders.reduce((sum,o)=>sum+o.quantite_demandee,0));
-  $('#apPrinted').textContent=fmt(apState.runs.filter(run=>APtrace.completed(run)).reduce((sum,row)=>sum+row.quantite_imprimee,0));
-  $('#apRemaining').textContent=fmt(apState.orders.reduce((sum,o)=>sum+Math.max(0,o.quantite_demandee-printed(o.id)),0));
-  const search=$('#apSearch').value.trim().toLocaleLowerCase('fr'), filter=$('#apFilter').value;
+  $('#apRequested').textContent=fmt(apState.orders.reduce((sum,order)=>sum+order.quantite_demandee,0));
+  $('#apPrinted').textContent=fmt(apState.runs.filter(run=>APtrace.completed(run)).reduce((sum,run)=>sum+run.quantite_imprimee,0));
+  $('#apRemaining').textContent=fmt(apState.orders.reduce((sum,order)=>sum+Math.max(0,order.quantite_demandee-printed(order.id)),0));
+  const search=$('#apSearch').value.trim().toLowerCase(),filter=$('#apFilter').value;
+  const expanded=new Set([...$('#apOrders').querySelectorAll('details[data-order][open]')].map(detail=>detail.dataset.order));
   $('#apOrders').innerHTML=apState.orders.filter(order=>(!filter||filter===order.categorie)&&
-    (!search||[order.client,order.sous_categorie,order.date_commande].join(' ').toLocaleLowerCase('fr').includes(search))
+    (!search||[order.client,order.sous_categorie,order.date_commande].join(' ').toLowerCase().includes(search))
   ).map(order=>{
-    const total=printed(order.id), active=running(order.id), remaining=Math.max(0,order.quantite_demandee-total);
-    const status=total>order.quantite_demandee?'Surproduction de '+fmt(total-order.quantite_demandee)+' ID':
-      remaining?(total||active?'En cours':'À imprimer'):'Imprimée';
-    return '<article class="panel overflow-hidden"><div class="p-4 flex flex-wrap items-center justify-between gap-3">'+
-      '<div><h4 class="font-bold">'+esc(order.client)+'</h4><p class="text-xs" style="color:var(--text-muted)">'+
-      esc(categoryLabel(order.categorie)+' · '+order.sous_categorie+' · '+order.date_commande)+'</p>'+
-      '<p class="text-sm mt-2">Demandés <b>'+fmt(order.quantite_demandee)+'</b> · Imprimés et validés <b>'+fmt(total)+
-      '</b> · En cours <b>'+fmt(active)+'</b> · Reste à imprimer <b>'+fmt(remaining)+'</b> ID</p>'+
-      '<p class="text-xs mt-1">'+esc(status)+' · Disponible pour un nouveau tirage : '+fmt(availableToStart(order))+' ID</p>'+
-      (order.observations?'<p class="text-xs mt-1">'+esc(order.observations)+'</p>':'')+'</div>'+
-      '<div class="flex flex-wrap gap-2"><button class="btn btn-primary" data-ap-action="produce" data-id="'+esc(order.id)+'">Démarrer une impression</button>'+
-      '<button class="btn btn-secondary" data-ap-action="print" data-id="'+esc(order.id)+'">Colisage / Imprimer</button>'+
-      (canEdit(order)?'<button class="btn btn-secondary" data-ap-action="edit-order" data-id="'+esc(order.id)+'">Modifier</button> '+
-      '<button class="btn btn-secondary" data-ap-action="delete-order" data-id="'+esc(order.id)+'">Supprimer</button>':'')+
-      '</div></div><div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr>'+
-      '<th class="p-3 text-left">Tirage / dates</th><th class="p-3 text-left">Imprimante</th><th class="p-3 text-left">Quantité et plage</th>'+
-      '<th class="p-3 text-left">Colisage / validation</th><th class="p-3">Terminé</th><th class="p-3">Actions</th></tr></thead><tbody>'+
-      (orderRuns(order.id).map(run=>'<tr><td class="p-3"><b title="'+esc(run.id)+'">'+esc(runReference(run))+'</b><div>'+esc(run.date_production)+
-      '</div><div class="mt-1">'+runBadge(run)+'</div><div class="mt-1">Début / saisie : '+esc(APtrace.timestamp(run.demarre_at||run.created_at))+
-      '</div><div>Opérateur : '+esc(run.created_by||'Non renseigné')+'</div></td><td class="p-3 font-bold">'+esc(run.imprimante||'Non renseignée (historique)')+
-      '</td><td class="p-3"><b>'+fmt(APtrace.quantity(run))+' ID'+(APtrace.completed(run)?' imprimés':' prévus')+
-      '</b><div class="font-mono-code mt-1">'+esc(run.numero_debut)+' → '+esc(run.numero_fin||'À compléter')+'</div>'+
-      (run.observations?'<div class="mt-1">'+esc(run.observations)+'</div>':'')+'</td><td class="p-3">'+
-      (APtrace.completed(run)?esc(APcalc.packingText(run.quantite_imprimee)):'Colisage à valider après impression')+
-      '<div class="mt-1">'+esc(runValidation(run))+'</div></td><td class="p-3 text-center"><input type="checkbox" class="w-5 h-5" data-ap-complete="'+
-      esc(run.id)+'" aria-label="Valider le tirage '+esc(runReference(run))+'" '+(APtrace.completed(run)?'checked ':'')+(canEdit(run)?'':'disabled')+'></td><td class="p-3">'+
-      (canEdit(run)?'<button class="btn btn-secondary" data-ap-action="edit-run" data-id="'+esc(run.id)+'">Modifier</button> '+
-      '<button class="btn btn-secondary" data-ap-action="delete-run" data-id="'+esc(run.id)+'">Supprimer</button>':'Verrouillé après 48 h')+
-      '</td></tr>').join('')||'<tr><td colspan="6" class="p-4">Aucune impression enregistrée.</td></tr>')+'</tbody></table></div></article>';
+    const runs=orderRuns(order.id), spec=apProductSpec(order.type_produit), total=printed(order.id);
+    const actors=new Set(), printers=new Set();
+    const events=apState.history.filter(event=>event.commande_id===order.id);
+    const snapshots=events.flatMap(event=>[event.avant,event.apres].filter(Boolean));
+    for(const run of [...runs,...snapshots]){
+      if(run.created_by) actors.add(run.created_by);
+      if(run.termine_par) actors.add(run.termine_par);
+      if(run.imprimante) printers.add(run.imprimante);
+    }
+    return '<details class="panel p-4" data-order="'+esc(order.id)+'"'+(expanded.has(order.id)?' open':'')+'>'+
+      '<summary class="cursor-pointer"><b>'+esc(order.client)+'</b> · '+esc(spec?.label||order.sous_categorie)+' · '+esc(order.date_commande)+
+      '<div class="text-sm mt-2">Commandés '+fmt(order.quantite_demandee)+' · Produits '+fmt(total)+' · Restants '+fmt(Math.max(0,order.quantite_demandee-total))+' ID</div></summary>'+
+      '<div class="mt-4 space-y-3"><p class="text-sm">'+esc(spec?spec.colors+' · '+spec.reference+' · Gabarit '+spec.format:'Commande historique · type de produit à renseigner')+'</p>'+
+      '<p class="text-sm">Opérateurs : '+esc([...actors].join(', ')||'Non renseignés')+'<br>Imprimantes : '+esc([...printers].join(', ')||'Non renseignées')+'</p>'+
+      '<div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr><th class="p-3 text-left">Opérateur</th><th class="p-3 text-left">Plage inclusive</th><th class="p-3 text-left">ID imprimés</th><th class="p-3 text-left">Imprimante</th><th class="p-3 text-left">Date / état</th></tr></thead><tbody>'+
+      (runs.map(run=>'<tr><td class="p-3">'+esc(run.created_by||'Non renseigné')+'</td><td class="p-3 font-mono-code">'+esc(run.numero_debut||'À compléter')+' → '+esc(run.numero_fin||'À compléter')+
+      '</td><td class="p-3">'+(APtrace.completed(run)?fmt(run.quantite_imprimee):fmt(run.quantite_prevue)+' · À valider')+'</td><td class="p-3">'+esc(run.imprimante||'Non renseignée')+
+      '</td><td class="p-3">'+esc(run.date_production)+'<br>'+esc(runValidation(run))+
+      shipmentLink(run)+
+      (canEdit(run)&&!apState.shipments.some(line=>line.ap_production_id===run.id)?'<br><button type="button" class="btn btn-secondary mt-2" data-ap-action="trace-run" data-id="'+esc(run.id)+'">'+
+      (APtrace.completed(run)?'Modifier la traçabilité':'Compléter et valider')+'</button>':'')+'</td></tr>').join('')||'<tr><td colspan="5" class="p-3">Aucune production déclarée.</td></tr>')+
+      '</tbody></table></div>'+
+      (events.length?'<details class="panel-soft p-3"><summary class="cursor-pointer">Historique des tirages</summary><ul class="space-y-3 mt-3">'+events.map(event=>
+        '<li><b>'+esc(event.action.replaceAll('_',' '))+'</b> · '+esc(APtrace.timestamp(event.horodatage))+' · '+esc(event.auteur||'Non renseigné')+
+        (event.avant?'<div>Avant · '+traceSnapshot(event.avant)+'</div>':'')+(event.apres?'<div>Après · '+traceSnapshot(event.apres)+'</div>':'')+'</li>').join('')+'</ul></details>':'')+
+      '<div class="flex flex-wrap gap-2"><a class="btn btn-secondary" href="colisage.html?commande-ap='+encodeURIComponent(order.id)+'">Voir le colisage</a>'+
+      '<button type="button" class="btn btn-primary" data-ap-action="start-print" data-id="'+esc(order.id)+'">Démarrer une plage</button>'+
+      '<button type="button" class="btn btn-secondary" data-ap-action="ship-order" data-id="'+esc(order.id)+'">Préparer un envoi</button>'+
+      (canEdit(order)?'<button type="button" class="btn btn-secondary" data-ap-action="edit-order" data-id="'+esc(order.id)+'">Modifier la commande</button>'+
+      '<button type="button" class="btn btn-secondary" data-ap-action="delete-order" data-id="'+esc(order.id)+'">Supprimer la commande</button>':'')+
+      '</div></div></details>';
   }).join('')||'<p class="panel p-5 text-sm">Aucune commande à afficher.</p>';
-}
-function updatePreview() {
-  const completed=$('#apRunFinished').checked, qty=Number($('#apRunQty').value);
-  $('#apRunQtyLabel').textContent=completed?'Quantité réellement imprimée (ID) *':'Quantité prévue du tirage (ID) *';
-  $('#apLast').required=completed;
-  $('#apLastRequired').textContent=completed?'*':'(à compléter à la fin)';
-  $('#apRunSave').textContent=completed?'Enregistrer et valider l’impression':apState.runEdit?'Enregistrer le tirage en cours':'Démarrer l’impression';
-  const valid=Number.isSafeInteger(qty)&&qty>0;
-  $('#apPackingPreview').textContent=valid?(completed?'Colisage validé : ':'Colisage prévu : ')+APcalc.packingText(qty):'Paquets de 1 000 ID. Un dernier paquet peut être incomplet.';
-  const first=$('#apFirst').value.trim(),last=$('#apLast').value.trim();
-  $('#apRangeHint').textContent=completed&&valid
-    ? APcalc.rangeError(first,last,qty)||(APcalc.numericRange(first,last)?'Plage numérique cohérente.':'Plage alphanumérique : vérification manuelle des numéros.')
-    : 'La quantité imprimée et le dernier numéro seront confirmés lorsque vous cocherez Impression terminée.';
-  const order=apState.orders.find(o=>o.id===$('#apRunOrder').value);
-  const otherPrinted=order?printed(order.id)-(apState.runEdit&&APtrace.completed(apState.runEdit)?apState.runEdit.quantite_imprimee:0):0;
-  const otherRunning=order?running(order.id,apState.runEdit?.id):0;
-  $('#apRunOrderHint').textContent=order?'Demandés : '+fmt(order.quantite_demandee)+' · Autres tirages validés : '+fmt(otherPrinted)+
-    ' · Autres tirages en cours : '+fmt(otherRunning)+' ID'+(qty+otherPrinted+otherRunning>order.quantite_demandee?' · La quantité dépasse la commande.':''):'';
 }
 function traceSnapshot(run) {
   if(!run) return 'Aucun';
@@ -173,110 +143,207 @@ async function withButton(button, action) {
 async function saveOrder(event) {
   event.preventDefault();
   await withButton($('#apOrderSave'), async () => {
+    const spec=apProductSpec($('#apSubtype').value);
+    if(!spec) throw new Error('Choisissez un type de produit.');
     const payload = {
       client: $('#apClient').value.trim().toUpperCase(), categorie: $('#apCategory').value,
-      sous_categorie: $('#apSubtype').value.trim(), quantite_demandee: Number($('#apQty').value),
+      type_produit: $('#apSubtype').value, sous_categorie: spec.label, quantite_demandee: Number($('#apQty').value),
       date_commande: $('#apOrderDate').value, observations: $('#apOrderNotes').value.trim(),
     };
     if (!payload.client || !payload.sous_categorie || !Number.isSafeInteger(payload.quantite_demandee) || payload.quantite_demandee < 1) throw new Error('Renseignez le client, la sous-catégorie et une quantité entière positive.');
-    const id = await saveRecord('ap_commandes',payload,apState.orderEdit);
-    resetOrder(); await loadAP(); $('#apRunOrder').value=id; updatePreview(); message('Commande enregistrée.');
-  });
-}
-async function saveRun(event) {
-  event.preventDefault();
-  await withButton($('#apRunSave'), async () => {
-    const payload = {
-      commande_id: $('#apRunOrder').value, date_production: $('#apRunDate').value,
-      statut: $('#apRunFinished').checked ? 'TERMINE' : 'EN_COURS',
-      imprimante: $('#apPrinter').value.trim().toUpperCase(),
-      quantite_prevue: $('#apRunFinished').checked ? (apState.runEdit?.quantite_prevue || Number($('#apRunQty').value)) : Number($('#apRunQty').value),
-      quantite_imprimee: $('#apRunFinished').checked ? Number($('#apRunQty').value) : 0,
-      numero_debut: $('#apFirst').value.trim().toUpperCase(),
-      numero_fin: $('#apLast').value.trim().toUpperCase(), observations: $('#apRunNotes').value.trim(),
-    };
-    const quantity=Number($('#apRunQty').value);
-    if(!payload.commande_id||!payload.imprimante||!payload.numero_debut||!Number.isSafeInteger(quantity)||quantity<1) throw new Error('Choisissez une commande, une imprimante, le premier ID et une quantité entière positive.');
-    const error=payload.statut==='TERMINE'?APcalc.rangeError(payload.numero_debut,payload.numero_fin,payload.quantite_imprimee):'';
-    if (error) throw new Error(error);
-    await saveRecord('ap_productions',payload,apState.runEdit);
-    resetRun(); await loadAP(); $('#apRunOrder').value=payload.commande_id; updatePreview(); message(payload.statut==='TERMINE'?'Impression validée. Machine, plage et opérateur enregistrés.':'Impression en cours enregistrée. Cochez Terminé à la fin du tirage.');
+    await saveRecord('ap_commandes',payload,apState.orderEdit);
+    resetOrder(); await loadAP(); message('Commande enregistrée.');
   });
 }
 function editOrder(order) {
   if (!canEdit(order)) return message('Modification réservée à l’administrateur après 48 h.', true);
   apState.orderEdit=order;
-  for(const [id,key] of Object.entries({apClient:'client',apCategory:'categorie',apSubtype:'sous_categorie',apQty:'quantite_demandee',apOrderDate:'date_commande',apOrderNotes:'observations'})) $('#'+id).value=order[key];
-  fillSubtypes(); $('#apOrderTitle').textContent='Modifier la commande UPW'; $('#apOrderCancel').classList.remove('hidden'); $('#apClient').focus();
+  for(const [id,key] of Object.entries({apClient:'client',apCategory:'categorie',apQty:'quantite_demandee',apOrderDate:'date_commande',apOrderNotes:'observations'})) $('#'+id).value=order[key];
+  fillSubtypes(order.type_produit||''); $('#apOrderTitle').textContent='Modifier la commande UPW'; $('#apOrderCancel').classList.remove('hidden'); $('#apClient').focus();
 }
-function editRun(run) {
-  if (!canEdit(run)) return message('Modification réservée à l’administrateur après 48 h.', true);
-  apState.runEdit=run;
-  for(const [id,key] of Object.entries({apRunOrder:'commande_id',apRunDate:'date_production',apRunQty:'quantite_imprimee',apFirst:'numero_debut',apLast:'numero_fin',apRunNotes:'observations'})) $('#'+id).value=run[key];
-  $('#apRunQty').value=APtrace.quantity(run);
-  $('#apPrinter').value=run.imprimante||'';
-  $('#apRunFinished').checked=APtrace.completed(run);
-  $('#apRunOrder').disabled=true; $('#apRunTitle').textContent='Modifier le tirage '+runReference(run); $('#apRunCancel').classList.remove('hidden'); updatePreview(); $('#apRunQty').focus();
-}
-async function deleteRecord(table,row) {
-  if (!canEdit(row)) throw new Error('Modification réservée à l’administrateur après 48 h.');
-  const prompt = table==='ap_commandes' ? 'Supprimer cette commande et toutes ses impressions ?' : 'Supprimer cette impression et son colisage ?';
-  if (!window.confirm(prompt)) return;
-  const {data,error}=await sb.from(table).delete().eq('id',row.id).eq('revision',row.revision).select('id').maybeSingle();
-  if(error) throw error;
-  if(!data) throw new Error('La fiche a changé. Actualisez les données.');
-  resetOrder(); resetRun(); await loadAP(); message('Suppression enregistrée.');
-}
-function printOrder(order) {
-  const runs=orderRuns(order.id).filter(run=>APtrace.completed(run)),total=printed(order.id);
-  $('#apPrintSheet').innerHTML='<div class="print-brand"><img src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536"></div>'+
-    '<h1>Algérie Poste · Production validée et colisage</h1><p><b>'+esc(order.client)+'</b> · '+esc(categoryLabel(order.categorie)+' · '+order.sous_categorie)+
-    '</p><p>Commande du '+esc(order.date_commande)+' · '+fmt(order.quantite_demandee)+' ID demandés · '+fmt(total)+' ID imprimés et validés · '+
-    fmt(Math.max(0,order.quantite_demandee-total))+' ID restants</p>'+
-    '<table><thead><tr><th>Tirage / date</th><th>Imprimante</th><th>Quantité / plage</th><th>Validation</th><th>Colisage</th></tr></thead><tbody>'+
-    (runs.map(run=>'<tr><td>'+esc(runReference(run))+'<br>'+esc(run.date_production)+'</td><td>'+esc(run.imprimante||'Non renseignée (historique)')+
-      '</td><td>'+fmt(run.quantite_imprimee)+' ID<br>'+esc(run.numero_debut)+' → '+esc(run.numero_fin)+'</td><td>'+esc(runValidation(run))+
-      '<br>Saisi par '+esc(run.created_by||'Non renseigné')+'</td><td>'+esc(APcalc.packingText(run.quantite_imprimee))+'</td></tr>').join('')||
-      '<tr><td colspan="5">Aucun tirage validé.</td></tr>')+'</tbody></table><p>Total colisage validé : '+
-    fmt(runs.reduce((sum,run)=>sum+APcalc.packing(run.quantite_imprimee).packages,0))+' paquet(s). Chaque tirage est conditionné séparément.</p>';
-  printLogiTrakDocument($('#apPrintSheet'));
-}
-async function toggleRunCompletion(event) {
-  const checkbox=event.target.closest('[data-ap-complete]');
-  if(!checkbox) return;
-  const run=apState.runs.find(row=>row.id===checkbox.dataset.apComplete);
-  if(!run) return;
-  const target=checkbox.checked;
-  checkbox.checked=APtrace.completed(run);
-  if(!canEdit(run)) return message('Modification réservée à l’administrateur après 48 h.',true);
-  if(target&&(!run.imprimante||!run.numero_fin||APcalc.rangeError(run.numero_debut,run.numero_fin,run.quantite_prevue))) {
-    editRun(run);
-    $('#apRunFinished').checked=true;
-    updatePreview();
-    $('#apRunForm').scrollIntoView({block:'center'});
-    $('#apLast').focus();
-    return message('Confirmez la quantité réellement imprimée, la machine et le dernier numéro, puis enregistrez pour valider.');
+async function deleteOrder(order, button) {
+  if (!canEdit(order)) return message('Suppression réservée à l’administrateur après 48 h.', true);
+  const runs = orderRuns(order.id);
+  if (runs.some(run => apState.shipments.some(line => line.ap_production_id === run.id))) {
+    return message('Cette commande est liée à un envoi. Retirez ses tirages de l’envoi avant de la supprimer.', true);
   }
-  await withButton(checkbox,async()=>{
-    await saveRecord('ap_productions',{
-      statut:target?'TERMINE':'EN_COURS',
-      quantite_prevue:target?run.quantite_prevue:run.quantite_imprimee,
-      quantite_imprimee:target?run.quantite_prevue:0,
-    },run);
+  const confirmation = runs.length ? 'Supprimer cette commande et ses tirages ? L’historique des impressions sera conservé.' : 'Supprimer cette commande ?';
+  if (!window.confirm(confirmation)) return;
+  await withButton(button, async () => {
+    const {data,error}=await sb.from('ap_commandes').delete().eq('id',order.id).eq('revision',order.revision).select('id').maybeSingle();
+    if(error) throw error;
+    if(!data) throw new Error('La commande a changé ou le délai de suppression est dépassé. Actualisez les données.');
+    if(apState.orderEdit?.id===order.id) resetOrder();
     await loadAP();
-    message(target?'Impression validée avec date, machine et opérateur.':'Tirage remis en cours. La modification est conservée dans l’historique.');
+    message('Commande supprimée.');
   });
 }
-async function orderAction(event) {
-  const button=event.target.closest('[data-ap-action]'); if(!button) return;
-  const action=button.dataset.apAction, id=button.dataset.id;
-  const order=apState.orders.find(row=>row.id===id), run=apState.runs.find(row=>row.id===id);
-  if(action==='edit-order' && order) return editOrder(order);
-  if(action==='edit-run' && run) return editRun(run);
-  if(action==='print' && order) return printOrder(order);
-  if(action==='produce' && order) { resetRun(); $('#apRunOrder').value=order.id; $('#apRunQty').value=availableToStart(order)||''; updatePreview(); $('#apRunQty').focus(); return; }
-  if(action==='delete-order' && order) return withButton(button,()=>deleteRecord('ap_commandes',order));
-  if(action==='delete-run' && run) return withButton(button,()=>deleteRecord('ap_productions',run));
+function openRunTrace(run) {
+  if(!canEdit(run)) return;
+  const quantity=APtrace.completed(run)?run.quantite_imprimee:run.quantite_prevue;
+  const dialog=document.createElement('dialog');
+  dialog.id='apOrderPicker';
+  dialog.className='panel p-5 space-y-4';
+  dialog.setAttribute('aria-labelledby','apTraceRunTitle');
+  dialog.innerHTML='<h3 id="apTraceRunTitle" class="font-bold">Traçabilité du tirage</h3><p>'+fmt(quantity)+' ID · '+esc(run.date_production)+'</p>'+
+    '<form class="space-y-3"><label class="lbl">Imprimante<input class="inp" name="printer" required maxlength="160"></label>'+
+    '<label class="lbl">Premier numéro<input class="inp font-mono-code" name="first" required maxlength="80"></label>'+
+    '<label class="lbl">Dernier numéro inclus<input class="inp font-mono-code" name="last" required maxlength="80"></label>'+
+    '<label class="lbl">Observations<input class="inp" name="notes" maxlength="2000"></label>'+
+    '<p data-status role="status" class="text-sm"></p><div class="flex flex-wrap gap-2">'+
+    '<button type="submit" class="btn btn-primary">Enregistrer et valider</button>'+
+    '<button type="button" data-close class="btn btn-secondary">Annuler</button></div></form>';
+  const form=dialog.querySelector('form'),fields=form.elements,save=form.querySelector('[type="submit"]');
+  const status=dialog.querySelector('[data-status]');
+  fields.printer.value=run.imprimante||'';
+  fields.first.value=run.numero_debut||'';
+  fields.last.value=run.numero_fin||'';
+  fields.notes.value=run.observations||'';
+  dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const printer=fields.printer.value.trim(),first=fields.first.value.trim(),last=fields.last.value.trim();
+    const error=APcalc.rangeError(first,last,quantity);
+    if(error||!printer) { status.textContent=error||'Renseignez l’imprimante.'; return; }
+    save.disabled=true;
+    try {
+      await saveRecord('ap_productions',{
+        statut:'TERMINE',quantite_imprimee:quantity,imprimante:printer,
+        numero_debut:first,numero_fin:last,observations:fields.notes.value.trim(),
+      },run);
+      dialog.close();
+      await loadAP();
+      message('Tirage validé.');
+    } catch(error) {
+      if(dialog.open) status.textContent=error.message;
+      else message(error.message,true);
+    } finally { save.disabled=false; }
+  });
+  document.body.appendChild(dialog);
+  dialog.showModal();
+}
+function renderAPActive() {
+  const picker=$('#apPrintOrder'), selected=picker.value;
+  const printable=apState.orders.filter(order=>apProductSpec(order.type_produit)&&remainingForPrint(order)>0);
+  picker.innerHTML='<option value="">Choisir une commande en cours</option>'+printable.map(order=>
+    '<option value="'+esc(order.id)+'">'+esc(order.client+' · '+apProductSpec(order.type_produit).label+' · '+order.date_commande)+' · '+fmt(remainingForPrint(order))+' ID disponibles</option>'
+  ).join('');
+  if(printable.some(order=>order.id===selected)) picker.value=selected;
+  $('#apPrintStart').disabled=!picker.value;
+  const active=apState.runs.filter(run=>run.statut==='EN_COURS');
+  $('#apActive').innerHTML=active.map(run=>{
+    const order=apState.orders.find(row=>row.id===run.commande_id);
+    return '<div class="panel-soft p-3 flex flex-wrap justify-between items-center gap-3"><div><b>'+esc(run.imprimante||'Imprimante à renseigner')+'</b> · '+
+      esc(order?.client||'')+' · '+esc(run.created_by||'')+'<p class="text-xs">'+esc(run.numero_debut||'À compléter')+' → '+esc(run.numero_fin||'À compléter')+
+      ' · '+fmt(run.quantite_prevue)+' ID</p></div>'+
+      (canEdit(run)?'<button type="button" class="btn btn-primary" data-ap-action="validate-run" data-id="'+esc(run.id)+'">Valider la plage</button>':'')+'</div>';
+  }).join('')||'<p class="text-sm">Aucune plage en cours.</p>';
+}
+async function validateAPPrint(run, button) {
+  if(!canEdit(run)) return;
+  if(!run.imprimante||APcalc.rangeError(run.numero_debut,run.numero_fin,run.quantite_prevue)) return openRunTrace(run);
+  await withButton(button,async()=>{
+    await saveRecord('ap_productions',{statut:'TERMINE',quantite_imprimee:run.quantite_prevue},run);
+    await loadAP();
+    message('Plage validée. L’imprimante est disponible.');
+  });
+}
+function shipmentLink(run) {
+  const lines=apState.shipments.filter(row=>row.ap_production_id===run.id);
+  if(!lines.length) return '';
+  const reserved=lines.reduce((sum,line)=>sum+Number(line.quantite),0);
+  return lines.map(line=>{
+    const expedition=line.expeditions;
+    return '<br><a href="envois.html" class="underline">Envoi '+esc(expedition?.numero_bl||'')+
+      ' · '+fmt(line.quantite)+' ID'+(expedition?.validation==='VALIDE'?' · validé':' · à valider')+'</a>';
+  }).join('')+'<br>Disponible · '+fmt(Math.max(0,run.quantite_imprimee-reserved))+' ID';
+}
+function apActionDialog(title, markup, onSubmit, setup) {
+  const dialog=document.createElement('dialog');
+  dialog.id='apOrderPicker';
+  dialog.className='panel p-5 space-y-4';
+  dialog.setAttribute('aria-labelledby','apActionTitle');
+  dialog.innerHTML='<h3 id="apActionTitle" class="font-bold">'+esc(title)+'</h3><form class="space-y-3">'+markup+
+    '<p data-status role="status" class="text-sm"></p><div class="flex gap-2"><button class="btn btn-primary" type="submit">Enregistrer</button>'+
+    '<button class="btn btn-secondary" type="button" data-close>Annuler</button></div></form>';
+  dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+  const form=dialog.querySelector('form'),button=form.querySelector('[type="submit"]');
+  const status=dialog.querySelector('[data-status]');
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    button.disabled=true;
+    try {
+      const result=await onSubmit(form.elements);
+      dialog.close();
+      await loadAP();
+      message(result);
+    } catch(error) {
+      if(dialog.open) status.textContent=error.message;
+      else message(error.message,true);
+    } finally { button.disabled=false; }
+  });
+  document.body.appendChild(dialog);
+  setup?.(form.elements);
+  dialog.showModal();
+}
+function remainingForPrint(order) {
+  return order.quantite_demandee-orderRuns(order.id).reduce((sum,run)=>
+    sum+Number(run.statut==='EN_COURS'?run.quantite_prevue:run.quantite_imprimee),0);
+}
+function startAPPrint(order) {
+  if(!apProductSpec(order.type_produit)) return message('Renseignez le type de produit de cette commande.',true);
+  const quantity=Math.min(1000,remainingForPrint(order));
+  if(quantity<=0) return message('Aucune quantité disponible pour une nouvelle plage.',true);
+  const busy=new Set(apState.runs.filter(run=>run.statut==='EN_COURS').map(run=>run.imprimante));
+  const printers=[...new Set(apState.runs.map(run=>run.imprimante).filter(name=>name&&!busy.has(name)))].sort();
+  const endFor=first=>APcalc.lastId(first,quantity);
+  apActionDialog('Démarrer une plage · '+order.client,
+    '<p class="text-sm">'+fmt(quantity)+' ID dans cette plage.</p>'+
+    '<label class="lbl">Imprimante<input class="inp input-uppercase" name="printer" list="apAvailablePrinters" required maxlength="160"></label>'+
+    '<datalist id="apAvailablePrinters">'+printers.map(name=>'<option value="'+esc(name)+'"></option>').join('')+'</datalist>'+
+    '<label class="lbl">Premier ID<input class="inp font-mono-code" name="first" inputmode="numeric" placeholder="00 000 000" required maxlength="16"></label>'+
+    '<label class="lbl">Dernier ID inclus<input class="inp font-mono-code" name="last" readonly></label>',
+    async fields=>{
+      const first=fields.first.value.trim(),last=endFor(first),printer=fields.printer.value.trim().toUpperCase();
+      if(!last||!printer) throw new Error('Renseignez une imprimante et un premier ID valide sur 8 chiffres.');
+      if(busy.has(printer)) throw new Error('Cette imprimante a déjà un tirage en cours. Validez-le avant de la réutiliser.');
+      await saveRecord('ap_productions',{
+        commande_id:order.id,statut:'EN_COURS',quantite_prevue:quantity,
+        imprimante:printer,numero_debut:first,numero_fin:last,date_production:logitrakToday(),
+      },null);
+      return 'Plage enregistrée. Validez-la à la fin de l’impression.';
+    }, fields=>{
+      fields.first.addEventListener('input',()=>{fields.last.value=endFor(fields.first.value);});
+    });
+}
+function shipAPOrder(order) {
+  if(!apProductSpec(order.type_produit)) return message('Renseignez le type de produit de cette commande.',true);
+  const available=orderRuns(order.id).some(run=>run.statut==='TERMINE'&&apState.shipments.filter(line=>line.ap_production_id===run.id).reduce((sum,line)=>sum+Number(line.quantite),0)<run.quantite_imprimee);
+  if(!available) return message('Aucun tirage validé disponible pour un envoi.',true);
+  location.assign('envois.html?new=1&commande-ap='+encodeURIComponent(order.id));
+}
+
+function orderAction(event) {
+  const button=event.target.closest('[data-ap-action]');
+  if(!button) return;
+  if(button.dataset.apAction==='validate-run') {
+    const run=apState.runs.find(row=>row.id===button.dataset.id);
+    if(run) return validateAPPrint(run,button);
+    return;
+  }
+  if(button.dataset.apAction==='trace-run') {
+    const run=apState.runs.find(row=>row.id===button.dataset.id);
+    if(run) openRunTrace(run);
+    return;
+  }
+  const order=apState.orders.find(row=>row.id===button.dataset.id);
+  if(!order) return;
+  if(button.dataset.apAction==='start-print') return startAPPrint(order);
+  if(button.dataset.apAction==='ship-order') return shipAPOrder(order);
+  if(button.dataset.apAction==='delete-order') return deleteOrder(order,button);
+  if(button.dataset.apAction==='edit-order') editOrder(order);
 }
 function showGate(html) { $('#gate').innerHTML=html; $('#gate').classList.remove('hidden'); $('#apApp').classList.add('hidden'); }
 function loginGate() {
@@ -295,56 +362,83 @@ async function doLogin(event) {
   } catch(error) { message(error.message,true); }
   finally { button.disabled=false; }
 }
-async function start(session) {
-  try {
-    const current=session===undefined ? (await sb.auth.getSession()).data.session : session;
-    const username=current?.user?.email?.split('@')[0];
-    if(!username) { loginGate(); return; }
-    const {data,error}=await sb.from('operateurs').select('role').eq('username',username).maybeSingle();
-    if(error) throw error;
-    apState.admin=data?.role==='admin';
-    document.body.classList.toggle('is-admin',apState.admin);
-    document.body.classList.toggle('is-operator',!!data);
-    if(!data) { showGate('<p>Compte opérateur requis.</p>'); return; }
-    $('#gate').classList.add('hidden');
-    message('Chargement des commandes Algérie Poste…');
-    await loadAP(); resetOrder(); resetRun(); $('#apApp').classList.remove('hidden'); message('');
-    const requested = new URLSearchParams(location.search);
-    if (requested.get('production') === '1' && requested.get('commande')) {
-      const order = apState.orders.find(row => row.id === requested.get('commande'));
-      if (!order) message('Commande introuvable. Choisissez une commande dans la liste.', true);
-      else if (availableToStart(order) <= 0) message('La quantité de cette commande est déjà imprimée ou affectée à des tirages en cours. Vérifiez les tirages existants.', true);
-      else {
-        $('#apRunOrder').value = order.id;
-        $('#apRunQty').value = availableToStart(order);
-        updatePreview();
-        $('#apRunForm').scrollIntoView({block:'center'});
-        $('#apFirst').focus({preventScroll:true});
-        message('Commande sélectionnée. Vérifiez la quantité à imprimer et renseignez les numéros de début et de fin.');
-      }
-      history.replaceState(null, '', location.pathname);
+function isExpiredAPSession(error) {
+  return error?.code === 'AP_SESSION_EXPIRED' ||
+    ['refresh_token_not_found','refresh_token_already_used','session_not_found','session_expired'].includes(error?.code) ||
+    /jwt expired|token (?:has )?expired|invalid refresh token/i.test(error?.message || '');
+}
+async function readAPWithSession(operation) {
+  try { return await operation(); }
+  catch(error) {
+    if(!isExpiredAPSession(error)) throw error;
+    const refreshed=await sb.auth.refreshSession();
+    if(!refreshed.data?.session || refreshed.error) {
+      throw Object.assign(new Error('Session expirée. Reconnectez-vous pour continuer.'),{code:'AP_SESSION_EXPIRED'});
     }
-  } catch(error) {
-    console.warn(error);
-    showGate('<h3 class="font-bold">Module indisponible</h3><p class="text-sm">'+esc(error.message)+
-      '</p><p class="text-xs">Vérifiez la connexion et l’installation de la mise à jour sql/v37-tracabilite-algerie-poste.sql dans Supabase.</p>');
-    message('');
+    return operation();
   }
+}
+function showAPLoadError(error) {
+  console.warn(error);
+  if(isExpiredAPSession(error)) {
+    apState.admin=false;
+    document.body.classList.remove('is-admin','is-operator');
+    loginGate();
+    $('#loginMsg').textContent='Session expirée. Reconnectez-vous pour continuer.';
+    message('');
+    return;
+  }
+  const missingSchema=['42P01','42703','PGRST204','PGRST205'].includes(error?.code);
+  const help=missingSchema?'Vérifiez que les migrations Algérie Poste jusqu’à la v3.8 sont appliquées dans Supabase.':'Vérifiez la connexion, puis actualisez la page.';
+  showGate('<h3 class="font-bold">Module indisponible</h3><p class="text-sm">'+esc(error.message||'Erreur de chargement')+
+    '</p><p class="text-xs">'+help+'</p>');
+  message('');
+}
+async function start() {
+  try {
+    const connected=await readAPWithSession(async()=>{
+      const session=await sb.auth.getSession();
+      if(session.error) throw session.error;
+      const username=session.data.session?.user?.email?.split('@')[0];
+      if(!username) { loginGate(); return false; }
+      const {data,error}=await sb.from('operateurs').select('role').eq('username',username).maybeSingle();
+      if(error) throw error;
+      apState.admin=data?.role==='admin';
+      document.body.classList.toggle('is-admin',apState.admin);
+      document.body.classList.toggle('is-operator',!!data);
+      if(!data) { showGate('<p>Compte opérateur requis.</p>'); return false; }
+      message('Chargement des commandes Algérie Poste…');
+      await loadAP();
+      return true;
+    });
+    if(!connected) { message(''); return; }
+    resetOrder(); $('#gate').classList.add('hidden'); $('#apApp').classList.remove('hidden'); message('');
+    const requested=new URLSearchParams(location.search).get('impression');
+    const order=apState.orders.find(row=>row.id===requested);
+    if(order) startAPPrint(order);
+  } catch(error) { showAPLoadError(error); }
 }
 document.addEventListener('DOMContentLoaded',()=>{
   syncThemeIcon();
   $('#apOrderForm').addEventListener('submit',saveOrder);
-  $('#apRunForm').addEventListener('submit',saveRun);
   $('#apOrderCancel').addEventListener('click',resetOrder);
-  $('#apRunCancel').addEventListener('click',resetRun);
   $('#apCategory').addEventListener('change',()=>{ $('#apSubtype').value=''; fillSubtypes(); });
-  for(const id of ['apRunQty','apFirst','apLast','apRunOrder']) $('#'+id).addEventListener('input',updatePreview);
   $('#apSearch').addEventListener('input',renderOrders); $('#apFilter').addEventListener('change',renderOrders);
   $('#apOrders').addEventListener('click',orderAction);
-  $('#apOrders').addEventListener('change',toggleRunCompletion);
-  $('#apRunFinished').addEventListener('change',updatePreview);
+  $('#apActive').addEventListener('click',orderAction);
+  $('#apPrintOrder').addEventListener('change',event=>{ $('#apPrintStart').disabled=!event.target.value; });
+  $('#apPrintStart').addEventListener('click',()=>{
+    const order=apState.orders.find(row=>row.id===$('#apPrintOrder').value);
+    if(order) startAPPrint(order);
+  });
   for(const id of ['apTraceId','apTraceSearch','apTraceMachine','apTraceState']) $('#'+id).addEventListener('input',renderTrace);
-  $('#apReload').addEventListener('click',event=>withButton(event.currentTarget,async()=>{await loadAP();message('Données actualisées.');}));
+  $('#apReload').addEventListener('click',async event=>{
+    const button=event.currentTarget;
+    button.disabled=true;
+    try { await readAPWithSession(loadAP); message('Données actualisées.'); }
+    catch(error) { if(isExpiredAPSession(error)) showAPLoadError(error); else message(error.message,true); }
+    finally { button.disabled=false; }
+  });
   try {
     const get=key=>{try{return localStorage.getItem(key);}catch{return null;}};
     sb=window.supabase.createClient(get('supabase_url')||SUPABASE_URL,get('supabase_key')||SUPABASE_ANON);

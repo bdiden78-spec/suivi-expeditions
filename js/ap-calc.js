@@ -11,6 +11,13 @@ window.APcalc = {
     if (partial) parts.push('1 paquet de ' + partial.toLocaleString('fr-FR') + ' ID');
     return parts.length ? parts.join(' + ') + ' · ' + packages.toLocaleString('fr-FR') + ' paquet(s)' : 'Aucune impression';
   },
+  lastId(first, quantity) {
+    const start = first.replace(/\s/g, '');
+    if (!/^\d{8}$/.test(start)) return '';
+    const end = Number(start) + quantity - 1;
+    if (end > 99999999) return '';
+    return String(end).padStart(8, '0').replace(/^(\d{2})(\d{3})(\d{3})$/, '$1 $2 $3');
+  },
   numericRange(first, last) {
     const start = first.replace(/\s/g, ''), end = last.replace(/\s/g, '');
     if (!/^[0-9]+$/.test(start) || !/^[0-9]+$/.test(end)) return null;
