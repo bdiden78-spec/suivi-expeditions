@@ -391,3 +391,16 @@ html.light {
   .app-header { padding-top:env(safe-area-inset-top,0px); }
   #appFooter { padding-bottom:calc(26px + env(safe-area-inset-bottom,0px)); }
 }
+
+#apPackingSheet { display:none; }
+.ap-packing-table { border-collapse:collapse; }
+.ap-packing-table th,.ap-packing-table td { padding:.6rem; border:1px solid var(--border); text-align:left; }
+@media print {
+  body.ap-printing #sheet { display:none !important; }
+  body.ap-printing #apPackingSheet { display:block !important; color:#000; font:11px Arial,sans-serif; }
+  #apPackingSheet .ap-packing-table td,#apPackingSheet .ap-packing-table th { border-color:#aab4be; }
+}
+
+.ap-production-mode > div:not(:has(#fCat)) { display:none; }
+
+#apPackingEditor[hidden], #apPackingEditor [hidden] { display:none !important; }
