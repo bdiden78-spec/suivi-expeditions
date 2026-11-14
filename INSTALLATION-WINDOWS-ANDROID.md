@@ -82,3 +82,7 @@ Les impressions validées sont découpées en paquets de 1 000 ID (dernier paque
 ## Mise à jour 3.9.4
 
 Exécuter sql/v394-machines-apn.sql dans Supabase après la migration v385, puis publier le ZIP. Les anciens numéros APN sont conservés. Pour une imprimante Algérie Poste déjà utilisée, reprendre son nom exact dans le registre Machines.
+
+## 4.0.7 — Délai de 24 h
+
+Appliquer sql/v407-delai-24h.sql après les migrations déjà installées, puis publier le ZIP.

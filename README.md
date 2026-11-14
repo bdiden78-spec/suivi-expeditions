@@ -38,7 +38,7 @@ Exécuter sql/v371-commandes-algerie-poste.sql après la migration v3.7, puis pu
 
 Algérie Poste sert à enregistrer et consulter les commandes. Chaque commande s’ouvre sur ses tirages, ses opérateurs, ses imprimantes et les événements historiques. Les cinq types de produit fixent le régime, les couleurs, la référence, le gabarit et le nombre d’exemplaires. Pour les commandes antérieures, un opérateur habilité ou un administrateur doit choisir le type exact avant de déclarer un nouveau tirage.
 
-Dans Production, sélectionner Algérie Poste puis une commande existante. La quantité cumulée des tirages validés et des réservations en cours est limitée à la quantité commandée dans Supabase. Les anciens tirages en cours peuvent être terminés dans Production. Le délai de 48 h reste applicable aux opérateurs.
+Dans Production, sélectionner Algérie Poste puis une commande existante. La quantité cumulée des tirages validés et des réservations en cours est limitée à la quantité commandée dans Supabase. Les anciens tirages en cours peuvent être terminés dans Production. Le délai de 24 h reste applicable aux opérateurs.
 
 Dans Colisage, choisir la commande pour afficher ou imprimer la fiche. Les cartons H1 contiennent 20 000 ID en 2 exemplaires et 14 000 ID en 3 exemplaires. Les paquets complets contiennent 1 000 ID. Le dernier paquet incomplet est pesé par estimation proportionnelle. Le poids brut inclut la tare H1 existante de 0,420 kg. Les tirages sont conditionnés séparément pour conserver leur traçabilité.
 
@@ -50,7 +50,7 @@ Un tirage correspond à une imprimante. Saisir la commande, la machine, la quant
 
 À la fin, cocher Terminé sur la ligne. Si le dernier numéro et la machine sont déjà renseignés et que la quantité prévue correspond à la production, la validation s’enregistre directement. Sinon, le formulaire s’ouvre pour confirmer la quantité réelle et la plage puis valider. La date/heure de validation et l’utilisateur sont enregistrés par la base, en conservant le début du tirage et l’opérateur initial.
 
-La règle de modification et suppression reste de 48 h après la création du tirage. Au-delà, un administrateur intervient. Décocher Terminé remet le tirage en cours et conserve l’ancienne validation dans l’historique. Les administrateurs peuvent modifier à tout moment.
+La règle de modification et suppression reste de 24 h après la création du tirage. Au-delà, un administrateur intervient. Décocher Terminé remet le tirage en cours et conserve l’ancienne validation dans l’historique. Les administrateurs peuvent modifier à tout moment.
 
 L’historique conserve les démarrages, validations, corrections, réouvertures et suppressions avec leurs états avant/après et la commande concernée. Cet historique reste consultable après suppression d’une impression ou d’une commande et n’est pas modifiable depuis l’application. Une recherche d’ID numérique retrouve les plages correspondantes, les machines et les opérateurs. Pour un ID alphanumérique, utiliser un numéro de début/fin ou les filtres de machine, agence et opérateur.
 
@@ -104,7 +104,7 @@ Les agences et sous-catégories déjà saisies sont proposées à nouveau. Les d
 
 Les identifiants sont conservés comme texte, avec les lettres et zéros initiaux. Pour une plage uniquement numérique, premier et dernier inclus doivent correspondre exactement à la quantité imprimée. Pour une plage alphanumérique, la quantité saisie fait foi et la vérification des numéros reste manuelle.
 
-Les opérateurs modifient ou suppriment les fiches accessibles pendant 48 h après création, et les administrateurs à tout moment. Les nouvelles impressions peuvent être ajoutées à une commande plus ancienne. Une modification concurrente est signalée et nécessite de recharger les données.
+Les opérateurs modifient ou suppriment les fiches accessibles pendant 24 h après création, et les administrateurs à tout moment. Les nouvelles impressions peuvent être ajoutées à une commande plus ancienne. Une modification concurrente est signalée et nécessite de recharger les données.
 
 ## Version 3.1
 
@@ -151,7 +151,7 @@ Les droits administrateur lèvent les restrictions de délai, de statut de valid
 
 ## Nouveautés de la v2.2
 ### Validation des envois par un administrateur
-- Un envoi créé par un opérateur est **« À valider »** (badge orange). Il peut encore le modifier pendant 48 h.
+- Un envoi créé par un opérateur est **« À valider »** (badge orange). Il peut encore le modifier pendant 24 h.
 - Un **administrateur** valide chaque envoi avec le bouton **Valider** (ou **Tout valider**) ; la validation indique qui l'a faite et quand. Il peut aussi annuler une validation.
 - **Notification** : badge rouge (nombre d'envois à valider) sur l'onglet **Envois**, bandeau sur la page Envois et sur l'accueil, visibles par les inscrits.
 - Un envoi **validé est verrouillé** pour les opérateurs ; seul un administrateur peut le modifier (contrôlé dans la page ET dans la base).

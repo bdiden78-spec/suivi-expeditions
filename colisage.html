@@ -229,7 +229,7 @@
       editFicheId: null, rType: 'ETIQUETTE', fromProd: null, lastTare: '',
       currentLot: null, expeditions: [], currentExp: null, mode: 'line'
     };
-    const AGE_48H = 48 * 3600 * 1000;
+    const AGE_24H = 24 * 3600 * 1000;
 
     const $ = s => document.querySelector(s);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -270,14 +270,14 @@
     }
 
     /* ----- Règles de modification (identiques à la base de données) ----- */
-    // Fiche de colisage : opérateur 48 h après la création, admin à tout moment
-    const canModifyFiche = f => state.isAdmin || (state.isOperator && (Date.now() - new Date(f.created_at).getTime()) < AGE_48H);
-    const LOCK_MSG = 'Délai de 48h dépassé. Seul un administrateur peut modifier ou supprimer.';
-    // Décision du reliquat : libre la première fois, puis 48 h après la validation du colisage
+    // Fiche de colisage : opérateur 24 h après la création, admin à tout moment
+    const canModifyFiche = f => state.isAdmin || (state.isOperator && (Date.now() - new Date(f.created_at).getTime()) < AGE_24H);
+    const LOCK_MSG = 'Délai de 24h dépassé. Seul un administrateur peut modifier ou supprimer.';
+    // Décision du reliquat : libre la première fois, puis 24 h après la validation du colisage
     function canDecideReliquat(lot) {
       if (!state.isOperator) return false;
       if (state.isAdmin || !String(lot.reliquat_mode || '')) return true;
-      return (Date.now() - new Date(lot.colisage_at || lot.created_at).getTime()) < AGE_48H;
+      return (Date.now() - new Date(lot.colisage_at || lot.created_at).getTime()) < AGE_24H;
     }
 
     /* ----- Connexion & rôles ----- */
@@ -575,7 +575,7 @@
             ${canModifyFiche(f)
               ? `<button class="btn-icon op-only" onclick="editFiche('${esc(f.id)}')" title="Modifier"><i class="fa-solid fa-pen-to-square text-amber-400 text-xs"></i></button>
                  <button class="btn-icon op-only" onclick="deleteFiche('${esc(f.id)}')" title="Supprimer"><i class="fa-regular fa-trash-can text-rose-400 text-xs"></i></button>`
-              : `<button class="btn-icon op-only" onclick="toast(LOCK_MSG,'warning')" title="Délai de 48h dépassé"><i class="fa-solid fa-lock text-slate-500 text-xs"></i></button>`}
+              : `<button class="btn-icon op-only" onclick="toast(LOCK_MSG,'warning')" title="Délai de 24h dépassé"><i class="fa-solid fa-lock text-slate-500 text-xs"></i></button>`}
           </td></tr>`;
       }).join('') : `<tr><td colspan="6" class="p-10 text-center" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-3xl mb-2 block" style="color:var(--text-dim)"></i>${state.fiches.length ? 'Aucune fiche ne correspond.' : 'Aucune fiche de colisage pour le moment. Remplissez la première ci-dessus.'}</td></tr>`;
     }
