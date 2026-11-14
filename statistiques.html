@@ -69,7 +69,7 @@
       </div>
     </div>
 
-    <p class="text-xs" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Chaque Top 5 est classé selon la <b>catégorie</b> du produit (Étiquettes, Étiquettes RFID, <b>Ruban TTR</b> par destinataire, et <b>Top5 - Carte PVC</b> classé par <b>référence</b>). Seuls les envois <b>validés</b> sont comptés ; les envois vers le stock ne sont pas comptés pour les classements par destinataire. <b>Algérie Poste</b> a aussi son propre classement.</p>
+    <p class="text-xs" style="color:var(--text-muted)"><i class="fa-solid fa-circle-info mr-1"></i>Les Top 5 présentent les quantités produites par référence ou, pour Algérie Poste, par client UPW.</p>
 
     <!-- Un Top 5 par catégorie (liste dans js/colisage-calc.js) + Algérie Poste -->
     <p id="statsStatus" class="empty:hidden text-sm" style="color:var(--text-muted)" role="status"></p>
@@ -118,15 +118,22 @@
       try {
         const url = lsGet('supabase_url') || SUPABASE_URL, key = lsGet('supabase_key') || SUPABASE_ANON;
         const client = window.supabase.createClient(url, key);
-        const [shipments, production] = await Promise.allSettled([
+        const [shipments, postal, production] = await Promise.allSettled([
           Promise.all([
             readLogiTrakRows(client, 'expeditions', 'id,date_envoi,created_at,validation'),
             readLogiTrakRows(client, 'lignes_expedition', 'id,expedition_id,production_id,created_at,reference,designation,categorie,destinataire,quantite'),
           ]),
+          Promise.all([readLogiTrakRows(client,'ap_productions','id,commande_id,date_production,statut,quantite_imprimee'),readLogiTrakRows(client,'ap_commandes','id,client')]),
           readLogiTrakRows(client, 'production', 'id,date_production,reference,designation,categorie,type_produit,quantite_produite'),
         ]);
         if (shipments.status === 'fulfilled') state.expeditions = attachLogiTrakItems(...shipments.value);
         else { console.warn(shipments.reason); failures.push('Classements des envois indisponibles.'); }
+        state.postal=[];
+        if(postal.status==='fulfilled') {
+          const [runs,orders]=postal.value;
+          const clients=new Map(orders.map(order=>[order.id,order.client]));
+          state.postal=runs.filter(run=>run.statut==='TERMINE').map(run=>({...run,client:clients.get(run.commande_id)}));
+        } else failures.push('Top 5 Algérie Poste indisponible.');
         if (production.status === 'fulfilled') state.production = production.value.filter(row=>LTColis.categoryId(row.categorie)!=='AP');
         else { console.warn(production.reason); failures.push('Production mensuelle indisponible.'); }
       } catch (error) { console.warn(error); failures.push('Connexion aux statistiques indisponible.'); }
@@ -138,7 +145,7 @@
     function fillYears() {
       const today = logitrakToday();
       const currentYear = today.slice(0, 4);
-      const dates = [...state.expeditions.map(e => e.date_envoi), ...state.production.map(p => p.date_production)];
+      const dates = [...state.expeditions.map(e => e.date_envoi), ...state.production.map(p => p.date_production), ...(state.postal||[]).map(p=>p.date_production)];
       const years = [...new Set(dates.filter(date => date && date <= today).map(date => date.slice(0, 4)))].sort().reverse();
       const statYears = [...new Set([currentYear, ...years])].sort().reverse();
       const sel = $('#statsYear');
@@ -231,73 +238,27 @@
       const productionById = new Map(state.production.map(row => [row.id, row]));
       const unknown = Object.create(null); let unknownQty = 0, unknownLines = 0;
 
-      state.expeditions.filter(e => {
-        if ((e.validation || 'VALIDE') !== 'VALIDE') return false;       // seuls les envois validés sont comptabilisés
-        const d = String(e.date_envoi || '').slice(0, 10);
-        return d >= startDate && d <= endDate;
-      }).forEach(e => (e.items || []).forEach(it => {
-        const q = parseQty(it.quantite);
-        if (q <= 0) return;
-        const lot = productionById.get(it.production_id);
-        const catId = resolveLineCategory(it, lot);
-        const dest = String(it.destinataire || 'STOCK').trim().toUpperCase();
-
-        // Top5 - Carte PVC : classé selon la RÉFÉRENCE (et non le destinataire)
-        if (catId === 'PVC') {
-          const refKey = String(it.reference || lot?.reference || it.designation || lot?.designation || 'SANS RÉF').trim().toUpperCase();
-          data.PVC[refKey] = (data.PVC[refKey] || 0) + q;
-          totals.PVC += q;
-          return;
-        }
-
-        if (!dest || dest === 'STOCK') return;                      // le stock n'est pas un client pour les classements par destinataire
-        const isPoste = LTColis.isAlgeriePoste(dest) || catId === 'AP';
-        if (isPoste) {
-          data.AP[dest] = (data.AP[dest] || 0) + q;
-          totals.AP += q;
-          if (!catId || catId === 'AP') return;
-        }
-        if (!catId || !data[catId]) {
-          const raw = String(it.categorie || '').trim().toUpperCase() || '(vide)';
-          unknown[raw] = (unknown[raw] || 0) + q; unknownQty += q; unknownLines++;
-          return;
-        }
-        data[catId][dest] = (data[catId][dest] || 0) + q; totals[catId] += q;
-      }));
-
-      // Si aucun envoi validé de Carte PVC n'existe encore sur l'année, mais que des lots de Carte PVC ont été produits, on alimente par référence produite
-      if (totals.PVC === 0) {
-        for (const row of state.production) {
-          const date = String(row.date_production || '').slice(0, 10);
-          if (date < startDate || date > endDate) continue;
-          const cId = LTColis.categoryId(row.categorie || row.type_produit);
-          if (cId === 'PVC') {
-            const q = parseQty(row.quantite_produite);
-            if (q > 0) {
-              const refKey = String(row.reference || row.designation || 'SANS RÉF').trim().toUpperCase();
-              data.PVC[refKey] = (data.PVC[refKey] || 0) + q;
-              totals.PVC += q;
-            }
-          }
-        }
+      for(const row of state.production) {
+        if(row.date_production<startDate||row.date_production>endDate) continue;
+        const category=resolveLineCategory(row,row), qty=parseQty(row.quantite_produite);
+        if(!category||!data[category]||!qty) continue;
+        const key=String(row.reference||row.designation||'Sans référence').trim();
+        data[category][key]=(data[category][key]||0)+qty;
+        totals[category]+=qty;
       }
 
-      const ribbonProduction = totals.RUBAN === 0;
-      if (ribbonProduction) {
-        for (const row of state.production) {
-          if (row.date_production < startDate || row.date_production > endDate || resolveLineCategory(row,row) !== 'RUBAN') continue;
-          const q=parseQty(row.quantite_produite);
-          if (!q) continue;
-          const key=String(row.reference || row.designation || 'Sans référence').trim().toUpperCase();
-          data.RUBAN[key]=(data.RUBAN[key]||0)+q;
-          totals.RUBAN+=q;
-        }
+      for(const run of state.postal||[]) {
+        if(run.date_production<startDate||run.date_production>endDate||!run.client) continue;
+        const key=run.client.trim().toUpperCase(), qty=parseQty(run.quantite_imprimee);
+        if(!key||!qty) continue;
+        data.AP[key]=(data.AP[key]||0)+qty;
+        totals.AP+=qty;
       }
       const top5 = obj => Object.entries(obj).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr')).slice(0, 5);
       const rgba = hex => {
         const clean = hex.startsWith('#') ? hex.slice(1) : '0284c7';
         const n = parseInt(clean, 16);
-        return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, 0.88)`;
+        return `rgb(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255})`;
       };
 
       allCards().forEach(c => {
@@ -307,10 +268,10 @@
         card.style.setProperty('--c1', c.c1);
         if (c.autoHide) card.classList.toggle('hidden', entries.length === 0);
         const nb = Object.keys(data[c.id]).length;
-        const unitLabel = c.byRef || (c.id==='RUBAN' && ribbonProduction) ? `référence${nb > 1 ? 's' : ''}` : `destinataire${nb > 1 ? 's' : ''}`;
+        const unitLabel = 'référence'+(nb>1?'s':'');
         $('#sub_' + c.id).textContent = entries.length
-          ? `${fmt(totals[c.id])} au total • ${nb} ${unitLabel}${c.id==='RUBAN' && ribbonProduction ? ' · Production' : ''}`
-          : (c.id === 'AP' ? 'Destinataires Algérie Poste / UPW (tous produits)' : c.byRef ? 'Classement par référence — Cartes PVC' : `Destinataires principaux — ${c.short}`);
+          ? `${fmt(totals[c.id])} au total • ${nb} ${unitLabel}`
+          : ('Production par référence');
         if (!entries.length) {
           box.innerHTML = `<div class="h-full flex items-center justify-center text-xs text-center" style="color:var(--text-dim)">Aucune donnée en ${esc(year)}.</div>`;
           return;
@@ -338,7 +299,7 @@
         const raw = String(row.categorie || '').trim();
         const category = known.get(resolveLineCategory(row,row));
         const label = category?.label || LTColis.normSpaced(raw) || 'Sans catégorie';
-        if (!monthly.has(label)) monthly.set(label, { label, data: Array(monthLabels.length).fill(0), backgroundColor: category?.c1 || '#0284c7', borderRadius: 6, maxBarThickness: 22 });
+        if (!monthly.has(label)) monthly.set(label, { label, data: Array(monthLabels.length).fill(0), backgroundColor: category?.c1 || '#0284c7', borderRadius: 9, maxBarThickness: 28 });
         monthly.get(label).data[month - 1] += parseQty(row.quantite_produite);
       }
       const datasets = [...monthly.values()].sort((a, b) => a.label.localeCompare(b.label, 'fr'));

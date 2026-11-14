@@ -104,13 +104,14 @@
           <div><label class="lbl" for="fDes">Désignation</label><input id="fDes" class="inp input-uppercase" placeholder="Ex : ETIQUETTE TT 100x150" autocomplete="off"></div>
           <div><label class="lbl" for="fUni">Unité de comptage <button type="button" class="lst-btn adm-only" onclick="Listes.manage('unites')" title="Ajouter / retirer une unité"><i class="fa-solid fa-gear"></i></button></label><select id="fUni" class="inp font-bold"></select></div>
           <div><label class="lbl" id="lblQty" for="fQty">Quantité produite *</label><input id="fQty" class="inp text-right font-mono-code font-bold" inputmode="numeric" pattern="[0-9]*" maxlength="9" placeholder="Ex : 100" autocomplete="off" title="Nombre entier uniquement"></div>
+          <label class="lbl">Objectif total de l’OF<input id="fTarget" class="inp" type="number" min="1" max="2147483647" step="1"></label>
           <div><label class="lbl" for="fDate">Date de production</label><input id="fDate" type="date" class="inp"></div>
           <div><label class="lbl" for="fClient">Client</label><input id="fClient" class="inp input-uppercase" list="prodClients" placeholder="STOCK" autocomplete="off"><datalist id="prodClients"></datalist></div>
           <!-- Colisage de la référence : rempli automatiquement depuis la page Colisage -->
           <div id="colisInfo" class="col-span-2 lg:col-span-4 px-4 py-3 rounded-xl text-xs" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--text-muted)"></div>
         </div>
         <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <p class="text-[11px]" style="color:var(--text-dim)"><i class="fa-solid fa-circle-info mr-1 text-emerald-400"></i>Modification et suppression : opérateur pendant <b>48 h</b> après la création du lot, administrateur à tout moment. Le colisage se saisit dans la page <b>Colisage</b>, une seule fois par référence.</p>
+          <p class="text-[11px]" style="color:var(--text-dim)"><i class="fa-solid fa-circle-info mr-1 text-emerald-400"></i>Modification et suppression : opérateur pendant <b>24 h</b> après la création du lot, administrateur à tout moment. Le colisage se saisit dans la page <b>Colisage</b>, une seule fois par référence.</p>
           <div class="flex items-center gap-2">
             <button id="btnSave" type="button" onclick="saveLot()" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer le lot</button>
           </div>
@@ -221,7 +222,7 @@
     const fmtDate = d => { if (!d) return '—'; const [y,m,day] = String(d).split('-'); return `${day}/${m}/${y}`; };
     const intOf = v => parseInt(String(v ?? '').replace(/[^0-9]/g, ''), 10) || 0;
     const up = id => ($(id)?.value || '').trim().toUpperCase();
-    const AGE_48H = 48 * 3600 * 1000;
+    const AGE_24H = 24 * 3600 * 1000;
 
     function toast(msg, type = 'info') {
       const cfg = {
@@ -258,19 +259,19 @@
     }
 
     /* ----- Règles de modification (identiques à la base de données) ----- */
-    // Production (OF, référence, quantité…) : opérateur 48 h après la création du lot, admin à tout moment
+    // Production (OF, référence, quantité…) : opérateur 24 h après la création du lot, admin à tout moment
     function canModifyLot(lot) {
       if (!state.isOperator) return false;
       if (state.isAdmin) return true;
-      return (Date.now() - new Date(lot.created_at).getTime()) < AGE_48H;
+      return (Date.now() - new Date(lot.created_at).getTime()) < AGE_24H;
     }
-    // Décision du reliquat : libre la première fois, puis 48 h après la validation du colisage
+    // Décision du reliquat : libre la première fois, puis 24 h après la validation du colisage
     function canDecideReliquat(lot) {
       if (!state.isOperator) return false;
       if (state.isAdmin || !String(lot.reliquat_mode || '')) return true;
-      return (Date.now() - new Date(lot.colisage_at || lot.created_at).getTime()) < AGE_48H;
+      return (Date.now() - new Date(lot.colisage_at || lot.created_at).getTime()) < AGE_24H;
     }
-    const LOCK_MSG = 'Délai de 48h dépassé. Seul un administrateur peut modifier ou supprimer cette production.';
+    const LOCK_MSG = 'Délai de 24h dépassé. Seul un administrateur peut modifier ou supprimer cette production.';
 
     /* ----- Catégorie -> type de produit ----- */
     function typeFromCat(cat) {
@@ -477,6 +478,7 @@
     }
 
     function resetForm() {
+      $('#fTarget').value='';
       state.editId = null;
       delete $('#fClient').dataset.manual;
       ['#fRef', '#fDes', '#fQty', '#fClient'].forEach(s => { $(s).value = ''; });
@@ -489,11 +491,12 @@
       $('#btnCancelEdit').classList.add('hidden');
     }
 
-    function editLot(id) {
+    function editLot(id, resume = false) {
       const l = state.lots.find(x => x.id === id); if (!l) return;
-      if (!canModifyLot(l)) return toast(LOCK_MSG, 'warning');
-      state.editId = id;
+      if (resume ? !state.isOperator : !canModifyLot(l)) return toast(LOCK_MSG, 'warning');
+      state.editId = resume ? null : id;
       $('#fOF').value = l.of_numero || '';
+      $('#fTarget').value=l.objectif_of||'';
       $('#fRef').value = l.reference || '';
       Listes.setValue('#fCat', l.categorie || '');
       $('#fDes').value = l.designation || '';
@@ -539,6 +542,7 @@
       const core = {
         of_numero: of, reference: ref, categorie: up('#fCat'), designation: des, client: up('#fClient'),
         type_produit: $('#fType').value || 'ETIQUETTE', unite: $('#fUni').value,
+        objectif_of: Number($('#fTarget').value)||null,
         quantite_produite: qty, date_production: $('#fDate').value || new Date().toISOString().slice(0, 10),
       };
 
@@ -636,7 +640,24 @@
       render();
     }
 
+    function resumeOF(id) {
+      if(!state.isOperator) return;
+      const lot=state.lots.find(row=>row.id===id);
+      if(!lot) return;
+      editLot(id,true);
+      $('#btnSave').textContent='Enregistrer le nouveau lot';
+      $('#fQty').value='';
+      $('#fDate').value=logitrakToday();
+      $('#formTitle').textContent='Reprendre l’OF '+lot.of_numero;
+      $('#fQty').focus();
+    }
     function render() {
+      const totals=new Map(), targets=new Map();
+      for(const lot of state.lots) {
+        const key=lot.of_numero;
+        totals.set(key,(totals.get(key)||0)+lot.quantite_produite);
+        if(lot.objectif_of&&!targets.has(key)) targets.set(key,lot.objectif_of);
+      }
       const q = ($('#search').value || '').trim().toLowerCase();
       const all = state.lots;
       const open = all.filter(l => restOf(l) > 0);
@@ -692,7 +713,7 @@
         const actionBtns = canEdit
           ? `<button class="btn-icon op-only" onclick="editLot('${esc(l.id)}')" title="Modifier"><i class="fa-solid fa-pen-to-square text-amber-400 text-xs"></i></button>
              <button class="btn-icon op-only" onclick="deleteLot('${esc(l.id)}')" title="Supprimer"><i class="fa-regular fa-trash-can text-rose-400 text-xs"></i></button>`
-          : `<button class="btn-icon op-only" onclick="toast(LOCK_MSG,'warning')" title="Délai de 48h dépassé"><i class="fa-solid fa-lock text-slate-500 text-xs"></i></button>`;
+          : `<button class="btn-icon op-only" onclick="toast(LOCK_MSG,'warning')" title="Délai de 24h dépassé"><i class="fa-solid fa-lock text-slate-500 text-xs"></i></button>`;
 
         // case de sélection : seulement si le lot peut partir (colisage validé, reliquat décidé, reste > 0)
         const canShip = (l.colisage_valide || state.isAdmin) && (!av.blocked || state.isAdmin) && rest > stockReserved(l.id);
@@ -703,6 +724,7 @@
           <td class="p-3 pl-4 op-only">${chk}</td>
           <td class="p-3 pl-5">
             <div class="font-mono-code font-bold text-amber-500">${esc(l.of_numero)}</div>
+            ${targets.has(l.of_numero)?`<small>${fmtNum(totals.get(l.of_numero))} / ${fmtNum(targets.get(l.of_numero))} produits</small>`:''}
             <div class="text-[11px]" style="color:var(--text-muted)">${esc(fmtDate(l.date_production))}</div>
           </td>
           <td class="p-3">
@@ -723,6 +745,7 @@
             <div class="inline-flex items-center gap-1.5">
               <a href="colisage.html?prod=${encodeURIComponent(l.id)}" class="btn-icon" title="Voir le colisage de ce lot"><i class="fa-solid fa-boxes-packing text-amber-500 text-xs"></i></a>
               ${actionBtns}
+              ${targets.get(l.of_numero)>totals.get(l.of_numero)?`<button class="btn btn-secondary op-only" type="button" onclick="resumeOF('${esc(l.id)}')">Reprendre</button>`:''}
             </div>
           </td></tr>`;
       }).join('') : `<tr><td colspan="9" class="p-10 text-center" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-3xl mb-2 block" style="color:var(--text-dim)"></i>${state.lots.length ? 'Aucun lot ne correspond.' : 'Aucun lot de production pour le moment. Saisissez le premier ci-dessus.'}</td></tr>`;
