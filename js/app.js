@@ -1092,7 +1092,7 @@ async function openAPShipmentPicker() {
     picker.querySelector('button').onclick=()=>{
       const selected=orders.get(select.value);
       if(!selected) return toast('Choisissez une commande.','warning');
-      for(const row of $('#itemsBody tr')) {
+      for(const row of $$('#itemsBody tr')) {
         if(!row.querySelector('[data-field="reference"]').value.trim()&&!row.querySelector('[data-field="designation"]').value.trim()) row.remove();
       }
       selected.forEach(addItemRow);

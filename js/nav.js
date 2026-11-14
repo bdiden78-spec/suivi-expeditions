@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = 'v4.0.9';          // affichée à côté de la signature
+  const APP_VERSION = 'v4.0.10';          // affichée à côté de la signature
 
   const TABS = [
     { id: 'index',         href: 'index.html',         icon: 'fa-house',              label: 'Accueil',       c1: '#0284c7', c2: '#38bdf8' },
