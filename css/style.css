@@ -1,63 +1,63 @@
-/* Palette LogiTrak · ardoise et bleu pétrole */
+/* Palette LogiTrak · Inspirée du logo officiel (Bleu marine profond, Bleu électrique / Cyan & Orange vif) */
 :root {
-  --bg: #101c2c;
-  --bg-soft: #1a2d43;
-  --bg-card: #15263b;
-  --bg-input: #0e1e31;
-  --bg-hover: #203a55;
-  --border: #2c4560;
-  --border-strong: #53677a;
-  --text: #ecf2f8;
-  --text-muted: #b3c2d1;
-  --text-dim: #9bafc1;
-  --accent: #38d5df;
-  --accent-2: #92f0ee;
-  --primary: #ff9633;
-  --primary-hover: #ffae58;
-  --on-primary: #102d4b;
-  --accent-wash: #173d49;
-  --success: #43e6a3;
-  --success-bg: #1e3935;
-  --warning: #ffad55;
-  --warning-bg: #3e3225;
-  --danger: #ff7597;
-  --danger-bg: #412b35;
-  --info: #67baff;
-  --info-bg: #23394e;
-  --violet: #ba95ff;
+  --bg: #0b1829;
+  --bg-soft: #132742;
+  --bg-card: #0f2138;
+  --bg-input: #091526;
+  --bg-hover: #193456;
+  --border: #234268;
+  --border-strong: #3b6391;
+  --text: #f0f6fc;
+  --text-muted: #acc4de;
+  --text-dim: #7f9ebe;
+  --accent: #00b4d8;
+  --accent-2: #48cae4;
+  --primary: #ff7a00;
+  --primary-hover: #ff942e;
+  --on-primary: #ffffff;
+  --accent-wash: rgba(0, 180, 216, 0.16);
+  --success: #10b981;
+  --success-bg: rgba(16, 185, 129, 0.16);
+  --warning: #ff8c1a;
+  --warning-bg: rgba(255, 140, 26, 0.18);
+  --danger: #f43f5e;
+  --danger-bg: rgba(244, 63, 94, 0.18);
+  --info: #38bdf8;
+  --info-bg: rgba(56, 189, 248, 0.16);
+  --violet: #3b82f6;
   --radius: .8rem;
-  --shadow-card: 0 1px 2px #040a1033;
-  --shadow-raised: 0 12px 32px #040a1038;
+  --shadow-card: 0 2px 8px rgba(4, 12, 24, 0.35);
+  --shadow-raised: 0 14px 34px rgba(4, 12, 24, 0.5);
   color-scheme: dark;
 }
 html.light {
-  --bg: #f2f6fa;
-  --bg-soft: #f7f9fb;
+  --bg: #f0f5fa;
+  --bg-soft: #e6eff8;
   --bg-card: #ffffff;
   --bg-input: #ffffff;
-  --bg-hover: #eaf1f5;
-  --border: #d3dee7;
-  --border-strong: #879bab;
-  --text: #153b63;
-  --text-muted: #455b70;
-  --text-dim: #536b80;
-  --accent: #00616f;
-  --accent-2: #064e5b;
-  --primary: #b6430b;
-  --primary-hover: #963506;
+  --bg-hover: #e1ecf7;
+  --border: #cbdced;
+  --border-strong: #7fa1c3;
+  --text: #0d2b4e;
+  --text-muted: #36587d;
+  --text-dim: #54779c;
+  --accent: #0284c7;
+  --accent-2: #0369a1;
+  --primary: #f26400;
+  --primary-hover: #d95600;
   --on-primary: #ffffff;
-  --accent-wash: #e1f4f5;
-  --success: #0d6445;
-  --success-bg: #e2f4eb;
-  --warning: #90420a;
-  --warning-bg: #fdf1db;
-  --danger: #a32141;
-  --danger-bg: #fbe8ed;
-  --info: #164c87;
-  --info-bg: #e5eff9;
-  --violet: #63349a;
-  --shadow-card: 0 1px 2px #142c4610;
-  --shadow-raised: 0 12px 32px #142c461c;
+  --accent-wash: #e0f2fe;
+  --success: #059669;
+  --success-bg: #d1fae5;
+  --warning: #ea580c;
+  --warning-bg: #ffedd5;
+  --danger: #e11d48;
+  --danger-bg: #ffe4e6;
+  --info: #0284c7;
+  --info-bg: #e0f2fe;
+  --violet: #1d4ed8;
+  --shadow-card: 0 2px 6px rgba(13, 43, 78, 0.08);
+  --shadow-raised: 0 12px 32px rgba(13, 43, 78, 0.16);
   color-scheme: light;
 }
 
@@ -303,22 +303,22 @@ body.is-operator #visitorBar   { display: none !important; }
 .shipment-date, .selected-view { background: var(--accent-wash); color: var(--accent); }
 
 
-/* Couleurs de repérage des modules */
+/* Couleurs de repérage des modules (harmonisées avec le logo Bleu & Orange) */
 :root {
-  --module-blue:#67baff; --module-blue-bg:#213750;
-  --module-green:#43e6a3; --module-green-bg:#1e3c35;
-  --module-amber:#ffad55; --module-amber-bg:#432f24;
-  --module-cyan:#38d5df; --module-cyan-bg:#193b45;
-  --module-violet:#ba95ff; --module-violet-bg:#352d4b;
-  --module-rose:#ff7597; --module-rose-bg:#432c3c;
+  --module-blue:#38bdf8; --module-blue-bg:#123254;
+  --module-green:#22d3ee; --module-green-bg:#10384a;
+  --module-amber:#ff8c1a; --module-amber-bg:#3d2614;
+  --module-cyan:#00b4d8; --module-cyan-bg:#11364c;
+  --module-violet:#60a5fa; --module-violet-bg:#162f52;
+  --module-rose:#fb923c; --module-rose-bg:#3d2417;
 }
 html.light {
-  --module-blue:#164c87; --module-blue-bg:#e7effb;
-  --module-green:#0d6445; --module-green-bg:#e4f5ed;
-  --module-amber:#90420a; --module-amber-bg:#fff0e1;
-  --module-cyan:#00616f; --module-cyan-bg:#e0f2f5;
-  --module-violet:#63349a; --module-violet-bg:#f0eafa;
-  --module-rose:#9e254e; --module-rose-bg:#fbe9f0;
+  --module-blue:#0284c7; --module-blue-bg:#e0f2fe;
+  --module-green:#0891b2; --module-green-bg:#cffafe;
+  --module-amber:#ea580c; --module-amber-bg:#ffedd5;
+  --module-cyan:#0369a1; --module-cyan-bg:#e0f2fe;
+  --module-violet:#1d4ed8; --module-violet-bg:#dbeafe;
+  --module-rose:#d95600; --module-rose-bg:#ffedd5;
 }
 [data-module="index"],[data-module="gestion"],[data-module="production"],[data-module="statistiques"] { --module:var(--module-blue); --module-bg:var(--module-blue-bg); }
 
@@ -404,3 +404,9 @@ html.light {
 .ap-production-mode > div:not(:has(#fCat)) { display:none; }
 
 #apPackingEditor[hidden], #apPackingEditor [hidden] { display:none !important; }
+
+.shipment-in-progress{background:#dcfce7;color:#166534;border-color:#86efac}
+html:not(.light) .shipment-in-progress{background:#123524;color:#86efac;border-color:#166534}
+.shipment-in-progress i{display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;animation:shipment-pulse 1.6s ease-in-out infinite}
+@keyframes shipment-pulse{50%{opacity:.45;transform:scale(.75)}}
+@media(prefers-reduced-motion:reduce){.shipment-in-progress i{animation:none}}
