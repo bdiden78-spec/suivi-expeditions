@@ -124,20 +124,20 @@
 
   // Ordre d'affichage. Pour une nouvelle catégorie : ajouter une ligne ici ET dans la liste des catégories (⚙ admin).
   const CATEGORIES = [
-    { id: 'ETQ',   label: 'Étiquette',      short: 'Étiquettes',      icon: 'fa-scroll',          c1: '#8b5cf6', c2: '#c084fc' },
-    { id: 'RFID',  label: 'Étiquette RFID', short: 'Étiquettes RFID', icon: 'fa-tower-broadcast', c1: '#06b6d4', c2: '#38bdf8' },
-    { id: 'RUBAN', label: 'Ruban',          short: 'Rubans',          icon: 'fa-ribbon',          c1: '#10b981', c2: '#34d399' },
-    { id: 'PVC',   label: 'Carte PVC',      short: 'Cartes PVC',      icon: 'fa-credit-card',     c1: '#ec4899', c2: '#a855f7', autoHide: true },
-    { id: 'TAG',   label: 'Tag',            short: 'Tags',            icon: 'fa-tag',             c1: '#0ea5e9', c2: '#6366f1', autoHide: true },
+    { id: 'ETQ',   label: 'Étiquettes',      short: 'Étiquettes',      icon: 'fa-scroll',          c1: '#0284c7', c2: '#38bdf8' },
+    { id: 'RFID',  label: 'Étiquettes RFID', short: 'Étiquettes RFID', icon: 'fa-tower-broadcast', c1: '#0891b2', c2: '#22d3ee' },
+    { id: 'RUBAN', label: 'Ruban TTR',       short: 'Rubans TTR',      icon: 'fa-ribbon',          c1: '#f97316', c2: '#fb923c' },
+    { id: 'PVC',   label: 'Carte PVC',       short: 'Cartes PVC',      icon: 'fa-credit-card',     c1: '#1d4ed8', c2: '#60a5fa', byRef: true },
+    { id: 'TAG',   label: 'Tag',             short: 'Tags',            icon: 'fa-tag',             c1: '#0ea5e9', c2: '#38bdf8', autoHide: true },
   ];
 
-  // Reconnaissance sur la CATÉGORIE seulement (jamais sur la désignation ou la référence)
+  // Reconnaissance sur la CATÉGORIE (Ruban / Ruban TTR, Carte PVC, Étiquette, RFID, Tag)
   function categoryId(rawCategory) {
     const s = normSpaced(rawCategory), k = s.replace(/ /g, '');
     if (!k) return null;
     if (k.includes('ALGERIEPOSTE')) return 'AP';           // anciennes données : « ÉTIQUETTE ALGÉRIE POSTE »
     if (k.includes('RFID')) return 'RFID';
-    if (k.includes('RUBAN') || /\bRIBBONS?\b/.test(s)) return 'RUBAN';
+    if (k.includes('RUBAN') || k.includes('TTR') || /\bRIBBONS?\b/.test(s)) return 'RUBAN';
     if (k.includes('CARTEPVC') || k.includes('CARTESPVC') || /\bPVC\b/.test(s) || /\bCARTES?\b/.test(s)) return 'PVC';
     if (/\bTAGS?\b/.test(s)) return 'TAG';
     if (k.includes('ETIQUETTE')) return 'ETQ';

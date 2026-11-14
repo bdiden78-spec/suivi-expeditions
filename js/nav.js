@@ -1,22 +1,24 @@
 /* ==========================================================
    LogiTrak — Barre d'onglets et contrôles d'administration
+   Palette inspirée du logo LogiTrak (Bleu marine, Bleu électrique/Cyan & Orange vif)
    ========================================================== */
 (function () {
   'use strict';
 
-  const APP_VERSION = 'v3.8.4';          // affichée à côté de la signature (changer ici à chaque nouvelle version)
+  const APP_VERSION = 'v4.0.6';          // affichée à côté de la signature
 
   const TABS = [
-    { id: 'index',        href: 'index.html',        icon: 'fa-house',           label: 'Accueil',      c1: '#6366f1', c2: '#3b82f6' },
-    { id: 'production',   href: 'production.html',   icon: 'fa-industry',        label: 'Production',   c1: '#10b981', c2: '#34d399' },
-    { id: 'colisage',     href: 'colisage.html',     icon: 'fa-boxes-packing',   label: 'Colisage',     c1: '#f59e0b', c2: '#fbbf24' },
-    { id: 'envois',       href: 'envois.html',       icon: 'fa-truck-ramp-box',  label: 'Envois',       c1: '#06b6d4', c2: '#6366f1' },
-    { id: 'algerie-poste', href: 'algerie-poste.html', icon: 'fa-envelope-open-text', label: 'Algérie Poste', c1: '#f59e0b', c2: '#f472b6', opOnly: true },
-    { id: 'statistiques', href: 'statistiques.html', icon: 'fa-chart-pie',      label: 'Statistiques', c1: '#8b5cf6', c2: '#ec4899' },
-    { id: 'new', action: true, icon: 'fa-plus', label: 'Nouvel envoi', c1: '#10b981', c2: '#06b6d4' },
-    { id: 'pointage',     href: 'pointage.html',     icon: 'fa-fingerprint',     label: 'Pointage',     c1: '#ec4899', c2: '#a855f7' },
-    { id: 'gestion',      href: 'https://www.gestion.eurequat-algerie.com/', external: true, icon: 'fa-briefcase', label: 'Gestion', c1: '#0ea5e9', c2: '#38bdf8' },
-    { id: 'webmail',      href: 'https://srv29.novihost.net:2096/',        external: true, icon: 'fa-envelope',  label: 'Webmail', c1: '#ef4444', c2: '#f97316' },
+    { id: 'index',         href: 'index.html',         icon: 'fa-house',              label: 'Accueil',       c1: '#0284c7', c2: '#38bdf8' },
+    { id: 'production',    href: 'production.html',    icon: 'fa-industry',           label: 'Production',    c1: '#0ea5e9', c2: '#22d3ee' },
+    { id: 'colisage',      href: 'colisage.html',      icon: 'fa-boxes-packing',      label: 'Colisage',      c1: '#f97316', c2: '#fb923c' },
+    { id: 'envois',        href: 'envois.html',        icon: 'fa-truck-ramp-box',     label: 'Envois',        c1: '#0284c7', c2: '#06b6d4' },
+    { id: 'new', action: true, icon: 'fa-plus', label: 'Nouvel envoi', c1: '#f97316', c2: '#0284c7' },
+    { id: 'algerie-poste', href: 'algerie-poste.html', icon: 'fa-envelope-open-text', label: 'Algérie Poste', c1: '#f97316', c2: '#fbbf24' },
+    { id: 'statistiques',  href: 'statistiques.html',  icon: 'fa-chart-pie',          label: 'Statistiques',  c1: '#1d4ed8', c2: '#0ea5e9' },
+    { id: 'machines', href: 'machines.html', icon: 'fa-gears', label: 'Paramètres', c1: '#047857', c2: '#34d399' },
+    { id: 'pointage',      href: 'pointage.html',      icon: 'fa-fingerprint',        label: 'Pointage',      c1: '#0891b2', c2: '#38bdf8' },
+    { id: 'gestion',       href: 'https://www.gestion.eurequat-algerie.com/', external: true, icon: 'fa-briefcase', label: 'Gestion', c1: '#0284c7', c2: '#38bdf8' },
+    { id: 'webmail',       href: 'https://srv29.novihost.net:2096/',         external: true, icon: 'fa-envelope',  label: 'Webmail', c1: '#ea580c', c2: '#f97316' },
   ];
 
   const file = (location.pathname.split('/').pop() || 'index').replace(/\.html$/i, '') || 'index';
@@ -30,14 +32,14 @@
     .nav-tabs{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex:1;min-width:0;padding:1px 4px}
     .nav-tab{position:relative;display:inline-flex;align-items:center;gap:6px;isolation:isolate;flex-shrink:0;
       min-height:35px;padding:6px clamp(8px,.8vw,13px);border-radius:6px;border:1px solid transparent;
-      font-size:12px;font-weight:650;color:var(--text-muted);text-decoration:none;white-space:nowrap}
-    .nav-tab::before{content:"";position:absolute;inset:0 2px;z-index:-1;transform:skewX(-10deg);border-radius:6px;border:1px solid transparent}
+      font-size:12px;font-weight:700;color:var(--text-muted);text-decoration:none;white-space:nowrap;transition:color .15s}
+    .nav-tab::before{content:"";position:absolute;inset:0 2px;z-index:-1;transform:skewX(-10deg);border-radius:6px;border:1px solid transparent;transition:all .15s}
     .nav-tab i{font-size:12px}
     .nav-tab:hover{color:var(--text)}
     .nav-tab:hover::before{background:var(--bg-hover)}
     .nav-tab.active,.nav-tab.nav-action{color:var(--module,var(--accent))}
-    .nav-tab.active::before{background:var(--module-bg,var(--accent-wash));border-color:color-mix(in srgb,var(--module,var(--accent)) 38%,var(--border))}
-    .nav-tab.active::after{content:"";position:absolute;bottom:3px;left:12px;right:12px;height:2px;background:var(--module,var(--accent));border-radius:2px}
+    .nav-tab.active::before{background:var(--module-bg,var(--accent-wash));border-color:color-mix(in srgb,var(--module,var(--accent)) 42%,var(--border))}
+    .nav-tab.active::after{content:"";position:absolute;bottom:3px;left:12px;right:12px;height:2.5px;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:2px}
     .nav-tab.nav-action{appearance:none;background:transparent;cursor:pointer;font-family:inherit}
     .nav-btn{display:inline-flex;align-items:center;gap:7px;min-height:35px;padding:6px 10px;border-radius:7px;
       font-size:12px;font-weight:650;cursor:pointer;background:var(--bg-soft);border:1px solid var(--border);color:var(--text)}
@@ -47,8 +49,10 @@
     .header-admin-btns{display:inline-flex;align-items:center;gap:6px}
     @media(max-width:970px){.nav-inner{align-items:flex-start}.nav-tab{font-size:11.5px}}
     @media(max-width:600px){.nav-bar{position:relative}.nav-inner{flex-wrap:wrap}.nav-tabs{order:2;flex-basis:100%}.nav-right{margin-left:auto}}
-    #appFooter{position:relative;z-index:10;text-align:center;padding:22px 16px 26px;margin-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--text-dim)}
-    #appFooter p + p{margin-top:3px;font-weight:700;color:var(--text-muted)}
+    #appFooter{position:relative;z-index:10;text-align:center;padding:22px 16px 26px;margin-top:8px;border-top:2px solid color-mix(in srgb,var(--primary) 35%,var(--border));font-size:11.5px;color:var(--text-dim);background:color-mix(in srgb,var(--bg-card) 75%,var(--bg))}
+    #appFooter p + p{margin-top:5px;font-weight:800;color:var(--text)}
+    .sig-badge{display:inline-flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;color:var(--text-muted)}
+    .sig-name,.sig-ver{font-weight:800}
     .dz-dots{display:inline-flex;gap:4px;vertical-align:middle;margin:0 .4em}.dz-dots i{width:13px;height:8px;border-radius:3px;background:var(--dot);box-shadow:0 0 0 1px var(--border-strong, #888)}
     @media print{.nav-bar,#appFooter{display:none !important}}
   `;
@@ -63,7 +67,7 @@
       <div class="nav-tabs">
         ${TABS.filter(t => !['pointage', 'gestion', 'webmail'].includes(t.id)).map((t, i) => t.action ? `
           <button type="button" class="nav-tab nav-action" data-module="new" id="navNewExpedition" style="--tc1:${t.c1};--tc2:${t.c2};--i:${i}" title="Créer un nouvel envoi"><i class="fa-solid ${t.icon}"></i><span>${t.label}</span></button>` : `
-          <a href="${t.href}" id="navTab_${t.id}" data-module="${t.id}" class="nav-tab${t.id === current ? ' active' : ''}${t.opOnly ? ' op-only' : ''}" style="--tc1:${t.c1};--tc2:${t.c2};--i:${i}"${t.id === current ? ' aria-current="page"' : ''}${t.external ? ' target="_blank" rel="noopener noreferrer" title="S\'ouvre dans un nouvel onglet"' : ''}>
+          <a href="${t.href}" id="navTab_${t.id}" data-module="${t.id}" class="nav-tab${t.id==='machines'?' adm-only':''}${t.id === current ? ' active' : ''}" style="--tc1:${t.c1};--tc2:${t.c2};--i:${i}"${t.id === current ? ' aria-current="page"' : ''}${t.external ? ' target="_blank" rel="noopener noreferrer" title="S\'ouvre dans un nouvel onglet"' : ''}>
             <i class="fa-solid ${t.icon}"></i><span>${t.label}</span>${t.external ? '<i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px;opacity:.6;margin-left:-2px"></i>' : ''}
           </a>`).join('')}
       </div>
@@ -98,21 +102,6 @@
     const headerRight = document.getElementById('headerActions');
     if (!headerRight) return;
     
-    if (document.body.classList.contains('is-admin') && !document.getElementById('headerAdminGroup')) {
-      const group = document.createElement('div');
-      group.id = 'headerAdminGroup';
-      group.className = 'header-admin-btns adm-only';
-      group.innerHTML = `
-        <button type="button" class="nav-btn" id="headOpsBtn" title="Gérer les opérateurs"><i class="fa-solid fa-users-gear text-indigo-400"></i><span class="hidden sm:inline">Opérateurs</span></button>
-      `;
-      headerRight.insertBefore(group, headerRight.firstChild);
-
-      group.querySelector('#headOpsBtn').addEventListener('click', () => {
-        if (typeof window.openOperators === 'function') window.openOperators();
-        else location.href = 'envois.html?admin=ops';
-      });
-    }
-
     const logo = document.getElementById('appBrandLogo');
     if (logo && !logo.dataset.cfgBound) {
       logo.dataset.cfgBound = '1';
@@ -138,7 +127,8 @@
   if (!document.getElementById('appFooter')) {
     const ft = document.createElement('footer');
     ft.id = 'appFooter'; ft.className = 'no-print';
-    ft.innerHTML = '<p>LogiTrak • Eurequat Algérie • Usine Tlemcen</p><p>Designed by Boumediene © 2026 • ' + APP_VERSION + '<span class="dz-dots" aria-hidden="true"><i style="--dot:#fff"></i><i style="--dot:#d21034"></i><i style="--dot:#006233"></i></span>• Tous droits réservés.</p>';
+    ft.innerHTML = '<p style="font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--text-muted)">LogiTrak • Eurequat Algérie • Usine Tlemcen</p>' +
+      '<p><span class="sig-badge"><span>Designed by</span> <span class="sig-name">Boumediene</span> <span>© 2026</span> <span class="sig-ver">' + APP_VERSION + '</span><span class="dz-dots" aria-hidden="true"><i style="--dot:#006233"></i><i style="--dot:#fff"></i><i style="--dot:#d21034"></i></span><span>Tous droits réservés</span></span></p>';
     document.body.appendChild(ft);
   }
 
@@ -149,7 +139,7 @@
   let pendingClient = null;
   async function refreshPending() {
     const tab = document.getElementById('navTab_envois'); if (!tab) return;
-    let n = (typeof window.LT_PENDING === 'number') ? window.LT_PENDING : null;     // la page Envois / l'accueil connaissent déjà le chiffre
+    let n = (typeof window.LT_PENDING === 'number') ? window.LT_PENDING : null;
     if (n === null && readUser() && window.supabase && typeof SUPABASE_URL !== 'undefined') {
       try {
         pendingClient = pendingClient || window.supabase.createClient(localStorage.getItem('supabase_url') || SUPABASE_URL, localStorage.getItem('supabase_key') || SUPABASE_ANON, { auth: { autoRefreshToken: false } });
@@ -206,6 +196,18 @@
     go('envois.html?login=1');
   });
   refreshUser();
+  async function showSettingsForAdmin() {
+    if (!window.supabase || typeof SUPABASE_URL === 'undefined') return;
+    try {
+      const client=window.supabase.createClient(localStorage.getItem('supabase_url')||SUPABASE_URL,localStorage.getItem('supabase_key')||SUPABASE_ANON);
+      const [{data,error},{data:viewer}]=await Promise.all([client.rpc('is_admin'),client.rpc('is_visionnaire')]);
+      newExpBtn.hidden=viewer===true;
+      if(viewer===true) newExpBtn.style.display='none';
+      const settings=document.getElementById('navTab_machines');
+      if(!error&&data===true) settings?.classList.remove('adm-only');
+    } catch(error) { console.warn(error); }
+  }
+  showSettingsForAdmin();
   setTimeout(refreshPending, 900);
   window.addEventListener('storage', refreshUser);
   new MutationObserver(refreshUser).observe(document.body, { attributes: true, attributeFilter: ['class'] });

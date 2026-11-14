@@ -109,6 +109,7 @@ function syncAuth(session) {
   authIdentity = identity;
   authSync = authSync.catch(console.warn).then(async () => {
     state.session = session;
+    state.isViewer = false;
     state.isOperator = false;
     state.isAdmin = false;
     if (session?.user?.email) {
@@ -116,7 +117,8 @@ function syncAuth(session) {
         const username = session.user.email.split('@')[0].toLowerCase();
         const { data, error } = await state.supabase.from('operateurs').select('role').eq('username', username).maybeSingle();
         if (error) throw error;
-        state.isOperator = !!data;
+        state.isViewer = data?.role === 'visionnaire';
+        state.isOperator = !!data && !state.isViewer;
         state.isAdmin = data?.role === 'admin';
       } catch (error) { console.warn(error); }
     }
@@ -148,6 +150,7 @@ async function doLogin(e) {
   const button = e.currentTarget?.querySelector('[type="submit"]');
   msg.classList.add('hidden');
   if (button) button.disabled = true;
+  let loginSession;
   try {
     if (!state.supabase) throw new Error('Connexion à la base indisponible.');
     const username = $('#loginUsername').value.trim().toLowerCase();
@@ -155,6 +158,7 @@ async function doLogin(e) {
       email: username + '@logitrak.internal', password: $('#loginPassword').value
     });
     if (error || !data?.session) throw new Error(error?.status === 400 ? 'Pseudo ou mot de passe incorrect.' : 'Connexion impossible. Réessayez.');
+    loginSession=data.session;
   } catch (error) {
     msg.textContent = error.message;
     msg.classList.remove('hidden');
@@ -165,10 +169,16 @@ async function doLogin(e) {
 
   $('#loginPassword').value = '';
   closeModal('loginModal');
+  if (requestedShipment) {
+    await syncAuth(loginSession);
+    await openRequestedShipment();
+    return;
+  }
   window.location.assign('index.html');
 }
 
 function requireOperator() {
+  if(state.isViewer) { toast('Ce compte est en lecture seule.','info'); return false; }
   if (state.isOperator && state.supabase) return true;
   toast("Connectez-vous pour effectuer cette action.", "warning");
   $('#loginMsg').classList.add('hidden'); openModal('loginModal');
@@ -308,6 +318,28 @@ function applyFilters() {
 
 // ----- Validation des envois par un administrateur -----
 const isValidated = e => (e.validation || 'VALIDE') === 'VALIDE';
+function shipmentDisplayItems(items) {
+  const groups=new Map(), visible=[];
+  for(const item of items) {
+    const detail=item.colisage_detail, packing=detail?.ap_pack;
+    if(!detail?.ap_production_id || !apProductSpec(packing?.type)) { visible.push(item); continue; }
+    const spec=apProductSpec(packing.type), settings=apPackingSettings(packing.settings,spec);
+    const key=JSON.stringify([packing.orderId||packing.orderNumber||item.destinataire,item.destinataire,packing.type,settings]);
+    if(!groups.has(key)) {
+      const group={item,spec,settings:packing.settings,order:packing.orderNumber,quantity:0};
+      groups.set(key,group);
+      visible.push(group);
+    }
+    groups.get(key).quantity+=Number(item.quantite);
+  }
+  const grouped=new Set(groups.values());
+  return visible.flatMap(entry=>{
+    if(!grouped.has(entry)) return [entry];
+    const parts=apShipmentParts(entry.quantity,entry.spec,entry.settings);
+    return [{...entry.item,designation:[entry.spec.label,entry.order,parts[0]?.type].filter(Boolean).join(' · '),
+      quantite:String(entry.quantity),cartons:parts.reduce((total,part)=>total+part.nb,0)}];
+  });
+}
 const cartonsOfItem = it => { const n = parseInt(it.cartons); return Number.isFinite(n) ? n : 1; };
 function pendingCount() { return state.expeditions.filter(e => !isValidated(e)).length; }
 
@@ -366,8 +398,9 @@ function render() {
   }
   
   box.innerHTML = state.filtered.map(e => {
-    const cartons = (e.items||[]).reduce((s,it) => s + cartonsOfItem(it), 0);
-    const count = (e.items||[]).length, isExpanded = state.expanded.has(e.id);
+    const displayItems=shipmentDisplayItems(e.items||[]);
+    const cartons = displayItems.reduce((s,it) => s + cartonsOfItem(it), 0);
+    const count = displayItems.length, isExpanded = state.expanded.has(e.id);
     
     const isExpired = (new Date() - new Date(e.created_at)) > 48 * 3600 * 1000;
     const validated = isValidated(e);
@@ -380,7 +413,7 @@ function render() {
       : '';
     const statusBadge = validated
       ? `<span class="badge" title="${esc(e.valide_at ? 'Validé le ' + new Date(e.valide_at).toLocaleString('fr-FR') : '')}" style="background:var(--success-bg);color:var(--success);border-color:var(--success)"><i class="fa-solid fa-circle-check"></i>Validé${e.valide_par && e.valide_par !== '(historique)' ? ' par ' + esc(e.valide_par) : ''}</span>`
-      : `<span class="badge" style="background:var(--warning-bg);color:var(--warning);border-color:var(--warning)"><i class="fa-solid fa-hourglass-half"></i>À valider</span>`;
+      : `<span class="badge shipment-in-progress"><i aria-hidden="true"></i>En cours</span>`;
     const editBtn = canEdit 
       ? `<button onclick="openExpeditionModal('${esc(e.id)}')" class="op-only btn-icon" title="Modifier"><i class="fa-solid fa-pen-to-square text-amber-400"></i></button>
          <button onclick="deleteExpedition('${esc(e.id)}')" class="op-only btn-icon" title="Supprimer"><i class="fa-regular fa-trash-can text-rose-400"></i></button>`
@@ -414,7 +447,7 @@ function render() {
             <table class="w-full text-xs">
               <thead style="background:var(--bg-input)"><tr class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--text-muted)"><th class="p-3 pl-5 text-left">Référence</th><th class="p-3 text-left">Catégorie</th><th class="p-3 text-left">Désignation</th><th class="p-3 text-left">Destinataire</th><th class="p-3 text-center">Unité</th><th class="p-3 text-right">Quantité</th><th class="p-3 text-center">Cartons</th></tr></thead>
               <tbody class="divide-y" style="border-color:var(--border)">
-                ${(e.items||[]).map(it => `<tr class="hover:bg-[var(--bg-hover)] transition"><td class="p-3 pl-5 font-mono-code font-bold text-indigo-400">${esc(it.reference || '-')}</td><td class="p-3 text-slate-400 font-semibold text-xs uppercase">${esc(it.categorie || '-')}</td><td class="p-3 font-semibold">${esc(it.designation || '-')}</td><td class="p-3"><span class="badge ${it.destinataire==='STOCK'?'badge-stock':'badge-client'}">${esc(it.destinataire || 'STOCK')}</span></td><td class="p-3 text-center font-mono-code" style="color:var(--text-muted)">${esc(it.unite || 'UN')}</td><td class="p-3 text-right font-mono-code font-bold">${fmtNum(it.quantite)}</td><td class="p-3 text-center font-bold text-amber-400">${(it.colisage_detail && it.colisage_detail.mixte ? 'mixte' : esc(it.cartons ?? '1'))}</td></tr>`).join('') || '<tr><td colspan="7" class="p-4 text-center text-xs" style="color:var(--text-muted)">Aucun article</td></tr>'}
+                ${displayItems.map(it => `<tr class="hover:bg-[var(--bg-hover)] transition"><td class="p-3 pl-5 font-mono-code font-bold text-indigo-400">${esc(it.reference || '-')}</td><td class="p-3 text-slate-400 font-semibold text-xs uppercase">${esc(it.categorie || '-')}</td><td class="p-3 font-semibold">${esc(it.designation || '-')}</td><td class="p-3"><span class="badge ${it.destinataire==='STOCK'?'badge-stock':'badge-client'}">${esc(it.destinataire || 'STOCK')}</span></td><td class="p-3 text-center font-mono-code" style="color:var(--text-muted)">${esc(it.unite || 'UN')}</td><td class="p-3 text-right font-mono-code font-bold">${fmtNum(it.quantite)}</td><td class="p-3 text-center font-bold text-amber-400">${(it.colisage_detail && it.colisage_detail.mixte ? 'mixte' : esc(it.cartons ?? '1'))}</td></tr>`).join('') || '<tr><td colspan="7" class="p-4 text-center text-xs" style="color:var(--text-muted)">Aucun article</td></tr>'}
               </tbody>
             </table>
           </div>
@@ -460,6 +493,7 @@ function nextNumEnvoi(dateStr) {
 }
 
 function openExpeditionModal(id) {
+  if (!id && !state.isOperator) requestedShipment = {};
   if (!requireOperator()) return;
   const isEdit = !!id, exp = isEdit ? state.expeditions.find(e => e.id === id) : null;
   if (isEdit && !exp) return;
@@ -488,6 +522,7 @@ function openExpeditionModal(id) {
     }
   };
 
+  $('#apOrderPicker').hidden=true;
   $('#itemsBody').innerHTML = ''; (isEdit ? exp.items : [{}]).forEach(it => addItemRow(it));
   updateModalTotals(); openModal('expeditionModal');
 }
@@ -521,7 +556,7 @@ function addItemRow(item = {}) {
     <td class="p-2"><input class="inp input-uppercase" data-field="destinataire" list="clientsList" value="${esc(item.destinataire||'STOCK')}"></td>
     <td class="p-2"><input class="inp text-center input-uppercase" data-field="unite" list="unitsList" value="${esc(item.unite||'UN')}"></td>
     <td class="p-2"><input class="inp text-right font-mono-code" data-field="quantite" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="9" placeholder="0" title="Nombre entier uniquement (sans virgule)" value="${esc(digitsOnly(item.quantite))}"></td>
-    <td class="p-2"><input class="inp text-center font-bold text-amber-400" data-field="cartons" type="number" min="1" ${(item.colisage_detail && item.colisage_detail.mixte) ? 'disabled placeholder="mixte" value=""' : `value="${esc(item.cartons || '1')}"`}></td>
+    <td class="p-2"><input class="inp text-center font-bold text-amber-400" data-field="cartons" type="number" min="1" ${(item.colisage_detail && item.colisage_detail.mixte) ? 'disabled placeholder="mixte" value=""' : `value="${esc(item.cartons ?? '1')}"`}></td>
     <td class="p-2 text-center"><button type="button" class="btn-icon" data-remove aria-label="Supprimer"><i class="fa-solid fa-xmark text-rose-400 text-xs"></i></button></td>`;
   $('#itemsBody').appendChild(tr);
   // Données issues de la production et de son colisage (copie figée enregistrée avec la ligne)
@@ -627,12 +662,60 @@ function firstBadQuantity() {
   }
   return null;
 }
+function regroupAPCartons(rows) {
+  const groups=new Map();
+  for(const row of rows) {
+    const detail=getDetail(row), packing=detail?.ap_pack;
+    if(!packing?.orderId || !apProductSpec(packing.type)) continue;
+    const key=JSON.stringify([packing.orderId,packing.type,packing.settings]);
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push({row,detail,packing});
+  }
+  for(const group of groups.values()) {
+    const {packing}=group[0];
+    const quantity=group.reduce((sum,{row})=>sum+Number(digitsOnly(row.querySelector('[data-field="quantite"]').value)),0);
+    const parts=apShipmentParts(quantity,apProductSpec(packing.type),packing.settings);
+    group.forEach(({row,detail},index)=>{
+      row.hidden=true;
+      detail.parts=index===0?parts:[];
+      setDetail(row,detail);
+      row.querySelector('[data-field="cartons"]').value=index===0?parts.reduce((sum,part)=>sum+part.nb,0):0;
+    });
+  }
+}
+function renderAPCartonSummary(rows) {
+  const box=$('#apCartonSummary');
+  const groups=new Map();
+  for(const row of rows) {
+    const packing=getDetail(row)?.ap_pack;
+    if(!packing?.orderId) continue;
+    if(!groups.has(packing.orderId)) groups.set(packing.orderId,[]);
+    groups.get(packing.orderId).push(row);
+  }
+  box.replaceChildren();
+  for(const group of groups.values()) {
+    const packing=getDetail(group[0]).ap_pack;
+    const cartons=group.reduce((sum,row)=>sum+Number(row.querySelector('[data-field="cartons"]').value),0);
+    const quantity=group.reduce((sum,row)=>sum+Number(row.querySelector('[data-field="quantite"]').value),0);
+    const div=document.createElement('div');
+    div.className='panel-soft p-3 flex flex-wrap items-center justify-between gap-2';
+    const label=document.createElement('span');
+    label.textContent=[packing.orderNumber,group[0].querySelector('[data-field="destinataire"]').value,fmtNum(quantity)+' ID',cartons+' carton(s)'].filter(Boolean).join(' · ');
+    const remove=document.createElement('button');
+    remove.type='button'; remove.className='btn btn-secondary'; remove.textContent='Retirer';
+    remove.onclick=()=>{ group.forEach(row=>row.remove()); updateModalTotals(); };
+    div.append(label,remove);
+    box.append(div);
+  }
+}
 function updateModalTotals() {
   const rows = $$('#itemsBody tr'); let total = 0;
+  regroupAPCartons(rows);
+  renderAPCartonSummary(rows);
   const mixed = new Set();
   rows.forEach(tr => {
     if (tr.dataset.mixte === '1') { mixed.add(tr.dataset.stockBox || 'historique'); return; }
-    total += parseInt(tr.querySelector('[data-field="cartons"]').value) || 1;
+    total += cartonsOfItem({cartons:tr.querySelector('[data-field="cartons"]').value});
   });
   total += mixed.size;
   $('#modalTotal').textContent = `Total : ${total} carton(s)` + (mixed.size ? ` (dont ${mixed.size} mixte(s))` : '');
@@ -643,7 +726,7 @@ function collectItems() {
   return $$('#itemsBody tr').map(tr => {
     const get = f => tr.querySelector(`[data-field="${f}"]`).value.trim().toUpperCase();
     const d = getDetail(tr), mixte = !!(d && d.mixte);
-    let cartons = parseInt(get('cartons')) || 1;
+    let cartons = cartonsOfItem({cartons:get('cartons')});
     if (mixte) {
       const key = tr.dataset.stockBox || 'historique';
       cartons = mixed.has(key) ? 0 : 1;
@@ -707,8 +790,8 @@ async function loadOperators() {
   if (error) return box.innerHTML = `<p class="py-3 text-rose-400">${esc(error.message)}</p>`;
   const me = (state.session?.user?.email || '').split('@')[0];
   box.innerHTML = (data||[]).map(o => `
-    <div class="py-2.5 flex items-center justify-between gap-2"><div class="min-w-0"><p class="font-semibold truncate">${esc(o.username)}</p><p class="text-[11px]" style="color:var(--text-muted)">${o.role === 'admin' ? 'Administrateur' : 'Opérateur'}</p></div>
-    ${o.username === me ? '<span class="text-[11px]" style="color:var(--text-dim)">vous</span>' : `<button onclick="removeOperator('${esc(o.username)}')" class="btn btn-secondary"><i class="fa-solid fa-trash text-rose-400"></i>Retirer</button>`}</div>`).join('') || '<p class="py-3 text-xs" style="color:var(--text-muted)">Aucun opérateur.</p>';
+    <div class="py-2.5 flex items-center justify-between gap-2"><div class="min-w-0"><p class="font-semibold truncate">${esc(o.username)}</p><p class="text-[11px]" style="color:var(--text-muted)">${o.role === 'admin' ? 'Administrateur' : o.role === 'visionnaire' ? 'Visionnaire' : 'Opérateur'}</p></div>
+    ${o.username === me ? '<span class="text-[11px]" style="color:var(--text-dim)">vous</span>' : `<button onclick="removeOperator('${esc(o.username)}')" class="btn btn-secondary"><i class="fa-solid fa-trash text-rose-400"></i>Supprimer</button>`}</div>`).join('') || '<p class="py-3 text-xs" style="color:var(--text-muted)">Aucun opérateur.</p>';
 }
 
 async function addOperator(e) {
@@ -734,10 +817,10 @@ async function addOperator(e) {
 }
 
 async function removeOperator(username) {
-  if (!await confirmDialog(`Retirer l'accès à ${username} ?`)) return;
-  const { error } = await state.supabase.from('operateurs').delete().eq('username', username);
+  if (!await confirmDialog(`Supprimer définitivement le compte ${username} ?`)) return;
+  const { error } = await state.supabase.rpc('delete_logitrak_operator', {p_username:username});
   if (error) return toast('Retrait impossible : ' + error.message, 'error');
-  toast('Accès retiré.', 'success'); await loadOperators();
+  toast('Compte supprimé.', 'success'); await loadOperators();
 }
 
 const SAMPLES = [
@@ -923,7 +1006,7 @@ function printExpedition(id) {
   $('#printBL').textContent = e.numero_bl || 'SANS NUM'; $('#printDate').textContent = 'Date : ' + fmtDate(e.date_envoi);
   $('#printCarrier').textContent = 'Transporteur : ' + e.transporteur; $('#printObs').textContent = e.observations ? 'Note : ' + e.observations : '';
   let total = 0;
-  $('#printBody').innerHTML = (e.items||[]).map(it => { total += cartonsOfItem(it); return `<tr><td style="font-family:monospace;font-weight:bold">${esc(it.reference||'-')}</td><td>${esc(it.categorie||'-')}</td><td>${esc(it.designation||'-')}</td><td style="font-weight:bold">${esc(it.destinataire||'STOCK')}</td><td style="text-align:center">${esc(it.unite||'UN')}</td><td style="text-align:right">${esc(it.quantite||'0')}</td><td style="text-align:center">${esc(it.cartons ?? '1')}</td></tr>`; }).join('');
+  $('#printBody').innerHTML = shipmentDisplayItems(e.items||[]).map(it => { total += cartonsOfItem(it); return `<tr><td style="font-family:monospace;font-weight:bold">${esc(it.reference||'-')}</td><td>${esc(it.categorie||'-')}</td><td>${esc(it.designation||'-')}</td><td style="font-weight:bold">${esc(it.destinataire||'STOCK')}</td><td style="text-align:center">${esc(it.unite||'UN')}</td><td style="text-align:right">${esc(it.quantite||'0')}</td><td style="text-align:center">${esc(it.cartons ?? '1')}</td></tr>`; }).join('');
   $('#printTotal').textContent = total; printLogiTrakDocument($('#printArea'));
 }
 function exportCSV() {
@@ -944,7 +1027,7 @@ function apShipmentParts(quantity, spec, settings) {
 }
 async function availableAPShipmentItems(orderId, includeDraft) {
   const [orders,runs]=await Promise.all([
-    readLogiTrakRows(state.supabase,'ap_commandes','id,client,type_produit'),
+    readLogiTrakRows(state.supabase,'ap_commandes','*'),
     readLogiTrakRows(state.supabase,'ap_productions'),
   ]);
   const byOrder=new Map(orders.map(order=>[order.id,order]));
@@ -971,7 +1054,7 @@ async function availableAPShipmentItems(orderId, includeDraft) {
     items.push({
       reference:spec.reference,categorie:'ALGERIE POSTE',designation:spec.label+' · Tirage '+run.numero_debut+' → '+run.numero_fin,
       destinataire:order.client,unite:'ID',quantite:String(remaining),cartons:parts.reduce((sum,part)=>sum+part.nb,0),
-      colisage_detail:{ap_production_id:run.id,ap_pack:{type:order.type_produit,settings},parts},
+      colisage_detail:{ap_production_id:run.id,ap_pack:{orderId:order.id,orderNumber:order.ap_numero,type:order.type_produit,settings},parts},
     });
   }
   return items;
@@ -988,43 +1071,36 @@ async function openAPShipment(orderId) {
   } catch(error) { toast(error.message||'Impossible de charger la commande.','error'); }
 }
 async function openAPShipmentPicker() {
+  if (!requireOperator()) return;
   try {
     const items=await availableAPShipmentItems(null,true);
-    if(!items.length) return toast('Aucun tirage Algérie Poste disponible.','warning');
-    const dialog=document.createElement('dialog');
-    dialog.id='apOrderPicker';
-    dialog.className='panel p-5 space-y-4';
-    dialog.setAttribute('aria-labelledby','apShipmentPickerTitle');
-    dialog.innerHTML='<h3 id="apShipmentPickerTitle" class="font-bold">Ajouter des ID Algérie Poste</h3>'+
-      '<form class="space-y-3">'+items.map((item,index)=>'<label class="panel-soft p-3 flex flex-wrap items-center justify-between gap-2">'+
-        '<span>'+esc(item.destinataire)+' · '+esc(item.designation)+'<br>'+fmtNum(item.quantite)+' ID disponibles</span>'+
-        '<input class="inp max-w-[150px]" name="qty'+index+'" aria-label="Quantité à envoyer pour '+esc(item.designation)+
-        '" type="number" min="0" max="'+item.quantite+'" step="1" value="0"></label>').join('')+
-      '<div class="flex gap-2"><button type="submit" class="btn btn-primary">Ajouter à l’envoi</button>'+
-      '<button type="button" class="btn btn-secondary" data-close>Annuler</button></div></form>';
-    dialog.querySelector('[data-close]').onclick=()=>dialog.close();
-    dialog.addEventListener('close',()=>dialog.remove(),{once:true});
-    dialog.querySelector('form').addEventListener('submit',event=>{
-      event.preventDefault();
-      const fields=event.currentTarget.elements;
-      const selected=items.flatMap((item,index)=>{
-        const quantity=Number(fields['qty'+index].value);
-        if(!Number.isInteger(quantity)||quantity<1||quantity>Number(item.quantite)) return [];
-        const detail=item.colisage_detail;
-        const parts=apShipmentParts(quantity,apProductSpec(detail.ap_pack.type),detail.ap_pack.settings);
-        return [{...item,quantite:String(quantity),cartons:parts.reduce((sum,part)=>sum+part.nb,0),colisage_detail:{...detail,parts}}];
-      });
-      if(!selected.length) return toast('Saisissez une quantité à ajouter.','warning');
-      for(const row of $$('#itemsBody tr')) {
+    const orders=new Map();
+    for(const item of items) {
+      const id=item.colisage_detail.ap_pack.orderId;
+      if(!orders.has(id)) orders.set(id,[]);
+      orders.get(id).push(item);
+    }
+    if(!orders.size) return toast('Aucune commande Algérie Poste disponible en stock.','warning');
+    const picker=$('#apOrderPicker');
+    picker.hidden=false;
+    picker.innerHTML='<label>Commande en stock<select class="inp"><option value="">Choisir une commande</option>'+
+      [...orders].map(([id,lines])=>{
+        const first=lines[0], total=lines.reduce((sum,item)=>sum+Number(item.quantite),0);
+        return '<option value="'+esc(id)+'">'+esc((first.colisage_detail.ap_pack.orderNumber||'')+' · '+first.destinataire)+' · '+fmtNum(total)+' ID</option>';
+      }).join('')+'</select></label><button type="button" class="btn btn-primary">Importer la commande</button>';
+    const select=picker.querySelector('select');
+    picker.querySelector('button').onclick=()=>{
+      const selected=orders.get(select.value);
+      if(!selected) return toast('Choisissez une commande.','warning');
+      for(const row of $('#itemsBody tr')) {
         if(!row.querySelector('[data-field="reference"]').value.trim()&&!row.querySelector('[data-field="designation"]').value.trim()) row.remove();
       }
       selected.forEach(addItemRow);
       updateModalTotals();
-      dialog.close();
-    });
-    document.body.appendChild(dialog);
-    dialog.showModal();
-  } catch(error) { toast(error.message||'Impossible de charger les tirages.','error'); }
+      picker.hidden=true;
+    };
+    select.focus();
+  } catch(error) { toast(error.message||'Impossible de charger les commandes.','error'); }
 }
 
 let requestedShipment = null;
@@ -1136,14 +1212,19 @@ async function loadProductionLots() {
   }));
 }
 
+state.apShipmentItems = [];
 async function openProdPicker() {
   if (!requireOperator()) return;
   $('#ppSearch').value = '';
   $('#ppDest').value = '';
   $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)">Chargement…</div>';
   openModal('prodPickerModal');
-  try { await loadProductionLots(); }
-  catch (e) {
+  try {
+    await Promise.all([
+      loadProductionLots(),
+      availableAPShipmentItems(null, true).then(items => { state.apShipmentItems = items; }).catch(() => { state.apShipmentItems = []; })
+    ]);
+  } catch (e) {
     $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)"><i class="fa-solid fa-database text-amber-500 text-2xl mb-2 block"></i>Le module Production n\'est pas à jour dans la base.<br>Exécutez <b>sql/v21-colisage-reference.sql</b> dans Supabase (SQL Editor).</div>';
     return;
   }
@@ -1158,7 +1239,8 @@ function renderProdPicker() {
   const items = state.production.map(lot => ({ lot, av: lotAvail(lot) })).filter(x => x.av.blocked || x.av.normal > 0 || x.av.mixte > 0 || (!state.isAdmin && !x.lot.colisage_valide));
   const open = items.filter(x => (x.lot.quantite_produite - (shippedSplit(x.lot.id).n + shippedSplit(x.lot.id).m)) > 0);
   const boxes = state.stockCartons.filter(box => !$$('#itemsBody tr').some(row => row.dataset.stockBox === box.id));
-  if (!open.length && !boxes.length) {
+  const apItems = state.apShipmentItems || [];
+  if (!open.length && !boxes.length && !apItems.length) {
     $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-3xl mb-2 block" style="color:var(--text-dim)"></i>Aucun lot à expédier.<br>Saisissez la production, puis remplissez le colisage de la référence.</div>';
     return;
   }
@@ -1224,10 +1306,28 @@ function renderProdPicker() {
     const label = 'Carton ' + box.type_carton + ' · ' + box.id.slice(0, 8).toUpperCase() + ' · ' + content;
     return '<label class="pp-row panel-soft p-3 flex gap-3 text-sm" data-stock-box="' + esc(box.id) + '" data-search="' + esc(label.toLowerCase()) + '"><input type="checkbox" class="pp-check"> ' + esc(label) + '</label>';
   }).join('');
-  $('#ppList').innerHTML = (boxHtml ? '<h4 class="text-xs font-bold">Cartons déjà composés en stock</h4>' + boxHtml : '') +
+  const apHtml = apItems.map((item, idx) => {
+    const search = [item.reference, item.categorie, item.designation, item.destinataire].join(' ').toLowerCase();
+    return `<div class="pp-row panel-soft p-3 flex flex-wrap items-center gap-3" data-ap-idx="${idx}" data-search="${esc(search)}">
+      <input type="checkbox" class="pp-check w-5 h-5 accent-amber-500" aria-label="Sélectionner">
+      <div class="flex-1 min-w-[200px]">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-[11px] font-mono-code font-bold text-amber-500">ALGÉRIE POSTE · ${esc(item.destinataire)}</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full" style="background:var(--bg-input);color:var(--text-muted)">Regroupé par commande et type de carton</span>
+        </div>
+        <div class="text-xs mt-0.5"><span class="font-mono-code font-bold text-indigo-400">${esc(item.reference)}</span> <span class="font-semibold">${esc(item.designation)}</span></div>
+        <div class="text-[11px]" style="color:var(--text-muted)">En stock : <b>${fmtNum(item.quantite)}</b> ID</div>
+      </div>
+      <div class="w-32"><label class="block text-[10px] font-bold mb-1" style="color:var(--text-muted)">Qté (ID)</label>
+        <input class="inp text-right font-mono-code font-bold pp-qty" inputmode="numeric" pattern="[0-9]*" maxlength="9" value="${item.quantite}" data-avail="${item.quantite}"></div>
+    </div>`;
+  }).join('');
+  $('#ppList').innerHTML =
+    (apHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mb-2 text-amber-500"><i class="fa-solid fa-envelope-open-text mr-1.5"></i>Produits Algérie Poste colisés en stock</div><div class="space-y-2 mb-4">${apHtml}</div>` : '') +
+    (boxHtml ? '<h4 class="text-xs font-bold">Cartons déjà composés en stock</h4>' + boxHtml : '') +
     ((normalHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mb-2" style="color:var(--text-muted)"><i class="fa-solid fa-box mr-1.5"></i>Lots à expédier en cartons</div><div class="space-y-2">${normalHtml}</div>` : '') +
     (mixteHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mt-5 mb-1" style="color:var(--text-muted)"><i class="fa-solid fa-warehouse mr-1.5"></i>Reliquats en stock — CARTON MIXTE</div>
-       <p class="text-[11px] mb-2" style="color:var(--text-dim)">Les reliquats cochés ci-dessous partent ensemble dans <b>un carton mixte H2</b>. Pour choisir le type ou préparer plusieurs cartons, utilisez <b>Cartons en stock</b> dans Production. Limite de référence : ${window.LTColis.MAX_CARTON_KG} kg.</p><div class="space-y-2">${mixteHtml}</div>` : '') || (boxHtml ? '' :
+       <p class="text-[11px] mb-2" style="color:var(--text-dim)">Les reliquats cochés ci-dessous partent ensemble dans <b>un carton mixte H2</b>. Pour choisir le type ou préparer plusieurs cartons, utilisez <b>Cartons en stock</b> dans Production. Limite de référence : ${window.LTColis.MAX_CARTON_KG} kg.</p><div class="space-y-2">${mixteHtml}</div>` : '') || (boxHtml || apHtml ? '' :
     '<div class="p-8 text-center text-xs" style="color:var(--text-muted)">Rien à expédier pour le moment.</div>'));
 }
 
@@ -1322,8 +1422,29 @@ function addLotRows(picked, dest) {
 function importFromProduction() {
   const dest = $('#ppDest').value.trim().toUpperCase();
   const picked = [];
+  let apAdded = 0;
   $$('#ppList .pp-row').forEach(row => {
     if (row.dataset.nocol || !row.querySelector('.pp-check').checked) return;
+    if (row.dataset.apIdx !== undefined) {
+      const item = (state.apShipmentItems || [])[Number(row.dataset.apIdx)];
+      const quantity = parseQty(row.querySelector('.pp-qty').value);
+      if (item && quantity >= 1 && quantity <= Number(item.quantite)) {
+        $$('#itemsBody tr').forEach(tr => {
+          const v = f => tr.querySelector(`[data-field="${f}"]`).value.trim();
+          if (!v('reference') && !v('designation') && !parseQty(v('quantite')) && !tr.dataset.prod) tr.remove();
+        });
+        const detail = item.colisage_detail;
+        const parts = apShipmentParts(quantity, apProductSpec(detail.ap_pack.type), detail.ap_pack.settings);
+        addItemRow({
+          ...item,
+          quantite: String(quantity),
+          cartons: parts.reduce((sum, part) => sum + part.nb, 0),
+          colisage_detail: { ...detail, parts },
+        });
+        apAdded++;
+      }
+      return;
+    }
     if (row.dataset.stockBox) {
       const box = state.stockCartons.find(b => b.id === row.dataset.stockBox);
       if (box) picked.push(...stockBoxLines(box));
@@ -1336,11 +1457,12 @@ function importFromProduction() {
     const cInp = row.querySelector('.pp-cartons');
     picked.push({ lot, qty, cartons: Math.max(1, parseInt(cInp.value) || 1), manual: cInp.dataset.manual === '1', mixte: false });
   });
-  if (!picked.length) return toast('Cochez au moins un lot avec une quantité.', 'warning');
-  addLotRows(picked, dest);
+  if (!picked.length && !apAdded) return toast('Cochez au moins un lot ou produit Algérie Poste avec une quantité.', 'warning');
+  if (picked.length) addLotRows(picked, dest);
+  updateModalTotals();
   closeModal('prodPickerModal');
   const nm = picked.filter(p => p.mixte).length;
-  toast(`${picked.length} ligne(s) importée(s) depuis la production${nm ? ` (dont ${nm} en carton mixte)` : ''}.`, 'success');
+  toast(`${picked.length + apAdded} ligne(s) ajoutée(s) à l'envoi${nm ? ` (dont ${nm} en carton mixte)` : ''}.`, 'success');
   if (!dest && picked.some(p => p.box && p.boxClient === 'STOCK')) toast('Vérifiez le destinataire des cartons mixtes.', 'info');
 }
 

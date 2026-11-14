@@ -6,7 +6,7 @@
    ========================================================== */
 (function () {
   const DEFAULTS = {
-    categories:   ['RUBAN', 'ETIQUETTE', 'ETIQUETTE RFID', 'CARTE PVC', 'TAG', 'ALGERIE POSTE'],
+    categories:   ['ETIQUETTES', 'ETIQUETTES RFID', 'RUBAN TTR', 'CARTE PVC', 'TAG'],
     unites:       ['UN', 'PAQUET', 'ID'],
     types_carton: ['H1', 'H2'],
   };
@@ -20,8 +20,24 @@
   const norm = v => String(v ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clean = (arr, key) => {
-    const out = [...new Set((Array.isArray(arr) ? arr : []).map(norm).filter(Boolean))];
-    if (key === 'categories' && out.length && !out.some(value => value.normalize('NFD').replace(/[^A-Z]/g, '').includes('ALGERIEPOSTE'))) out.push('ALGERIE POSTE');
+    let out = [...new Set((Array.isArray(arr) ? arr : []).map(norm).filter(Boolean))];
+    if (key === 'categories') {
+      out = out.filter(value => !value.normalize('NFD').replace(/[^A-Z]/g, '').includes('ALGERIEPOSTE'));
+      // Garantir que les 5 catégories de base sont toujours présentes dans la liste déroulante
+      for (const defCat of DEFAULTS.categories) {
+        const defNorm = defCat.replace(/S\b/g, '').replace(/\s+TTR\b/, '');
+        if (!out.some(v => v.replace(/S\b/g, '').replace(/\s+TTR\b/, '') === defNorm)) {
+          out.push(defCat);
+        }
+      }
+      // Normaliser les anciens libellés vers les libellés souhaités
+      out = [...new Set(out.map(v => {
+        if (v === 'ETIQUETTE') return 'ETIQUETTES';
+        if (v === 'ETIQUETTE RFID') return 'ETIQUETTES RFID';
+        if (v === 'RUBAN') return 'RUBAN TTR';
+        return v;
+      }))];
+    }
     return out.length ? out : DEFAULTS[key].slice();
   };
 
@@ -36,7 +52,10 @@
   }
   reset(readLocal());
 
-  function get(key) { return (data[key] || DEFAULTS[key] || []).slice(); }
+  function get(key) {
+    const arr = (data[key] && data[key].length) ? data[key] : DEFAULTS[key];
+    return arr.slice();
+  }
 
   /* ----- Remplissage des <select> et <datalist> liés ----- */
   function fillOne(b) {

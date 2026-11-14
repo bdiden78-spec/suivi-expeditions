@@ -1,6 +1,6 @@
 async function loadAPColisage() {
   const section=document.getElementById('apColisage');
-  if (!state.isOperator || section.dataset.loaded) return;
+  if (!(state.isOperator || state.isViewer) || section.dataset.loaded) return;
   const select=document.getElementById('apPackingOrder');
   const output=document.getElementById('apPackingOutput');
   const button=document.getElementById('apPackingPrint');
@@ -16,7 +16,7 @@ async function loadAPColisage() {
     const save=editor.querySelector('button');
     const status=document.getElementById('apPackingStatus');
     settingsBox.innerHTML=apPackingFields();
-    const editable=run=>state.isAdmin||Date.now()-Date.parse(run.created_at)<48*3600000;
+    const editable=run=>state.isOperator&&(state.isAdmin||Date.now()-Date.parse(run.created_at)<48*3600000);
     function selectedRun() {
       return runs.find(run=>run.id===runSelect.value&&run.commande_id===select.value&&run.statut==='TERMINE');
     }
@@ -63,14 +63,36 @@ async function loadAPColisage() {
       settingsBox.hidden=true;
       save.hidden=true;
       const kg=value=>Number(value).toLocaleString('fr-FR',{minimumFractionDigits:3,maximumFractionDigits:3});
-      const rows=completed.flatMap(run=>apCartons(run.quantite_imprimee,spec,run).map(group=>
-        '<tr><td>'+esc(run.imprimante||'Non renseignée')+'<br>'+esc(run.numero_debut)+' → '+esc(run.numero_fin)+'</td>'+
-        '<td>'+fmtNum(group.count)+' × '+esc(group.carton)+'</td><td>'+fmtNum(group.ids)+' ID<br>'+esc(group.packing)+'<br>'+fmtNum(group.capacity)+' paquets par carton · '+kg(group.packetKg)+' kg par paquet complet'+'</td>'+
-        '<td>'+kg(group.netKg)+' kg</td><td>'+(group.grossKg===null?'Tare non renseignée':kg(group.grossKg)+' kg')+'</td></tr>')).join('');
+      // Regrouper les paquets au niveau de la commande, jamais par imprimante/opérateur.
+      // Chaque tranche validée de 1 000 ID alimente le même flux de colisage.
+      const packetRows=[];
+      for (const run of [...completed].sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)))) {
+        const qty=Number(run.quantite_imprimee||0);
+        const first=String(run.numero_debut||'').replace(/\s/g,'');
+        const numeric=/^\d+$/.test(first);
+        let offset=0, packetNo=1;
+        while(offset<qty) {
+          const count=Math.min(1000,qty-offset);
+          const from=numeric?String(BigInt(first)+BigInt(offset)):'';
+          const to=numeric?String(BigInt(first)+BigInt(offset+count-1)):'';
+          packetRows.push({count,from,to,printer:run.imprimante||'Non renseignée',operator:run.created_by||'Non renseigné',runId:run.id,packetNo:packetNo++});
+          offset+=count;
+        }
+      }
+      const capacity=spec.copies===3?14:(spec.capacity/1000);
+      const tare=LTColis.TARE['H1'];
+      const cartonRows=[];
+      for(let i=0;i<packetRows.length;i+=capacity) {
+        const packets=packetRows.slice(i,i+capacity);
+        const ids=packets.reduce((sum,packet)=>sum+packet.count,0);
+        const net=ids/1000*spec.packetKg;
+        cartonRows.push('<tr><td>H1 · '+(cartonRows.length+1)+'</td><td>'+packets.length+' / '+capacity+' paquets</td><td>'+fmtNum(ids)+' ID</td><td>'+kg(net)+' kg</td><td>'+(typeof tare==='number'?kg(net+tare)+' kg':'Tare non renseignée')+'</td><td>'+packets.map((packet,index)=>'<div class="mb-1">P'+(i+index+1)+' · '+(packet.from?esc(packet.from.replace(/(\d{2})(\d{3})(\d{3})/,'$1 $2 $3'))+' → '+esc(packet.to.replace(/(\d{2})(\d{3})(\d{3})/,'$1 $2 $3')):'Plage non renseignée')+' · '+esc(packet.printer)+' · '+esc(packet.operator)+'</div>').join('')+'</td></tr>');
+      }
+      const rows=cartonRows.join('');
       output.innerHTML='<p><b>'+esc(order.client)+'</b> · '+esc(spec.label)+' · '+spec.copies+' exemplaires</p>'+
         '<p>Référence '+spec.reference+' · Gabarit '+spec.format+' · '+esc(spec.colors)+'</p>'+
-        (rows?'<div class="overflow-x-auto"><table class="ap-packing-table w-full text-xs"><thead><tr><th>Imprimante / plage du tirage</th><th>Cartons</th><th>Contenu par carton</th><th>Net par carton</th><th>Brut estimé par carton</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p>Aucun tirage validé.</p>')+
-        '<p class="text-xs">Le poids du paquet incomplet est estimé au prorata. Le poids brut inclut la tare du carton lorsqu’elle est renseignée.</p>';
+        (rows?'<div class="overflow-x-auto"><table class="ap-packing-table w-full text-xs"><thead><tr><th>Carton</th><th>Remplissage</th><th>Contenu</th><th>Poids net</th><th>Poids brut estimé</th><th>Paquets (opérateur / imprimante / plage)</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p>Aucun tirage validé.</p>')+
+        '<p class="text-xs">Les paquets validés sont regroupés par commande, même s’ils proviennent de plusieurs opérateurs ou imprimantes. Un carton ne mélange jamais deux commandes. Capacité appliquée : '+capacity+' paquets par carton.</p>';
       button.disabled=!rows;
     }
     select.addEventListener('change',render);
