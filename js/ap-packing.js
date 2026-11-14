@@ -16,7 +16,7 @@ async function loadAPColisage() {
     const save=editor.querySelector('button');
     const status=document.getElementById('apPackingStatus');
     settingsBox.innerHTML=apPackingFields();
-    const editable=run=>state.isOperator&&(state.isAdmin||Date.now()-Date.parse(run.created_at)<48*3600000);
+    const editable=run=>state.isOperator&&(state.isAdmin||Date.now()-Date.parse(run.created_at)<24*3600000);
     function selectedRun() {
       return runs.find(run=>run.id===runSelect.value&&run.commande_id===select.value&&run.statut==='TERMINE');
     }
@@ -36,7 +36,7 @@ async function loadAPColisage() {
         const {data,error}=await state.sb.from('ap_productions').update(readAPPackingFields(editor.elements))
           .eq('id',run.id).eq('revision',run.revision).select('*').maybeSingle();
         if(error) throw error;
-        if(!data) throw new Error('Tirage modifié ou délai de 48 h dépassé. Actualisez la page.');
+        if(!data) throw new Error('Tirage modifié ou délai de 24 h dépassé. Actualisez la page.');
         Object.assign(run,data);
         render();
         status.textContent='Colisage enregistré.';
@@ -75,24 +75,62 @@ async function loadAPColisage() {
           const count=Math.min(1000,qty-offset);
           const from=numeric?String(BigInt(first)+BigInt(offset)):'';
           const to=numeric?String(BigInt(first)+BigInt(offset+count-1)):'';
-          packetRows.push({count,from,to,printer:run.imprimante||'Non renseignée',operator:run.created_by||'Non renseigné',runId:run.id,packetNo:packetNo++});
+          packetRows.push({count,from,to,printer:run.imprimante||'Non renseignée',operator:run.created_by||'Non renseigné',settings:apPackingSettings(run,spec),packetNo:packetNo++});
           offset+=count;
         }
       }
-      const capacity=spec.copies===3?14:(spec.capacity/1000);
-      const tare=LTColis.TARE['H1'];
+      const groups=new Map();
+      for(const packet of packetRows) {
+        const key=JSON.stringify(packet.settings);
+        if(!groups.has(key)) groups.set(key,[]);
+        groups.get(key).push(packet);
+      }
       const cartonRows=[];
-      for(let i=0;i<packetRows.length;i+=capacity) {
-        const packets=packetRows.slice(i,i+capacity);
+      let canMerge=false;
+      for(const group of groups.values()) {
+        const {carton,capacity,packetKg}=group[0].settings;
+        const mergeable=carton==='H1'&&group.length>capacity&&group.length%capacity!==0;
+        canMerge ||= mergeable;
+        const merge=mergeable&&order.regroupement_h2;
+        const boundary=merge?Math.floor(group.length/capacity)*capacity-capacity:group.length;
+        for(let i=0;i<group.length;i+=capacity) {
+          const combined=merge&&i===boundary;
+          const cartonType=combined?'H2':carton;
+          const packets=group.slice(i,combined?group.length:i+capacity);
+          const tare=LTColis.TARE[cartonType];
         const ids=packets.reduce((sum,packet)=>sum+packet.count,0);
-        const net=ids/1000*spec.packetKg;
-        cartonRows.push('<tr><td>H1 · '+(cartonRows.length+1)+'</td><td>'+packets.length+' / '+capacity+' paquets</td><td>'+fmtNum(ids)+' ID</td><td>'+kg(net)+' kg</td><td>'+(typeof tare==='number'?kg(net+tare)+' kg':'Tare non renseignée')+'</td><td>'+packets.map((packet,index)=>'<div class="mb-1">P'+(i+index+1)+' · '+(packet.from?esc(packet.from.replace(/(\d{2})(\d{3})(\d{3})/,'$1 $2 $3'))+' → '+esc(packet.to.replace(/(\d{2})(\d{3})(\d{3})/,'$1 $2 $3')):'Plage non renseignée')+' · '+esc(packet.printer)+' · '+esc(packet.operator)+'</div>').join('')+'</td></tr>');
+        const net=ids/1000*packetKg;
+        cartonRows.push('<tr><td>'+cartonType+' · '+(cartonRows.length+1)+'</td><td>'+packets.length+(combined?'':' / '+capacity)+' paquets</td><td>'+fmtNum(ids)+' ID</td><td>'+kg(net)+' kg</td><td>'+(typeof tare==='number'?kg(net+tare)+' kg':'Tare non renseignée')+'</td><td>'+packets.map((packet,index)=>'<div class="mb-1">P'+(i+index+1)+' · '+(packet.from?esc(packet.from.replace(/(\d{2})(\d{3})(\d{3})/,'$1 $2 $3'))+' → '+esc(packet.to.replace(/(\d{2})(\d{3})(\d{3})/,'$1 $2 $3')):'Plage non renseignée')+' · '+esc(packet.printer)+' · '+esc(packet.operator)+'</div>').join('')+'</td></tr>');
+        if(combined) break;
+      }
       }
       const rows=cartonRows.join('');
       output.innerHTML='<p><b>'+esc(order.client)+'</b> · '+esc(spec.label)+' · '+spec.copies+' exemplaires</p>'+
         '<p>Référence '+spec.reference+' · Gabarit '+spec.format+' · '+esc(spec.colors)+'</p>'+
         (rows?'<div class="overflow-x-auto"><table class="ap-packing-table w-full text-xs"><thead><tr><th>Carton</th><th>Remplissage</th><th>Contenu</th><th>Poids net</th><th>Poids brut estimé</th><th>Paquets (opérateur / imprimante / plage)</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p>Aucun tirage validé.</p>')+
-        '<p class="text-xs">Les paquets validés sont regroupés par commande, même s’ils proviennent de plusieurs opérateurs ou imprimantes. Un carton ne mélange jamais deux commandes. Capacité appliquée : '+capacity+' paquets par carton.</p>';
+        '<p class="text-xs">Les paquets validés sont regroupés par commande, même s’ils proviennent de plusieurs opérateurs ou imprimantes. Un carton ne mélange jamais deux commandes. H1 : '+spec.capacity/1000+' paquets. Choisissez H2 sur les tirages à placer en reliquat.</p>';
+      if(canMerge&&(order.regroupement_h2||editable(order))) {
+        const action=document.createElement('button');
+        action.type='button';
+        action.className='btn btn-secondary';
+        action.textContent=order.regroupement_h2?'Rétablir le colisage H1':'Regrouper un H1 plein et le reliquat dans un H2';
+        action.disabled=!editable(order);
+        action.onclick=async()=>{
+          if(!order.regroupement_h2&&!window.confirm('Confirmez que le H2 peut contenir les paquets du H1 plein et du reliquat.')) return;
+          action.disabled=true;
+          try {
+            const {data,error}=await state.sb.from('ap_commandes').update({regroupement_h2:!order.regroupement_h2})
+              .eq('id',order.id).eq('revision',order.revision).select('*').maybeSingle();
+            if(error) throw error;
+            if(!data) throw new Error('Commande modifiée ou délai de modification dépassé. Actualisez la page.');
+            Object.assign(order,data);
+            render();
+            status.textContent='Colisage enregistré.';
+          } catch(error){status.textContent=error.message;}
+          finally {action.disabled=false;}
+        };
+        output.append(action);
+      }
       button.disabled=!rows;
     }
     select.addEventListener('change',render);

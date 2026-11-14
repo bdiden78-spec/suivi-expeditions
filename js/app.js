@@ -324,7 +324,7 @@ function shipmentDisplayItems(items) {
     const detail=item.colisage_detail, packing=detail?.ap_pack;
     if(!detail?.ap_production_id || !apProductSpec(packing?.type)) { visible.push(item); continue; }
     const spec=apProductSpec(packing.type), settings=apPackingSettings(packing.settings,spec);
-    const key=JSON.stringify([packing.orderId||packing.orderNumber||item.destinataire,item.destinataire,packing.type,settings]);
+    const key=JSON.stringify([packing.orderId||packing.orderNumber||item.destinataire,item.destinataire,packing.type,settings,!!packing.settings?.regroupement_h2]);
     if(!groups.has(key)) {
       const group={item,spec,settings:packing.settings,order:packing.orderNumber,quantity:0};
       groups.set(key,group);
@@ -336,7 +336,7 @@ function shipmentDisplayItems(items) {
   return visible.flatMap(entry=>{
     if(!grouped.has(entry)) return [entry];
     const parts=apShipmentParts(entry.quantity,entry.spec,entry.settings);
-    return [{...entry.item,designation:[entry.spec.label,entry.order,parts[0]?.type].filter(Boolean).join(' · '),
+    return [{...entry.item,designation:[entry.spec.label,entry.order,[...new Set(parts.map(part=>part.type))].join(' + ')].filter(Boolean).join(' · '),
       quantite:String(entry.quantity),cartons:parts.reduce((total,part)=>total+part.nb,0)}];
   });
 }
@@ -402,10 +402,10 @@ function render() {
     const cartons = displayItems.reduce((s,it) => s + cartonsOfItem(it), 0);
     const count = displayItems.length, isExpanded = state.expanded.has(e.id);
     
-    const isExpired = (new Date() - new Date(e.created_at)) > 48 * 3600 * 1000;
+    const isExpired = (new Date() - new Date(e.created_at)) >= 24 * 3600 * 1000;
     const validated = isValidated(e);
     const canEdit = state.isAdmin || (!isExpired && !validated);
-    const lockMsg = validated ? 'Envoi validé : seul un administrateur peut le modifier.' : 'Délai de 48h dépassé. Seul un admin peut modifier.';
+    const lockMsg = validated ? 'Envoi validé : seul un administrateur peut le modifier.' : 'Délai de 24h dépassé. Seul un admin peut modifier.';
     const valBtn = state.isAdmin
       ? (validated
           ? `<button onclick="validerEnvoi('${esc(e.id)}', false)" class="btn-icon" title="Annuler la validation" aria-label="Annuler la validation"><i class="fa-solid fa-rotate-left text-slate-400"></i></button>`
@@ -499,7 +499,7 @@ function openExpeditionModal(id) {
   if (isEdit && !exp) return;
   
   if (isEdit) {
-    const isExpired = (new Date() - new Date(exp.created_at)) > 48 * 3600 * 1000;
+    const isExpired = (new Date() - new Date(exp.created_at)) >= 24 * 3600 * 1000;
     if (!state.isAdmin && (isExpired || isValidated(exp))) return toast('Cet envoi est verrouillé pour les opérateurs.', 'error');
   }
 
@@ -667,7 +667,7 @@ function regroupAPCartons(rows) {
   for(const row of rows) {
     const detail=getDetail(row), packing=detail?.ap_pack;
     if(!packing?.orderId || !apProductSpec(packing.type)) continue;
-    const key=JSON.stringify([packing.orderId,packing.type,packing.settings]);
+    const key=JSON.stringify([packing.orderId,packing.type,apPackingSettings(packing.settings,apProductSpec(packing.type))]);
     if(!groups.has(key)) groups.set(key,[]);
     groups.get(key).push({row,detail,packing});
   }
@@ -1049,7 +1049,7 @@ async function availableAPShipmentItems(orderId, includeDraft) {
     const spec=apProductSpec(order?.type_produit);
     const remaining=run.quantite_imprimee-(reserved.get(run.id)||0);
     if(!spec||remaining<=0) continue;
-    const settings={type_carton_ap:run.type_carton_ap,paquets_par_carton_ap:run.paquets_par_carton_ap,poids_paquet_ap:run.poids_paquet_ap};
+    const settings={regroupement_h2:order.regroupement_h2,type_carton_ap:run.type_carton_ap,paquets_par_carton_ap:run.paquets_par_carton_ap,poids_paquet_ap:run.poids_paquet_ap};
     const parts=apShipmentParts(remaining,spec,settings);
     items.push({
       reference:spec.reference,categorie:'ALGERIE POSTE',designation:spec.label+' · Tirage '+run.numero_debut+' → '+run.numero_fin,

@@ -21,17 +21,22 @@ function apPackingFields() {
 }
 function apPackingSettings(run, spec) {
   return {
-    carton:run?.type_carton_ap||'H1',
-    capacity:run?.paquets_par_carton_ap??spec.capacity/1000,
+    carton:run?.type_carton_ap==='H2'?'H2':'H1',
+    capacity:run?.type_carton_ap==='H2'?(run.paquets_par_carton_ap??1):spec.capacity/1000,
     packetKg:Number(run?.poids_paquet_ap??spec.packetKg),
   };
 }
 function fillAPPackingFields(fields, run, spec) {
   const settings=apPackingSettings(run,spec);
-  const types=[...new Set(['H1','H2',...Listes.get('types_carton'),settings.carton])];
+  const types=['H1','H2'];
   fields.carton.replaceChildren(...types.map(type=>new Option(type,type)));
   fields.carton.value=settings.carton;
   fields.capacity.value=settings.capacity;
+  fields.capacity.readOnly=settings.carton==='H1';
+  fields.carton.onchange=()=>{
+    fields.capacity.readOnly=fields.carton.value==='H1';
+    fields.capacity.value=fields.capacity.readOnly?spec.capacity/1000:1;
+  };
   fields.packetKg.value=settings.packetKg;
 }
 function readAPPackingFields(fields) {
@@ -44,6 +49,12 @@ function apCartons(quantity, spec, run) {
   const tare=LTColis.TARE[settings.carton];
   const full = Math.floor(quantity / capacity);
   const remainder = quantity % capacity;
+  if(settings.carton==='H1' && run?.regroupement_h2 && full && remainder) {
+    const groups=full>1?apCartons((full-1)*capacity,spec,{...run,regroupement_h2:false}):[];
+    return groups.concat(apCartons(capacity+remainder,spec,{
+      ...run,type_carton_ap:'H2',paquets_par_carton_ap:Math.ceil((capacity+remainder)/1000)
+    }));
+  }
   return [
     ...(full ? [{count:full, ids:capacity}] : []),
     ...(remainder ? [{count:1, ids:remainder}] : []),

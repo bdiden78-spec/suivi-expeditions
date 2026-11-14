@@ -29,7 +29,7 @@ function switchAPTab(tab) {
   });
 }
 function canEdit(row) {
-  return !apState.viewer && (apState.admin || Date.now() - new Date(row.created_at).getTime() < 48 * 3600000);
+  return !apState.viewer && (apState.admin || Date.now() - new Date(row.created_at).getTime() < 24 * 3600000);
 }
 function orderRuns(id) { return apState.runs.filter(row => row.commande_id === id); }
 function printed(id) { return orderRuns(id).filter(run => APtrace.completed(run)).reduce((sum, row) => sum + Number(row.quantite_imprimee || 0), 0); }
@@ -200,7 +200,15 @@ function renderProductionTab() {
     const availableIds = Math.max(0, totalProduced - totalShipped);
     if (availableIds <= 0) continue;
 
-    const cartons = apCartons(availableIds, spec, completed[0]);
+    const groups=new Map();
+    for(const run of completed) {
+      const remaining=Math.max(0,Number(run.quantite_imprimee)-shippedForRun(run.id));
+      if(!remaining) continue;
+      const key=JSON.stringify(apPackingSettings(run,spec));
+      if(!groups.has(key)) groups.set(key,{run,quantity:0});
+      groups.get(key).quantity+=remaining;
+    }
+    const cartons=[...groups.values()].flatMap(group=>apCartons(group.quantity,spec,{...group.run,regroupement_h2:order.regroupement_h2}));
     const totalCartons = cartons.reduce((s, c) => s + c.count, 0);
     const totalGrossKg = cartons.reduce((s, c) => s + (c.grossKg ? c.grossKg * c.count : 0), 0);
     const packetsCount = APcalc.packing(availableIds).packages;
@@ -213,7 +221,7 @@ function renderProductionTab() {
           '<span class="text-xs" style="color:var(--text-muted)">' + esc(spec.label) + ' · Réf. ' + esc(spec.reference) + '</span>' +
         '</div>' +
         '<div class="text-xs">En stock disponible : <b class="text-emerald-500">' + fmt(availableIds) + ' ID</b> (' + fmt(packetsCount) + ' paquet(s)) · ' +
-        'Colisage : <b class="text-amber-400">' + fmt(totalCartons) + ' carton(s) H1</b>' +
+        'Colisage : <b class="text-amber-400">' + fmt(totalCartons) + ' carton(s)</b>' +
         (totalGrossKg ? ' · ≈ ' + totalGrossKg.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' kg' : '') + '</div>' +
       '</div>' +
       '<div class="flex flex-wrap gap-2">' +
@@ -464,7 +472,7 @@ async function saveOrder(event) {
   });
 }
 function editOrder(order) {
-  if (!canEdit(order)) return message('Modification réservée à l’administrateur après 48 h.', true);
+  if (!canEdit(order)) return message('Modification réservée à l’administrateur après 24 h.', true);
   apState.orderEdit = order;
   $('#apNumberField').hidden=!apState.admin;
   $('#apNumber').value=order.ap_numero||'';
@@ -477,7 +485,7 @@ function editOrder(order) {
 }
 async function deleteOrder(order, button) {
   if (!apState.admin && orderRuns(order.id).length) return message('Seul un administrateur peut supprimer une commande dont la production a démarré.', true);
-  if (!canEdit(order)) return message('Suppression réservée à l’administrateur après 48 h.', true);
+  if (!canEdit(order)) return message('Suppression réservée à l’administrateur après 24 h.', true);
   const runs = orderRuns(order.id);
   if (runs.some(run => apState.shipments.some(line => line.ap_production_id === run.id))) {
     return message('Cette commande est liée à un envoi. Retirez ses tirages de l’envoi avant de la supprimer.', true);
