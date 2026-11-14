@@ -1090,6 +1090,7 @@ async function openAPShipmentPicker() {
       }).join('')+'</select></label><button type="button" class="btn btn-primary">Importer la commande</button>';
     const select=picker.querySelector('select');
     picker.querySelector('button').onclick=()=>{
+      try {
       const selected=orders.get(select.value);
       if(!selected) return toast('Choisissez une commande.','warning');
       for(const row of $$('#itemsBody tr')) {
@@ -1098,6 +1099,11 @@ async function openAPShipmentPicker() {
       selected.forEach(addItemRow);
       updateModalTotals();
       picker.hidden=true;
+      toast('Commande Algérie Poste ajoutée.','success');
+      } catch(error) {
+        console.error(error);
+        toast('Import Algérie Poste : '+error.message,'error');
+      }
     };
     select.focus();
   } catch(error) { toast(error.message||'Impossible de charger les commandes.','error'); }
