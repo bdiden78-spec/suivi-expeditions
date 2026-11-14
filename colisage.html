@@ -123,7 +123,7 @@
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div><label class="lbl" for="rReference">Référence *</label><input id="rReference" class="inp font-mono-code input-uppercase" list="refList" placeholder="Ex : ETQ-100x150" autocomplete="off"></div>
           <div class="col-span-2 lg:col-span-1"><label class="lbl" for="rDesignation">Désignation</label><input id="rDesignation" class="inp input-uppercase" placeholder="Désignation" autocomplete="off"></div>
-          <div><label class="lbl" for="rCat">Catégorie * <button type="button" class="lst-btn adm-only" onclick="Listes.manage('categories')" title="Ajouter / retirer une catégorie"><i class="fa-solid fa-gear"></i></button></label><select id="rCat" class="inp font-bold" onchange="onCatChange()"></select></div>
+          <div><label class="lbl" for="rCat">Catégorie * <button type="button" class="lst-btn adm-only" onclick="Listes.manage('categories')" title="Ajouter / retirer une catégorie"><i class="fa-solid fa-gear"></i></button></label><select id="rCat" class="inp font-bold" onchange="onCatChange()"><option value="">— Choisir —</option><option value="ETIQUETTES">ETIQUETTES</option><option value="ETIQUETTES RFID">ETIQUETTES RFID</option><option value="RUBAN TTR">RUBAN TTR</option><option value="CARTE PVC">CARTE PVC</option><option value="TAG">TAG</option></select></div>
           <div><label class="lbl" for="rMatiere" id="lblMatiere">Matière *</label><input id="rMatiere" class="inp input-uppercase" maxlength="40" placeholder="Ex : THERMIQUE, PP, CIRE, PVC" autocomplete="off"></div>
 
           <div><label class="lbl" for="rGabarit">Gabarit (dimensions)</label><input id="rGabarit" class="inp input-uppercase font-mono-code" maxlength="20" placeholder="Ex : 65x120" autocomplete="off" oninput="updateLaize()"></div>
@@ -264,6 +264,7 @@
       syncThemeIcon();
     }
     function setBadge(ok, text) {
+      $('#dbBadge').style.removeProperty('display');
       $('#dbDot').className = 'inline-flex rounded-full h-2 w-2 ' + (ok ? 'bg-emerald-400' : 'bg-rose-400');
       $('#dbText').textContent = text;
     }
@@ -303,14 +304,14 @@
         </form>`);
     }
     async function detectRole(session) {
-      state.isOperator = false; state.isAdmin = false; state.username = '';
+      state.isViewer = false; state.isOperator = false; state.isAdmin = false; state.username = '';
       try {
         state.session = session === undefined ? (await state.sb.auth.getSession()).data.session : session;
         const email = state.session?.user?.email;
         if (email) {
           state.username = email.split('@')[0];
           const r = await state.sb.from('operateurs').select('role').eq('username', state.username).maybeSingle();
-          if (r.data) { state.isOperator = true; state.isAdmin = r.data.role === 'admin'; }
+          if (r.data) { state.isViewer = r.data.role === 'visionnaire'; state.isOperator = !state.isViewer; state.isAdmin = r.data.role === 'admin'; }
         }
       } catch (e) {}
       document.body.classList.toggle('is-operator', state.isOperator);
@@ -328,7 +329,7 @@
           state.sb.from('lignes_expedition').select('*').order('created_at', { ascending: true }),
         ];
         // fiches et production : réservées aux opérateurs
-        if (state.isOperator) {
+        if (state.isOperator || state.isViewer) {
           reqs.push(state.sb.from('colisage_ref').select('*').order('reference', { ascending: true }));
           reqs.push(state.sb.from('production').select('*').order('date_production', { ascending: false }).order('created_at', { ascending: false }));
         }
@@ -361,7 +362,7 @@
             colisage_detail: l.colisage_detail || {}
           })),
         }));
-        loaded = true; setBadge(true, 'Connecté');
+        loaded = true; $('#dbBadge').style.display='none';
       } catch (e) { setBadge(false, 'Hors ligne'); }
       if (!loaded) {
         try { state.expeditions = JSON.parse(lsGet(LOCAL_KEY) || '[]'); } catch { state.expeditions = []; }
@@ -550,7 +551,7 @@
     function renderFiches() {
       const box = $('#refRows');
       if (state.prodError) { box.innerHTML = `<tr><td colspan="6" class="p-6">${prodErrorHtml()}</td></tr>`; return; }
-      if (!state.isOperator) { box.innerHTML = '<tr><td colspan="6" class="p-8 text-center" style="color:var(--text-muted)">Réservé aux opérateurs : connectez-vous.</td></tr>'; return; }
+      if (!(state.isOperator || state.isViewer)) { box.innerHTML = '<tr><td colspan="6" class="p-8 text-center" style="color:var(--text-muted)">Réservé aux opérateurs : connectez-vous.</td></tr>'; return; }
       const q = ($('#searchRef').value || '').trim().toLowerCase();
       const list = state.fiches.filter(f => !q || [f.reference, f.designation, f.categorie, f.matiere, f.mandrin, f.gabarit].join(' ').toLowerCase().includes(q));
       $('#refList').innerHTML = state.fiches.map(f => `<option value="${esc(f.reference)}">`).join('');
@@ -619,7 +620,7 @@
     function renderLot() {
       const box = $('#lotContent'), todoBox = $('#lotTodo');
       todoBox.innerHTML = '';
-      if (!state.isOperator) {
+      if (!(state.isOperator || state.isViewer)) {
         box.innerHTML = `<div class="panel p-10 text-center" style="color:var(--text-muted)"><i class="fa-solid fa-lock text-4xl mb-3 block" style="color:var(--text-dim)"></i><h4 class="text-base font-bold" style="color:var(--text)">Réservé aux opérateurs</h4><p class="text-xs mt-1">Connectez-vous (bouton « Connexion » en haut). Le bordereau d'un envoi reste consultable dans l'onglet 3.</p></div>`;
         $('#sheet').innerHTML = ''; return;
       }
@@ -909,7 +910,7 @@
       await detectRole(session);
       loadAPColisage();
       Listes.setAdmin(state.isAdmin);
-      if (state.isOperator) { hideGate(); await Listes.init(state.sb, state.isAdmin); }
+      if (state.isOperator || state.isViewer) { hideGate(); await Listes.init(state.sb, state.isAdmin); }
       else if (!state.session) loginGate();
       else showGate('<h3 class="text-base font-extrabold">Accès réservé</h3><p class="text-xs" style="color:var(--text-muted)">Ce compte n\'est pas un compte opérateur : seul le bordereau d\'envoi est consultable.</p>');
       await loadData();

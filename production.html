@@ -100,7 +100,7 @@
         <div id="productionFields" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div><label class="lbl" for="fOF">Ordre de fabrication (OF) * <span style="color:var(--text-dim);font-weight:500">MOyymm-xxxx</span></label><input id="fOF" class="inp font-mono-code input-uppercase" placeholder="MO2610-0000" maxlength="11" autocomplete="off" spellcheck="false" title="Format imposé : MOyymm-xxxx (ex. MO2610-0000)"></div>
           <div><label class="lbl" for="fRef">Référence * <span style="color:var(--text-dim);font-weight:500">(toucher = scanner)</span></label><input id="fRef" data-field="reference" class="inp font-mono-code input-uppercase" list="refList" placeholder="📷 Réf" autocomplete="off"></div>
-          <div><label class="lbl" for="fCat">Catégorie * <button type="button" class="lst-btn adm-only" onclick="Listes.manage('categories')" title="Ajouter / retirer une catégorie"><i class="fa-solid fa-gear"></i></button></label><select id="fCat" class="inp font-bold"></select></div>
+          <div><label class="lbl" for="fCat">Catégorie * <button type="button" class="lst-btn adm-only" onclick="Listes.manage('categories')" title="Ajouter / retirer une catégorie"><i class="fa-solid fa-gear"></i></button></label><select id="fCat" class="inp font-bold"><option value="">— Choisir —</option><option value="ETIQUETTES">ETIQUETTES</option><option value="ETIQUETTES RFID">ETIQUETTES RFID</option><option value="RUBAN TTR">RUBAN TTR</option><option value="CARTE PVC">CARTE PVC</option><option value="TAG">TAG</option></select></div>
           <div><label class="lbl" for="fDes">Désignation</label><input id="fDes" class="inp input-uppercase" placeholder="Ex : ETIQUETTE TT 100x150" autocomplete="off"></div>
           <div><label class="lbl" for="fUni">Unité de comptage <button type="button" class="lst-btn adm-only" onclick="Listes.manage('unites')" title="Ajouter / retirer une unité"><i class="fa-solid fa-gear"></i></button></label><select id="fUni" class="inp font-bold"></select></div>
           <div><label class="lbl" id="lblQty" for="fQty">Quantité produite *</label><input id="fQty" class="inp text-right font-mono-code font-bold" inputmode="numeric" pattern="[0-9]*" maxlength="9" placeholder="Ex : 100" autocomplete="off" title="Nombre entier uniquement"></div>
@@ -117,13 +117,6 @@
         </div>
       </section>
 
-      <section class="panel p-4 sm:p-5 space-y-3 op-only" aria-labelledby="apProductionTitle">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h3 id="apProductionTitle" class="font-bold">Production Algérie Poste validée</h3>
-          <a href="algerie-poste.html" class="btn btn-secondary">Commandes et impressions</a>
-        </div>
-        <div id="apValidatedProduction" class="overflow-x-auto" aria-live="polite"></div>
-      </section>
       <section class="panel p-4 sm:p-5 space-y-3 op-only" aria-labelledby="stockTitle">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -213,9 +206,6 @@
   <script src="js/cartons-stock.js"></script>
   <script src="js/data-pages.js"></script>
   <script src="js/calendar.js"></script>
-  <script src="js/ap-calc.js"></script>
-  <script src="js/ap-products.js"></script>
-  <script src="js/ap-order-picker.js"></script>
   <script>
     const THEME_KEY = 'logitrak_theme';
     const state = { sb: null, session: null, isOperator: false, isAdmin: false, username: '',
@@ -295,7 +285,6 @@
       $('#lblQty').textContent = `Quantité produite (${u}) *`;
     }
     function applyCategoryUI(resetUnit) {
-      $('#productionFields').classList.toggle('ap-production-mode', !state.editId && isAPProductionCategory($('#fCat').value));
       const type = typeFromCat($('#fCat').value);
       $('#fType').value = type;
       if (resetUnit) {
@@ -340,13 +329,13 @@
       window.location.assign('index.html');
     }
     async function loadRole(session) {
-      state.isOperator = false; state.isAdmin = false; state.username = '';
+      state.isViewer = false; state.isOperator = false; state.isAdmin = false; state.username = '';
       try {
         state.session = session === undefined ? (await state.sb.auth.getSession()).data.session : session;
         if (state.session?.user?.email) {
           state.username = state.session.user.email.split('@')[0];
           const r = await state.sb.from('operateurs').select('role').eq('username', state.username).maybeSingle();
-          if (r.data) { state.isOperator = true; state.isAdmin = r.data.role === 'admin'; }
+          if (r.data) { state.isViewer = r.data.role === 'visionnaire'; state.isOperator = !state.isViewer; state.isAdmin = r.data.role === 'admin'; }
         }
       } catch (e) {}
       document.body.classList.toggle('is-operator', state.isOperator);
@@ -536,7 +525,6 @@
 
     async function saveLot() {
       if (!state.isOperator) return toast('Connexion opérateur requise.', 'warning');
-      if (!state.editId && isAPProductionCategory($('#fCat').value)) return chooseAPProductionOrder();
       const of = up('#fOF'), ref = up('#fRef'), des = up('#fDes');
       const qty = intOf($('#fQty').value);
       const ofBefore = state.editId ? (state.lots.find(x => x.id === state.editId)?.of_numero || '') : '';
@@ -747,7 +735,7 @@
       Listes.setAdmin(state.isAdmin);
       if (state.isAdmin) { $('#fOF').removeAttribute('maxlength'); $('#fOF').title = 'Ordre de fabrication'; }
       else { $('#fOF').maxLength = 11; $('#fOF').title = 'Format : MOyymm-xxxx'; }
-      if (!state.isOperator) {
+      if (!(state.isOperator || state.isViewer)) {
         if (state.session) showGate('<h3 class="text-base font-extrabold">Accès refusé</h3><p class="text-xs" style="color:var(--text-muted)">Ce compte n\'est pas un compte opérateur.</p>');
         else loginGate();
         return;
@@ -756,7 +744,6 @@
       if (!(await loadData())) return;
       $('#gate').classList.add('hidden');
       $('#app').classList.remove('hidden');
-      loadAPValidatedProduction();
       fillLists();
       resetForm();
       render();
@@ -777,7 +764,6 @@
       $('#fQty').addEventListener('input', e => { cleanInt(e.target); renderColisInfo(); });
       $('#fCat').addEventListener('change', () => {
         applyCategoryUI(true);
-        if (isAPProductionCategory($('#fCat').value)) chooseAPProductionOrder();
       });
       $('#fUni').addEventListener('change', () => { refreshLabels(); renderColisInfo(); });
       $('#fOF').addEventListener('input', e => { e.target.value = state.isAdmin ? e.target.value.toUpperCase() : formatOF(e.target.value); });

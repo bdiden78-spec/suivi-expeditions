@@ -1,4 +1,4 @@
-# Installer LogiTrak v3.8.4 sur Windows et Android
+# Installer LogiTrak v3.8.8 sur Windows et Android
 
 ## Publier la version installable
 
@@ -59,3 +59,26 @@ Les tests locaux de cette livraison couvrent le manifeste, les dimensions des ic
 ## Envois partiels Algérie Poste
 
 Appliquer sql/v383-envois-partiels-algerie-poste.sql dans Supabase après la migration v3.8. Ouvrir un envoi en préparation, choisir Ajouter Algérie Poste, sélectionner un tirage validé et saisir la quantité à expédier.
+
+## Mise à jour v3.8.8 — Algérie Poste
+
+1. Dans Supabase, ouvrir **SQL Editor**.
+2. Exécuter intégralement `sql/v385-algerie-poste-commandes-impression.sql` après les migrations précédentes.
+3. Remplacer les fichiers de l'ancienne installation par le contenu du ZIP v3.8.8 (ou déployer le nouveau ZIP sur l'hébergement).
+4. Recharger l'application. Les commandes existantes reçoivent un numéro APN lors de la migration ; les nouvelles commandes sont numérotées automatiquement.
+
+La migration conserve les commandes et les tirages déjà enregistrés. Ne réinitialisez pas les tables Supabase.
+
+
+## Mise à jour v3.8.8 — Présentation compacte des impressions
+
+Remplacer les fichiers de l’installation par le contenu du ZIP v3.8.8, puis actualiser l’application. Cette évolution concerne uniquement l’interface de saisie des impressions Algérie Poste : tableau compact, plages ID et numéros de séquence visibles, bouton + en fin de ligne et case de confirmation. Aucune nouvelle migration SQL n’est nécessaire.
+
+
+## Mise à jour v3.8.8 — Colisage par commande
+
+Les impressions validées sont découpées en paquets de 1 000 ID (dernier paquet éventuellement incomplet), puis regroupées dans les cartons au niveau de la commande. Pour les produits à 3 exemplaires, la capacité H1 appliquée est de 14 paquets. Les paquets d’un carton peuvent provenir de plusieurs opérateurs et imprimantes, mais jamais de commandes différentes. Aucune nouvelle migration SQL n’est nécessaire.
+
+## Mise à jour 3.9.4
+
+Exécuter sql/v394-machines-apn.sql dans Supabase après la migration v385, puis publier le ZIP. Les anciens numéros APN sont conservés. Pour une imprimante Algérie Poste déjà utilisée, reprendre son nom exact dans le registre Machines.

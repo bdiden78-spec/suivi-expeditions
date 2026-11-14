@@ -1,6 +1,14 @@
-# LogiTrak — Eurequat Algérie (v3.8.4)
+# LogiTrak — Eurequat Algérie (v3.8.8)
 
 Suivi de la production, du colisage industriel et des expéditions de l'usine de Tlemcen.
+
+## Version 3.8.8 — Saisie d’impression compacte Algérie Poste
+
+La fenêtre « Démarrer l’impression » reprend une grille compacte à en-têtes groupés : plage ID (De / À), nombre d’ID (De / À), imprimante et confirmation. Le nom de l’opérateur est affiché au-dessus. Le bouton + en fin de ligne ajoute la plage suivante, calculée automatiquement. Aucun changement de schéma Supabase n’est requis pour cette présentation.
+
+## Version 3.8.5 — Algérie Poste : commandes et impression multi-lignes
+
+Exécuter `sql/v385-algerie-poste-commandes-impression.sql` dans Supabase après les migrations précédentes. Chaque commande reçoit désormais un numéro `APN° : 0001` généré par la base, unique et non modifiable. La commande conserve sa date, son agence/UPW, sa catégorie, son type de produit et sa quantité demandée. Le démarrage d’impression permet de préparer jusqu’à quatre lignes/imprimantes par opérateur ; le premier ID est saisi manuellement et les plages suivantes sont calculées automatiquement. Chaque ligne peut être confirmée comme imprimée dès sa déclaration ou laissée en cours pour validation ultérieure. La base empêche les plages numériques qui se chevauchent pour une même commande.
 
 ## Version 3.8.1
 
@@ -173,3 +181,7 @@ Appliquer sql/v383-envois-partiels-algerie-poste.sql dans Supabase après la mig
 ## Commandes et impressions Algérie Poste
 
 Depuis les impressions en cours, choisir une commande puis saisir l’imprimante et le premier ID. La fin inclusive est calculée sur 1 000 ID ou sur le solde si celui-ci est inférieur. Les droits de modification et de suppression existants s’appliquent dès la création. Aucune migration supplémentaire après la v3.8.3.
+
+## Mise à jour 3.9.4
+
+Exécuter sql/v394-machines-apn.sql dans Supabase après la migration v385, puis publier le ZIP. Les anciens numéros APN sont conservés. Pour une imprimante Algérie Poste déjà utilisée, reprendre son nom exact dans le registre Machines.

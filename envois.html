@@ -171,11 +171,12 @@
             <div class="flex items-center gap-2"><h4 class="text-sm font-extrabold">Articles</h4><span id="itemsCount" class="badge" style="background:rgba(99,102,241,.15);color:#a5b4fc;border-color:rgba(99,102,241,.3)">0</span></div>
             <div class="flex flex-wrap items-center gap-2">
               <button type="button" onclick="openProdPicker()" class="btn btn-secondary" title="Choisir des lots dans la production"><i class="fa-solid fa-industry text-amber-500 text-xs"></i>Importer depuis la production</button>
-              <button type="button" onclick="openAPShipmentPicker()" class="btn btn-secondary">Ajouter Algérie Poste</button>
+              <button type="button" onclick="openAPShipmentPicker()" class="btn btn-secondary">Importer Algérie Poste</button>
               <button type="button" onclick="addItemRow()" class="btn btn-secondary"><i class="fa-solid fa-plus text-xs"></i>Ajouter une ligne</button>
             </div>
           </div>
-          <div class="panel-soft overflow-x-auto">
+          <div id="apOrderPicker" class="panel-soft p-3 space-y-2" hidden></div><div id="apCartonSummary" class="space-y-2"></div>
+<div class="panel-soft overflow-x-auto">
             <table class="w-full text-left text-xs" style="min-width:900px"> <!-- Elargi -->
               <thead style="background:var(--bg-input)">
                 <tr class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--text-muted)">
@@ -284,7 +285,7 @@
         <form onsubmit="addOperator(event)" class="flex flex-wrap gap-2">
           <input type="text" id="opUsername" required placeholder="Pseudo" class="inp flex-1 min-w-[130px]">
           <input type="password" id="opPassword" required placeholder="Mot de passe" class="inp flex-1 min-w-[130px]">
-          <select id="opRole" class="inp w-auto"><option value="operateur">Opérateur</option><option value="admin">Admin</option></select>
+          <select id="opRole" class="inp w-auto"><option value="operateur">Opérateur</option><option value="admin">Admin</option><option value="visionnaire">Visionnaire · lecture seule</option></select>
           <button type="submit" class="btn btn-primary">Créer</button>
         </form>
         <div id="opsList" class="divide-y text-xs" style="border-color:var(--border)"></div>

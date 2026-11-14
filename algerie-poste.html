@@ -29,27 +29,34 @@
   <link rel="stylesheet" href="css/style.css">
 
   <style>
+    .ap-range-word{color:#d21034;font-weight:700}.ap-machine{color:#fbbf24}.ap-operator{color:#34d399}
+    html.light .ap-machine{color:#92400e}html.light .ap-operator{color:#047857}
+    .ap-active-machine{font-size:1.125rem;font-weight:800;color:#12375a;background:#e0f2fe;padding:4px 9px;border-radius:7px}
+    .ap-running{display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:700;color:var(--text)}
+    .ap-running i{width:8px;height:8px;border-radius:50%;background:#10b981;animation:apRunPulse 1.8s ease-in-out infinite}
+    @keyframes apRunPulse{50%{opacity:.45;transform:scale(.8)}}
+    @media(prefers-reduced-motion:reduce){.ap-running i{animation:none}}
     .kpi{padding:14px 16px}
     .kpi small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim)}
     .kpi b{display:block;font-size:20px;font-weight:900;margin-top:2px}
-    .colis-range{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;background:rgba(245,158,11,.14);color:#d97706;border:1px solid rgba(245,158,11,.35);white-space:nowrap}
-    .group-row td{background:var(--bg-hover);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
-    .seg{padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text-muted);transition:all .15s}
-    .seg.active{background:#f59e0b;color:#fff}
+    .seg{padding:8px 16px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;color:var(--text-muted);transition:all .15s;display:inline-flex;align-items:center;gap:8px}
+    .seg.active{background:#f59e0b;color:#fff;box-shadow:0 4px 12px -2px rgba(245,158,11,.45)}
     .lbl{display:block;font-size:11px;font-weight:700;margin-bottom:5px}
-
-    #apPrintSheet{display:none}
-    @media print{
-      @page{size:A4;margin:12mm}
-      body > *:not(#apPrintSheet){display:none !important}
-      #apPrintSheet{display:block !important;color:#000;background:#fff;font:11px Arial,sans-serif}
-      #apPrintSheet table{width:100%;border-collapse:collapse;margin-top:14px}
-      #apPrintSheet th,#apPrintSheet td{border:1px solid #aab4be;padding:7px;text-align:left}
-      #apPrintSheet tr{break-inside:avoid}
-      #apPrintSheet h1{font-size:20px;margin-bottom:10px}
-    }
-      .chip-todo{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(245,158,11,.14);color:#d97706;border:1px solid rgba(245,158,11,.4);cursor:pointer;text-decoration:none}
-    .chip-todo:hover{background:rgba(245,158,11,.25)}
+    .ap-print-operator{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 18px;font-size:13px;margin:2px 0 10px}
+    .ap-print-table-wrap{width:100%;overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+    .ap-print-table{width:100%;min-width:720px;border-collapse:collapse;table-layout:fixed;font-size:12px}
+    .ap-print-table th,.ap-print-table td{border:1px solid var(--border);padding:6px;text-align:left;vertical-align:middle}
+    .ap-print-table thead th{text-align:center;background:var(--bg-hover);font-weight:800;white-space:nowrap}
+    .ap-print-table th:nth-child(1),.ap-print-table th:nth-child(2),.ap-print-table th:nth-child(3),.ap-print-table th:nth-child(4){width:15%}
+    .ap-print-table th:nth-child(5){width:17%}
+    .ap-print-table td .inp{min-width:0;width:100%;padding:7px 6px;font-size:12px}
+    .ap-print-table .ap-row-actions{width:78px;white-space:nowrap;text-align:center}
+    .ap-add-row{display:inline-flex;width:29px;height:29px;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:7px;background:var(--bg-hover);color:var(--text);cursor:pointer}
+    .ap-add-row:hover{border-color:var(--accent);color:var(--accent)}
+    .ap-add-row:disabled{opacity:.35;cursor:not-allowed}
+    .ap-confirm-label{display:inline-flex;vertical-align:middle;margin-left:5px;align-items:center;justify-content:center}
+    .ap-confirm{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+    .ap-print-help{font-size:11px;color:var(--text-muted)}
   </style>
 </head>
 <body data-module="algerie-poste" class="min-h-screen flex flex-col antialiased">
@@ -66,80 +73,167 @@
     </div>
   </header>
 
-  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full space-y-6">
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
 
-    <div class="page-heading flex items-center gap-3">
-      <div class="heading-icon"><i class="fa-solid fa-envelope-open-text"></i></div>
-      <div>
-        <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Fabrication d'étiquettes Algérie Poste</h2>
-        <p class="text-xs" style="color:var(--text-muted)">Commandes UPW, suivi des impressions et colisage par paquets de 1 000 identifiants.</p>
+    <div class="page-heading flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="heading-icon"><i class="fa-solid fa-envelope-open-text"></i></div>
+        <div>
+          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Algérie Poste</h2>
+          <p class="text-xs" style="color:var(--text-muted)">Commandes UPW, production des paquets en stock et historique par paquet.</p>
+        </div>
       </div>
+      <button id="apReload" type="button" class="btn btn-secondary"><i class="fa-solid fa-rotate"></i>Actualiser</button>
     </div>
 
     <section id="gate" class="panel p-6 max-w-md space-y-3 hidden"></section>
 
-    <div id="apApp" class="hidden space-y-5">
+    <p id="apMessage" class="hidden panel p-3 text-sm" role="status"></p>
+    <div id="apApp" class="hidden space-y-6">
+      <!-- KPIs -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="panel kpi p-4"><small>Commandes</small><b id="apCount">0</b></div>
         <div class="panel kpi p-4"><small>ID demandés</small><b id="apRequested">0</b></div>
-        <div class="panel kpi p-4"><small>ID imprimés</small><b id="apPrinted">0</b></div>
-        <div class="panel kpi p-4"><small>ID restant à imprimer</small><b id="apRemaining">0</b></div>
+        <div class="panel kpi p-4"><small>ID en stock (prêts)</small><b id="apInStock" class="text-emerald-500">0</b></div>
+        <div class="panel kpi p-4"><small>ID restant à produire</small><b id="apRemaining" class="text-amber-500">0</b></div>
       </div>
 
-      <section class="panel p-4 sm:p-5 space-y-4">
-        <h3 id="apOrderTitle" class="font-bold">Nouvelle commande UPW</h3>
-        <form id="apOrderForm" class="space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div><label class="lbl" for="apClient">Agence / UPW *</label><input id="apClient" class="inp input-uppercase" list="apClients" required maxlength="160" placeholder="UPW…"></div>
-            <div><label class="lbl" for="apCategory">Catégorie *</label><select id="apCategory" class="inp" required><option value="NATIONAL">National</option><option value="INTERNATIONAL">International</option></select></div>
-            <div><label class="lbl" for="apSubtype">Type de produit *</label><select id="apSubtype" class="inp" required></select></div>
-            <div><label class="lbl" for="apQty">Quantité demandée (ID) *</label><input id="apQty" type="number" min="1" max="2147483647" step="1" class="inp" required></div>
-            <div><label class="lbl" for="apOrderDate">Date de commande *</label><input id="apOrderDate" type="date" class="inp" required></div>
-            <div><label class="lbl" for="apOrderNotes">Observations</label><input id="apOrderNotes" class="inp" maxlength="2000"></div>
+      <!-- Barre des 3 sous-sections : Commandes | Production | Historique -->
+      <div class="p-1.5 rounded-2xl inline-flex flex-wrap items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
+        <button type="button" class="seg active" data-ap-tab="commandes"><i class="fa-solid fa-file-invoice"></i>Commandes</button>
+        <button type="button" class="seg" data-ap-tab="production"><i class="fa-solid fa-boxes-packing"></i>Production</button>
+        <button type="button" class="seg" data-ap-tab="historique"><i class="fa-solid fa-table-list"></i>Historique</button>
+      </div>
+
+      <!-- ==================== SOUS-SECTION 1 : COMMANDES ==================== -->
+      <div id="apTab_commandes" class="space-y-5">
+        <section class="panel p-4 sm:p-5 space-y-4 op-only">
+          <h3 id="apOrderTitle" class="font-bold"><i class="fa-solid fa-plus text-amber-500 mr-1.5"></i>Nouvelle commande UPW</h3>
+          <form id="apOrderForm" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div><label class="lbl" for="apClient">Agence / UPW *</label><input id="apClient" class="inp input-uppercase" list="apClients" required maxlength="160" placeholder="UPW…"></div>
+              <div><label class="lbl" for="apCategory">Catégorie *</label><select id="apCategory" class="inp" required><option value="NATIONAL">National</option><option value="INTERNATIONAL">International</option></select></div>
+              <div><label class="lbl" for="apSubtype">Type de produit *</label><select id="apSubtype" class="inp" required></select></div>
+              <div><label class="lbl" for="apQty">Quantité demandée (ID) *</label><input id="apQty" type="number" min="1" max="2147483647" step="1" class="inp" required></div>
+              <div><label class="lbl" for="apOrderDate">Date de commande *</label><input id="apOrderDate" type="date" class="inp" required></div>
+              <div><label class="lbl" for="apOrderNotes">Observations</label><input id="apOrderNotes" class="inp" maxlength="2000"></div>
+            <label id="apNumberField" hidden class="lbl">Numéro APN<input id="apNumber" class="inp" maxlength="32"></label>
+            </div>
+            <div class="flex flex-wrap justify-end gap-2">
+              <button id="apOrderCancel" type="button" class="btn btn-secondary hidden">Annuler</button>
+              <button id="apOrderSave" type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer la commande</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="space-y-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 class="font-bold">Liste des commandes</h3>
+            <input id="apSearch" class="inp flex-1 min-w-[200px]" placeholder="Rechercher une UPW, un APN ou un produit…">
+            <select id="apFilter" class="inp w-auto"><option value="">Toutes catégories</option><option value="NATIONAL">National</option><option value="INTERNATIONAL">International</option></select>
           </div>
-          <div class="flex flex-wrap justify-end gap-2">
-            <button id="apOrderCancel" type="button" class="btn btn-secondary hidden">Annuler</button>
-            <button id="apOrderSave" type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer la commande</button>
+          <div id="apOrdersList" class="space-y-3"></div>
+        </section>
+      </div>
+
+      <!-- ==================== SOUS-SECTION 2 : PRODUCTION ==================== -->
+      <div id="apTab_production" class="hidden space-y-5">
+        <section class="panel p-4 sm:p-5 space-y-4 op-only">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="font-bold"><i class="fa-solid fa-print text-amber-500 mr-1.5"></i>Saisir la production de paquets</h3>
+              <p class="text-xs" style="color:var(--text-muted)">Sélectionnez une commande, saisissez le 1er ID et l'imprimante. Les paquets (1 000 ID) sont automatiquement stockés et colisés pour l'envoi.</p>
+            </div>
           </div>
-        </form>
-      </section>
 
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div class="md:col-span-2">
+              <label class="lbl" for="apPrintOrder">Commande à produire *</label>
+              <select id="apPrintOrder" class="inp"></select>
+            </div>
+            <div>
+              <label class="lbl" for="apProdDate">Date de production</label>
+              <input type="date" id="apProdDate" class="inp" title="Date de production">
+            </div>
+          </div>
 
+          <div id="apProdWorkspace" class="hidden space-y-3 pt-2 border-t" style="border-color:var(--border)">
+            <div class="ap-print-operator">
+              <span>Opérateur : <b id="apProdOperator">—</b></span>
+              <span>Reste à produire sur la commande : <b id="apProdRemaining" class="text-amber-500">0 ID</b></span>
+            </div>
+            <div class="ap-print-table-wrap">
+              <table class="ap-print-table">
+                <thead>
+                  <tr>
+                    <th colspan="2">Plage du paquet</th>
+                    <th colspan="2">Nombre ID</th>
+                    <th rowspan="2">Machine (Imprimante)</th>
+                    <th rowspan="2">Démarrer</th>
+                  </tr>
+                  <tr><th>De</th><th>À</th><th>De</th><th>À</th></tr>
+                </thead>
+                <tbody id="apPrintRows"></tbody>
+              </table>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="ap-print-help">Cliquez sur + pour transférer la plage vers les impressions en cours.</p>
+              <button id="apProdSaveBtn" type="button" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Démarrer l’impression</button>
+            </div>
+          </div>
+        </section>
 
-      <section class="space-y-3">
-        <div class="flex flex-wrap items-center gap-2">
-          <h3 class="font-bold">Commandes et colisage</h3>
-          <input id="apSearch" class="inp flex-1 min-w-[200px]" placeholder="Rechercher une UPW ou une sous-catégorie…" aria-label="Rechercher une commande">
-          <select id="apFilter" class="inp w-auto" aria-label="Filtrer par catégorie"><option value="">Toutes catégories</option><option value="NATIONAL">National</option><option value="INTERNATIONAL">International</option></select>
-          <button id="apReload" type="button" class="btn btn-secondary"><i class="fa-solid fa-rotate"></i>Actualiser</button>
-        </div>
-        <h3 class="font-bold">Impressions en cours par imprimante</h3>
-        <label class="lbl">Commande à imprimer<select id="apPrintOrder" class="inp"></select></label>
-        <button id="apPrintStart" type="button" class="btn btn-primary" disabled>Démarrer une plage</button>
-        <div id="apActive" class="space-y-2"></div>
-        <div id="apOrders" class="space-y-3"></div>
-      </section>
+        <section class="panel p-4 sm:p-5 space-y-3">
+          <h3 class="font-bold"><i class="fa-solid fa-spinner text-amber-500 mr-1.5"></i>Impressions en cours sur les machines</h3>
+          <div id="apActive" class="space-y-2"></div>
+        </section>
 
-      <section class="panel p-4 sm:p-5 space-y-4" aria-labelledby="apTraceTitle">
-        <h3 id="apTraceTitle" class="font-bold"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Historique et traçabilité des impressions</h3>
-        <p class="text-xs" style="color:var(--text-muted)">Recherchez un ID pour retrouver son tirage et son imprimante. Les corrections et suppressions restent dans l’historique. Une recherche à l’intérieur d’une plage est disponible pour les ID numériques. Pour une plage alphanumérique, utilisez un numéro de début/fin, l’agence ou la machine.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div><label class="lbl" for="apTraceId">Identifiant à rechercher</label><input id="apTraceId" maxlength="80" class="inp font-mono-code" placeholder="Ex. 00 380 000"></div>
-          <div><label class="lbl" for="apTraceSearch">Agence, opérateur ou tirage</label><input id="apTraceSearch" class="inp" placeholder="UPW, nom ou référence du tirage…"></div>
-          <div><label class="lbl" for="apTraceMachine">Imprimante</label><select id="apTraceMachine" class="inp"><option value="">Toutes les imprimantes</option></select></div>
-          <div><label class="lbl" for="apTraceState">État du tirage</label><select id="apTraceState" class="inp"><option value="">Tous les états</option><option value="EN_COURS">En cours</option><option value="TERMINE">Terminé / validé</option></select></div>
-        </div>
-        <p id="apTraceCount" class="text-xs" role="status"></p>
-        <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr>
-          <th class="p-3 text-left">Événement / date</th><th class="p-3 text-left">Agence / tirage</th><th class="p-3 text-left">Machine et plage</th><th class="p-3 text-left">Opérateur / validation</th><th class="p-3 text-left">Détail</th>
-        </tr></thead><tbody id="apTraceRows"></tbody></table></div>
-      </section>
+        <section class="panel p-4 sm:p-5 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="font-bold"><i class="fa-solid fa-boxes-stacked text-emerald-500 mr-1.5"></i>Paquets produits en stock &amp; Colisage (prêts pour l'envoi)</h3>
+              <p class="text-xs" style="color:var(--text-muted)">Ces produits colisés sont disponibles directement dans « Nouvel envoi » comme les autres produits.</p>
+            </div>
+            <a href="envois.html?new=1" class="btn btn-primary"><i class="fa-solid fa-truck-fast"></i>Nouvel envoi</a>
+          </div>
+          <div id="apStockList" class="space-y-3"></div>
+        </section>
+      </div>
+
+      <!-- ==================== SOUS-SECTION 3 : HISTORIQUE ==================== -->
+      <div id="apTab_historique" class="hidden space-y-4">
+        <section class="panel p-4 sm:p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="font-bold"><i class="fa-solid fa-clock-rotate-left text-amber-500 mr-1.5"></i>Historique des paquets produits</h3>
+            <span id="apTraceCount" class="text-xs font-bold" style="color:var(--text-muted)">0 paquet(s)</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <input id="apTraceId" maxlength="80" class="inp font-mono-code" placeholder="Rechercher un numéro ID dans une plage…">
+            <input id="apTraceSearch" class="inp" placeholder="Rechercher UPW, opérateur, machine…">
+            <select id="apTraceMachine" class="inp"><option value="">Toutes les machines</option></select>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left align-middle">
+              <thead style="background:var(--bg-input)">
+                <tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
+                  <th class="p-3">Plage</th>
+                  <th class="p-3">Nombre</th>
+                  <th class="p-3 whitespace-nowrap">Heure de fin</th>
+                  <th class="p-3">Statut</th><th class="p-3">Machine</th>
+                  <th class="p-3">Opérateur</th>
+                </tr>
+              </thead>
+              <tbody id="apTraceRows" class="divide-y" style="border-color:var(--border)"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </div>
+
     <datalist id="apClients"></datalist>
+    <datalist id="apAvailablePrinters"></datalist>
   </main>
 
-  <p id="apMessage" class="hidden max-w-7xl mx-auto px-6 py-3 text-sm" role="status"></p>
-  <section id="apPrintSheet"></section>
   <div id="toasts" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none no-print"></div>
 
   <script src="js/config.js"></script>
