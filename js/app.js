@@ -319,24 +319,62 @@ function applyFilters() {
 // ----- Validation des envois par un administrateur -----
 const isValidated = e => (e.validation || 'VALIDE') === 'VALIDE';
 function shipmentDisplayItems(items) {
-  const groups=new Map(), visible=[];
+  const groups=new Map(), lots=new Map(), visible=[];
   for(const item of items) {
     const detail=item.colisage_detail, packing=detail?.ap_pack;
-    if(!detail?.ap_production_id || !apProductSpec(packing?.type)) { visible.push(item); continue; }
+    if(!detail?.ap_production_id || !apProductSpec(packing?.type)) {
+      if(!item.production_id||!item.of_numero||!item.reference||detail?.mixte||detail?.manual) {visible.push(item);continue;}
+      const key=JSON.stringify([item.of_numero,item.reference,item.destinataire,item.unite,item.categorie,item.designation,item.type_carton,detail?.qpc,detail?.poids_bobine]);
+      if(!lots.has(key)) {
+        const line={...item,quantite:'0',cartons:0};
+        lots.set(key,line);
+        visible.push(line);
+      }
+      const line=lots.get(key);
+      line.quantite=String(Number(line.quantite)+Number(digitsOnly(item.quantite)));
+      line.cartons+=cartonsOfItem(item);
+      continue;
+    }
     const spec=apProductSpec(packing.type), settings=apPackingSettings(packing.settings,spec);
     const key=JSON.stringify([packing.orderId||packing.orderNumber||item.destinataire,item.destinataire,packing.type,settings,!!packing.settings?.regroupement_h2]);
     if(!groups.has(key)) {
-      const group={item,spec,settings:packing.settings,order:packing.orderNumber,quantity:0};
+      const group={item,spec,settings:packing.settings,order:packing.orderNumber,quantity:0,ranges:[]};
       groups.set(key,group);
       visible.push(group);
     }
-    groups.get(key).quantity+=Number(item.quantite);
+    const group=groups.get(key);
+    group.quantity+=Number(item.quantite);
+    const range=detail.ap_range;
+    if(range && APcalc.numericRange(range.first,range.last)?.quantity===BigInt(item.quantite)) group.ranges.push(range);
+
   }
   const grouped=new Set(groups.values());
   return visible.flatMap(entry=>{
     if(!grouped.has(entry)) return [entry];
     const parts=apShipmentParts(entry.quantity,entry.spec,entry.settings);
-    return [{...entry.item,designation:[entry.spec.label,entry.order,[...new Set(parts.map(part=>part.type))].join(' + ')].filter(Boolean).join(' · '),
+    const ranges=entry.ranges.map(r=>[r.first,r.last].map(v=>BigInt(v.replace(/\s/g,'')))).sort((a,b)=>a[0]<b[0]?-1:1);
+    let boxRanges=[];
+    if(ranges.reduce((n,[a,b])=>n+b-a+1n,0n)===BigInt(entry.quantity)) {
+      const segments=[];
+      for(const range of ranges) {
+        const last=segments.at(-1);
+        if(last&&last[1]+1n===range[0]) last[1]=range[1];
+        else segments.push(range);
+      }
+      const format=n=>String(n).padStart(8,'0').replace(/^(\d{2})(\d{3})(\d{3})$/,'$1 $2 $3');
+      for(const part of parts) for(let i=0;i<part.nb;i++) {
+        let rest=BigInt(part.qte);
+        const spans=[];
+        while(rest>0n) {
+          const [start,end]=segments[0], size=end-start+1n, take=rest<size?rest:size;
+          spans.push('De '+format(start)+' à '+format(start+take-1n));
+          if(take===size) segments.shift(); else segments[0][0]+=take;
+          rest-=take;
+        }
+        boxRanges.push(part.type+' '+(boxRanges.length+1)+' · '+spans.join(' / '));
+      }
+    }
+    return [{...entry.item,boxRanges,designation:[entry.spec.label,entry.order,[...new Set(parts.map(part=>part.type))].join(' + ')].filter(Boolean).join(' · '),
       quantite:String(entry.quantity),cartons:parts.reduce((total,part)=>total+part.nb,0)}];
   });
 }
@@ -447,7 +485,7 @@ function render() {
             <table class="w-full text-xs">
               <thead style="background:var(--bg-input)"><tr class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--text-muted)"><th class="p-3 pl-5 text-left">Référence</th><th class="p-3 text-left">Catégorie</th><th class="p-3 text-left">Désignation</th><th class="p-3 text-left">Destinataire</th><th class="p-3 text-center">Unité</th><th class="p-3 text-right">Quantité</th><th class="p-3 text-center">Cartons</th></tr></thead>
               <tbody class="divide-y" style="border-color:var(--border)">
-                ${displayItems.map(it => `<tr class="hover:bg-[var(--bg-hover)] transition"><td class="p-3 pl-5 font-mono-code font-bold text-indigo-400">${esc(it.reference || '-')}</td><td class="p-3 text-slate-400 font-semibold text-xs uppercase">${esc(it.categorie || '-')}</td><td class="p-3 font-semibold">${esc(it.designation || '-')}</td><td class="p-3"><span class="badge ${it.destinataire==='STOCK'?'badge-stock':'badge-client'}">${esc(it.destinataire || 'STOCK')}</span></td><td class="p-3 text-center font-mono-code" style="color:var(--text-muted)">${esc(it.unite || 'UN')}</td><td class="p-3 text-right font-mono-code font-bold">${fmtNum(it.quantite)}</td><td class="p-3 text-center font-bold text-amber-400">${(it.colisage_detail && it.colisage_detail.mixte ? 'mixte' : esc(it.cartons ?? '1'))}</td></tr>`).join('') || '<tr><td colspan="7" class="p-4 text-center text-xs" style="color:var(--text-muted)">Aucun article</td></tr>'}
+                ${displayItems.map(it => `<tr class="hover:bg-[var(--bg-hover)] transition"><td class="p-3 pl-5 font-mono-code font-bold text-indigo-400">${esc(it.reference || '-')}</td><td class="p-3 text-slate-400 font-semibold text-xs uppercase">${esc(it.categorie || '-')}</td><td class="p-3 font-semibold">${esc(it.designation || '-')}${(it.boxRanges||[]).map(range=>`<div class="text-xs font-mono-code">${esc(range)}</div>`).join('')}</td><td class="p-3"><span class="badge ${it.destinataire==='STOCK'?'badge-stock':'badge-client'}">${esc(it.destinataire || 'STOCK')}</span></td><td class="p-3 text-center font-mono-code" style="color:var(--text-muted)">${esc(it.unite || 'UN')}</td><td class="p-3 text-right font-mono-code font-bold">${fmtNum(it.quantite)}</td><td class="p-3 text-center font-bold text-amber-400">${(it.colisage_detail && it.colisage_detail.mixte ? 'mixte' : esc(it.cartons ?? '1'))}</td></tr>`).join('') || '<tr><td colspan="7" class="p-4 text-center text-xs" style="color:var(--text-muted)">Aucun article</td></tr>'}
               </tbody>
             </table>
           </div>
@@ -1054,7 +1092,7 @@ async function availableAPShipmentItems(orderId, includeDraft) {
     items.push({
       reference:spec.reference,categorie:'ALGERIE POSTE',designation:spec.label+' · Tirage '+run.numero_debut+' → '+run.numero_fin,
       destinataire:order.client,unite:'ID',quantite:String(remaining),cartons:parts.reduce((sum,part)=>sum+part.nb,0),
-      colisage_detail:{ap_production_id:run.id,ap_pack:{orderId:order.id,orderNumber:order.ap_numero,type:order.type_produit,settings},parts},
+      colisage_detail:{ap_production_id:run.id,ap_pack:{orderId:order.id,orderNumber:order.ap_numero,type:order.type_produit,settings},ap_range:{first:run.numero_debut,last:run.numero_fin},parts},
     });
   }
   return items;
@@ -1212,13 +1250,12 @@ async function loadProductionLots() {
   const { data, error } = await state.supabase.from('production').select('*')
     .order('date_production', { ascending: false }).order('created_at', { ascending: false });
   if (error) throw error;
-  state.production = (data || []).map(l => ({
+  state.production = (data || []).filter(l=>LTColis.categoryId(l.categorie)!=='AP').map(l => ({
     ...l, quantite_produite: +l.quantite_produite, qte_par_carton: +l.qte_par_carton || 1, poids_carton: +l.poids_carton || 0,
     poids_bobine: +l.poids_bobine || 0, poids_carton_vide: +l.poids_carton_vide || 0, qte_reliquat: +l.qte_reliquat || 0,
   }));
 }
 
-state.apShipmentItems = [];
 async function openProdPicker() {
   if (!requireOperator()) return;
   $('#ppSearch').value = '';
@@ -1226,10 +1263,7 @@ async function openProdPicker() {
   $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)">Chargement…</div>';
   openModal('prodPickerModal');
   try {
-    await Promise.all([
-      loadProductionLots(),
-      availableAPShipmentItems(null, true).then(items => { state.apShipmentItems = items; }).catch(() => { state.apShipmentItems = []; })
-    ]);
+    await loadProductionLots();
   } catch (e) {
     $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)"><i class="fa-solid fa-database text-amber-500 text-2xl mb-2 block"></i>Le module Production n\'est pas à jour dans la base.<br>Exécutez <b>sql/v21-colisage-reference.sql</b> dans Supabase (SQL Editor).</div>';
     return;
@@ -1245,8 +1279,7 @@ function renderProdPicker() {
   const items = state.production.map(lot => ({ lot, av: lotAvail(lot) })).filter(x => x.av.blocked || x.av.normal > 0 || x.av.mixte > 0 || (!state.isAdmin && !x.lot.colisage_valide));
   const open = items.filter(x => (x.lot.quantite_produite - (shippedSplit(x.lot.id).n + shippedSplit(x.lot.id).m)) > 0);
   const boxes = state.stockCartons.filter(box => !$$('#itemsBody tr').some(row => row.dataset.stockBox === box.id));
-  const apItems = state.apShipmentItems || [];
-  if (!open.length && !boxes.length && !apItems.length) {
+  if (!open.length && !boxes.length) {
     $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-3xl mb-2 block" style="color:var(--text-dim)"></i>Aucun lot à expédier.<br>Saisissez la production, puis remplissez le colisage de la référence.</div>';
     return;
   }
@@ -1312,28 +1345,11 @@ function renderProdPicker() {
     const label = 'Carton ' + box.type_carton + ' · ' + box.id.slice(0, 8).toUpperCase() + ' · ' + content;
     return '<label class="pp-row panel-soft p-3 flex gap-3 text-sm" data-stock-box="' + esc(box.id) + '" data-search="' + esc(label.toLowerCase()) + '"><input type="checkbox" class="pp-check"> ' + esc(label) + '</label>';
   }).join('');
-  const apHtml = apItems.map((item, idx) => {
-    const search = [item.reference, item.categorie, item.designation, item.destinataire].join(' ').toLowerCase();
-    return `<div class="pp-row panel-soft p-3 flex flex-wrap items-center gap-3" data-ap-idx="${idx}" data-search="${esc(search)}">
-      <input type="checkbox" class="pp-check w-5 h-5 accent-amber-500" aria-label="Sélectionner">
-      <div class="flex-1 min-w-[200px]">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-[11px] font-mono-code font-bold text-amber-500">ALGÉRIE POSTE · ${esc(item.destinataire)}</span>
-          <span class="text-[10px] px-2 py-0.5 rounded-full" style="background:var(--bg-input);color:var(--text-muted)">Regroupé par commande et type de carton</span>
-        </div>
-        <div class="text-xs mt-0.5"><span class="font-mono-code font-bold text-indigo-400">${esc(item.reference)}</span> <span class="font-semibold">${esc(item.designation)}</span></div>
-        <div class="text-[11px]" style="color:var(--text-muted)">En stock : <b>${fmtNum(item.quantite)}</b> ID</div>
-      </div>
-      <div class="w-32"><label class="block text-[10px] font-bold mb-1" style="color:var(--text-muted)">Qté (ID)</label>
-        <input class="inp text-right font-mono-code font-bold pp-qty" inputmode="numeric" pattern="[0-9]*" maxlength="9" value="${item.quantite}" data-avail="${item.quantite}"></div>
-    </div>`;
-  }).join('');
   $('#ppList').innerHTML =
-    (apHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mb-2 text-amber-500"><i class="fa-solid fa-envelope-open-text mr-1.5"></i>Produits Algérie Poste colisés en stock</div><div class="space-y-2 mb-4">${apHtml}</div>` : '') +
     (boxHtml ? '<h4 class="text-xs font-bold">Cartons déjà composés en stock</h4>' + boxHtml : '') +
     ((normalHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mb-2" style="color:var(--text-muted)"><i class="fa-solid fa-box mr-1.5"></i>Lots à expédier en cartons</div><div class="space-y-2">${normalHtml}</div>` : '') +
     (mixteHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mt-5 mb-1" style="color:var(--text-muted)"><i class="fa-solid fa-warehouse mr-1.5"></i>Reliquats en stock — CARTON MIXTE</div>
-       <p class="text-[11px] mb-2" style="color:var(--text-dim)">Les reliquats cochés ci-dessous partent ensemble dans <b>un carton mixte H2</b>. Pour choisir le type ou préparer plusieurs cartons, utilisez <b>Cartons en stock</b> dans Production. Limite de référence : ${window.LTColis.MAX_CARTON_KG} kg.</p><div class="space-y-2">${mixteHtml}</div>` : '') || (boxHtml || apHtml ? '' :
+       <p class="text-[11px] mb-2" style="color:var(--text-dim)">Les reliquats cochés ci-dessous partent ensemble dans <b>un carton mixte H2</b>. Pour choisir le type ou préparer plusieurs cartons, utilisez <b>Cartons en stock</b> dans Production. Limite de référence : ${window.LTColis.MAX_CARTON_KG} kg.</p><div class="space-y-2">${mixteHtml}</div>` : '') || (boxHtml ? '' :
     '<div class="p-8 text-center text-xs" style="color:var(--text-muted)">Rien à expédier pour le moment.</div>'));
 }
 
@@ -1428,29 +1444,8 @@ function addLotRows(picked, dest) {
 function importFromProduction() {
   const dest = $('#ppDest').value.trim().toUpperCase();
   const picked = [];
-  let apAdded = 0;
   $$('#ppList .pp-row').forEach(row => {
     if (row.dataset.nocol || !row.querySelector('.pp-check').checked) return;
-    if (row.dataset.apIdx !== undefined) {
-      const item = (state.apShipmentItems || [])[Number(row.dataset.apIdx)];
-      const quantity = parseQty(row.querySelector('.pp-qty').value);
-      if (item && quantity >= 1 && quantity <= Number(item.quantite)) {
-        $$('#itemsBody tr').forEach(tr => {
-          const v = f => tr.querySelector(`[data-field="${f}"]`).value.trim();
-          if (!v('reference') && !v('designation') && !parseQty(v('quantite')) && !tr.dataset.prod) tr.remove();
-        });
-        const detail = item.colisage_detail;
-        const parts = apShipmentParts(quantity, apProductSpec(detail.ap_pack.type), detail.ap_pack.settings);
-        addItemRow({
-          ...item,
-          quantite: String(quantity),
-          cartons: parts.reduce((sum, part) => sum + part.nb, 0),
-          colisage_detail: { ...detail, parts },
-        });
-        apAdded++;
-      }
-      return;
-    }
     if (row.dataset.stockBox) {
       const box = state.stockCartons.find(b => b.id === row.dataset.stockBox);
       if (box) picked.push(...stockBoxLines(box));
@@ -1463,12 +1458,12 @@ function importFromProduction() {
     const cInp = row.querySelector('.pp-cartons');
     picked.push({ lot, qty, cartons: Math.max(1, parseInt(cInp.value) || 1), manual: cInp.dataset.manual === '1', mixte: false });
   });
-  if (!picked.length && !apAdded) return toast('Cochez au moins un lot ou produit Algérie Poste avec une quantité.', 'warning');
+  if (!picked.length) return toast('Cochez au moins un lot de production avec une quantité.', 'warning');
   if (picked.length) addLotRows(picked, dest);
   updateModalTotals();
   closeModal('prodPickerModal');
   const nm = picked.filter(p => p.mixte).length;
-  toast(`${picked.length + apAdded} ligne(s) ajoutée(s) à l'envoi${nm ? ` (dont ${nm} en carton mixte)` : ''}.`, 'success');
+  toast(`${picked.length} ligne(s) ajoutée(s) à l'envoi${nm ? ` (dont ${nm} en carton mixte)` : ''}.`, 'success');
   if (!dest && picked.some(p => p.box && p.boxClient === 'STOCK')) toast('Vérifiez le destinataire des cartons mixtes.', 'info');
 }
 

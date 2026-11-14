@@ -21,9 +21,10 @@ function message(text, error = false) {
   el.style.color = error ? 'var(--danger)' : 'var(--text-muted)';
 }
 function switchAPTab(tab) {
+  if(tab==='statistiques'&&!apState.admin) return;
   apState.tab = tab;
   $$('[data-ap-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.apTab === tab));
-  ['commandes', 'production', 'historique'].forEach(name => {
+  ['commandes', 'production', 'historique','statistiques'].forEach(name => {
     const box = $('#apTab_' + name);
     if (box) box.classList.toggle('hidden', name !== tab);
   });
@@ -106,12 +107,107 @@ async function loadAP() {
   $('#apTraceMachine').innerHTML = '<option value="">Toutes les machines</option>' + printers.map(value => '<option value="' + esc(value) + '">' + esc(value) + '</option>').join('');
   if (printers.includes(machine)) $('#apTraceMachine').value = machine;
 
+  await refreshStations();
   renderKPIs();
+  renderAPStats();
+  updatePrintingWarning();
+  await loadAPNotices().catch(console.warn);
   renderOrders();
   renderProductionTab();
   renderSimpleHistory();
 }
 
+async function refreshStations() {
+  if(apState.viewer) return;
+  const {data,error}=await sb.from('ap_reservations_postes').select('poste,operateur');
+  if(error) throw error;
+  apState.station=data.find(row=>row.operateur===apState.username)?.poste||'';
+  const picker=$('#apWorkstation');
+  for(const option of picker.options) {
+    if(!option.value) continue;
+    const owner=data.find(row=>row.poste===option.value)?.operateur;
+    option.disabled=!!owner&&owner!==apState.username;
+    option.textContent=option.value+(option.disabled?' · Réservé par '+owner:'');
+  }
+  picker.value=apState.station;
+  picker.disabled=!!apState.station;
+  $('#apReleaseStation').hidden=!apState.station;
+}
+async function changeStation(station,release) {
+  const picker=$('#apWorkstation'), button=$('#apReleaseStation'), status=$('#apStationStatus');
+  picker.value=apState.station||'';
+  if(!station||!window.confirm((release?'Libérer ':'Réserver ')+station+' ?')) return;
+  picker.disabled=true;
+  button.disabled=true;
+  status.textContent='';
+  try {
+    const {error}=await sb.rpc('ap_reserver_poste',{p_poste:station,p_liberer:release});
+    if(error) throw error;
+    status.textContent=release?'Poste libéré.':'Poste réservé à votre compte.';
+  } catch(error) { status.textContent=error.message; }
+  try { await refreshStations(); }
+  catch(error) { status.textContent=error.message; }
+  finally {
+    picker.disabled=!!apState.station;
+    button.disabled=false;
+    $('#apPrintRows').replaceChildren();
+    setupInlineProductionForm();
+  }
+}
+function workstationPrinters() {
+  const station=apState.station||'';
+  if(!station) return [];
+  const names=station==='Poste02'?['IMP05','IMP06']:['IMP01','IMP02','IMP03','IMP04'];
+  return names.filter(name=>!apState.machines.some(machine=>machine.nom===name&&machine.etat!=='En service'));
+}
+function updatePrintingWarning() {
+  const active=apState.runs.filter(run=>run.statut==='EN_COURS'&&run.created_by===apState.username);
+  const hour=Number(new Intl.DateTimeFormat('fr-FR',{hour:'2-digit',hourCycle:'h23',timeZone:'Africa/Algiers'}).format(new Date()));
+  const late=active.filter(run=>Date.now()-Date.parse(run.created_at)>=900000);
+  $('#apPrintingWarning').textContent=[
+    active.length&&hour>=16?'Il est 16 h passées. Avez-vous validé toutes vos impressions ?':'',
+    late.length?'Impression en cours depuis au moins 15 min sur '+late.map(run=>run.imprimante).join(', ')+'.':''
+  ].filter(Boolean).join(' ');
+}
+async function loadAPNotices() {
+  const {data,error}=await sb.from('ap_notifications').select('*').order('cree_at',{ascending:false}).limit(10);
+  if(error) throw error;
+  $('#apNotices').innerHTML=data.map(note=>{
+    const order=apState.orders.find(row=>row.id===note.commande_id);
+    return '<p class="panel-soft p-2">Commande '+esc(order?.ap_numero||'Algérie Poste')+' démarrée par '+esc(note.auteur)+'.</p>';
+  }).join('');
+}
+function renderAPStats() {
+  if(!apState.admin) return;
+  const labels=['Opérateurs','Imprimantes','Postes de travail','Clients UPW','Types d’identifiants'];
+  const groups=labels.map(()=>new Map());
+  const orders=new Map(apState.orders.map(order=>[order.id,order]));
+  const days=new Map();
+  const today=logitrakToday();
+  for(const run of apState.runs.filter(APtrace.completed)) {
+    if(run.date_production<=today) days.set(run.date_production,(days.get(run.date_production)||0)+Number(run.quantite_imprimee));
+    const order=orders.get(run.commande_id);
+    [run.created_by,run.imprimante,run.poste_travail,order?.client,apProductSpec(order?.type_produit)?.label||order?.sous_categorie].forEach((name,index)=>{
+      const key=name||'Non renseigné';
+      groups[index].set(key,(groups[index].get(key)||0)+Number(run.quantite_imprimee));
+    });
+  }
+  const series=[...days].sort(([a],[b])=>a.localeCompare(b)).slice(-30);
+  const max=Math.max(1,...series.map(([,qty])=>qty));
+  const points=series.map(([,qty],i)=>[10+580*i/Math.max(1,series.length-1),105-95*qty/max]);
+  const trend=series.length?'<svg class="ap-trend" viewBox="0 0 600 115" role="img" aria-label="Évolution des quantités produites par jour">'+
+    '<polyline fill="none" stroke="#0284c7" stroke-width="3" points="'+points.map(pair=>pair.join(',')).join(' ')+'"/>'+
+    points.map(([x,y],i)=>'<circle cx="'+x+'" cy="'+y+'" r="4" fill="#0284c7"><title>'+esc(series[i][0])+' · '+fmt(series[i][1])+' ID</title></circle>').join('')+
+    '</svg><p class="text-xs">'+esc(series[0][0])+' au '+esc(series.at(-1)[0])+' · Pic '+fmt(max)+' ID</p>':'<p>Aucune production.</p>';
+  const colors=['#0284c7','#ea580c','#7c3aed','#059669','#db2777'];
+  $('#apTab_statistiques').innerHTML='<section class="panel-soft p-4"><h3 class="font-bold">Production par jour</h3>'+trend+'</section>'+
+    '<div class="grid md:grid-cols-2 gap-3 mt-4">'+groups.map((group,index)=>{
+      const entries=[...group].sort((a,b)=>b[1]-a[1]), peak=Math.max(1,entries[0]?.[1]||0);
+      return '<section class="panel-soft p-4 space-y-3" style="--ap-stat:'+colors[index]+'"><h3 class="font-bold">'+labels[index]+'</h3>'+
+        (entries.map(([name,qty])=>'<div><p class="flex justify-between gap-2 text-sm"><span>'+esc(name)+'</span><b>'+fmt(qty)+' ID</b></p>'+
+        '<div class="ap-stat-track"><i style="width:'+100*qty/peak+'%"></i></div></div>').join('')||'<p>Aucune production.</p>')+'</section>';
+    }).join('')+'</div>';
+}
 function renderKPIs() {
   const totalStock = apState.runs
     .filter(run => APtrace.completed(run))
@@ -141,6 +237,7 @@ function renderOrders() {
           '<span class="text-xs" style="color:var(--text-muted)">' + esc(order.date_commande) + '</span>' +
         '</div>' +
         '<div class="text-xs" style="color:var(--text-muted)">Commandés : <b>' + fmt(order.quantite_demandee) + ' ID</b> · Produits : <b class="text-emerald-500">' + fmt(totalPrinted) + ' ID</b> · Reste à produire : <b class="text-amber-500">' + fmt(rem) + ' ID</b></div>' +
+        '<p class="text-xs">Saisie par '+esc(order.created_by||'—')+'</p>'+
         (order.observations ? '<div class="text-xs italic" style="color:var(--text-dim)">' + esc(order.observations) + '</div>' : '') +
       '</div>' +
       '<div class="flex flex-wrap items-center gap-2">' +
@@ -156,11 +253,13 @@ function renderOrders() {
 /* ==================== 2. PRODUCTION & STOCK ==================== */
 function renderProductionTab() {
   const picker = $('#apPrintOrder'), selected = picker.value;
-  const printable = apState.orders.filter(order => apProductSpec(order.type_produit) && remainingForPrint(order) > 0);
+  const printable = apState.orders.filter(order => apProductSpec(order.type_produit) && remainingForPrint(order) > 0)
+    .sort((a,b)=>Number(b.created_by===apState.username)-Number(a.created_by===apState.username));
   picker.innerHTML = '<option value="">— Choisir une commande à produire —</option>' + printable.map(order =>
     '<option value="' + esc(order.id) + '">' + esc((order.ap_numero || 'APN') + ' · ' + order.client + ' · ' + apProductSpec(order.type_produit).label) + ' (' + fmt(remainingForPrint(order)) + ' ID disponibles)</option>'
   ).join('');
   if (printable.some(order => order.id === selected)) picker.value = selected;
+  else picker.value=printable.find(order=>order.created_by===apState.username)?.id||'';
   if (!$('#apProdDate').value) $('#apProdDate').value = logitrakToday();
 
   setupInlineProductionForm();
@@ -236,6 +335,9 @@ function renderProductionTab() {
 function setupInlineProductionForm() {
   const orderId = $('#apPrintOrder').value;
   const workspace = $('#apProdWorkspace');
+  const station=apState.station||'';
+  $('#apChooseStation').hidden=!!station;
+  if(!station) { workspace.classList.add('hidden'); return; }
   const order = apState.orders.find(o => o.id === orderId);
   if (!order || !apProductSpec(order.type_produit)) {
     workspace.classList.add('hidden');
@@ -248,10 +350,7 @@ function setupInlineProductionForm() {
   }
   workspace.classList.remove('hidden');
   const busy = new Set(apState.runs.filter(run=>run.statut==='EN_COURS').map(run=>run.imprimante));
-  const registry=apState.machines.filter(machine=>machine.imprimante_ap);
-  const names=registry.length?registry.filter(machine=>machine.etat==='En service').map(machine=>machine.nom):
-    ['IMP1','IMP2','IMP3','IMP4',...apState.runs.map(run=>run.imprimante)];
-  const printers=[...new Set(names)].filter(name=>name&&!busy.has(name)).sort();
+  const printers=workstationPrinters().filter(name=>!busy.has(name));
   $('#apProdOperator').textContent=apState.username||'—';
   $('#apProdRemaining').textContent=fmt(available)+' ID';
   $('#apAvailablePrinters').innerHTML=printers.map(name=>'<option value="'+esc(name)+'"></option>').join('');
@@ -304,6 +403,7 @@ function updateInlineRows() {
 }
 
 async function saveInlineProduction(button) {
+  if(!workstationPrinters().length) return message('Choisissez un poste avec une imprimante en service.',true);
   if ($("#apProdSaveBtn").disabled) return;
   const order = apState.orders.find(o => o.id === $('#apPrintOrder').value);
   if (!order) return message('Choisissez une commande.', true);
@@ -319,7 +419,7 @@ async function saveInlineProduction(button) {
     const first = row.querySelector('.ap-first').value.trim();
     const last = row.querySelector('.ap-last').value.trim();
     if (!printer || !first || !last) return message('Complétez la machine et le 1er ID (8 chiffres) de chaque ligne.', true);
-    if ((apState.machines||[]).some(machine=>machine.imprimante_ap) && !(apState.machines||[]).some(machine=>machine.imprimante_ap&&machine.nom===printer&&machine.etat==='En service')) return message('Choisissez une imprimante Algérie Poste en service dans le registre Machines.', true);
+    if (!workstationPrinters().includes(printer)) return message('Choisissez une imprimante disponible sur ce poste.',true);
     if (used.has(printer) || busy.has(printer)) return message('Une machine ne peut pas avoir deux tirages en cours simultanément : ' + printer, true);
     if (!Number.isSafeInteger(qty) || qty < 1 || qty > 1000) return message('Chaque paquet doit contenir entre 1 et 1 000 ID.', true);
     const err = APcalc.rangeError(first, last, qty);
@@ -331,6 +431,7 @@ async function saveInlineProduction(button) {
       quantite_prevue: qty,
       quantite_imprimee: 0,
       imprimante: printer,
+      poste_travail: apState.station,
       numero_debut: first,
       numero_fin: last,
       date_production: prodDate,
@@ -338,6 +439,7 @@ async function saveInlineProduction(button) {
   }
   if (total > available) return message('La somme dépasse le reste de la commande (' + fmt(available) + ' ID).', true);
 
+  if(order.created_by && order.created_by!==apState.username && !window.confirm('Cette commande a été saisie par '+order.created_by+'. Démarrer et prévenir cet opérateur ?')) return;
   const save = $('#apProdSaveBtn');
   if (button !== save) save.disabled = true;
   try { await withButton(button, async () => {
@@ -375,7 +477,7 @@ function expandRunToPackets(run, order, base) {
       count, ordinalStart:base+offset+1, ordinalEnd:base+offset+count,
       machine: run.imprimante || 'Non renseignée',
       operator: run.termine_par || run.created_by || 'Non renseigné',
-      created_at: run.created_at,
+      created_at: run.created_at, runId:run.id,
     });
     offset += count;
   }
@@ -396,7 +498,7 @@ function renderSimpleHistory() {
   }
   const ordinal=value=>String(value).padStart(4,'0');
   const allPackets = apState.runs
-    .filter(run => APtrace.completed(run))
+    .filter(run => APtrace.completed(run)&&(apState.admin||run.created_by===apState.username))
     .slice()
     .sort((a, b) => b.date_production.localeCompare(a.date_production) || b.created_at.localeCompare(a.created_at))
     .flatMap(run => expandRunToPackets(run, byOrder.get(run.commande_id), offsets.get(run.id)));
@@ -430,7 +532,7 @@ function renderSimpleHistory() {
       '<td class="p-3 whitespace-nowrap font-mono-code"><span class="ap-range-word">De</span> ' + ordinal(pkt.ordinalStart) + ' <span class="ap-range-word">à</span> ' + ordinal(pkt.ordinalEnd) + '</td>' +
       '<td class="p-3 whitespace-nowrap">' + (pkt.finishedAt?clock.format(new Date(pkt.finishedAt)):'—') + '</td>' +
       '<td class="p-3 font-bold ap-operator">OK</td><td class="p-3 font-semibold ap-machine">' + esc(pkt.machine) + '</td>' +
-      '<td class="p-3 font-semibold ap-operator">' + esc(pkt.operator) + '</td>' +
+      '<td class="p-3 font-semibold ap-operator">' + esc(pkt.operator) + (apState.admin?' <button type="button" class="underline" data-delete-run="'+esc(pkt.runId)+'">Supprimer le tirage</button>':'') + '</td>' +
     '</tr>'
     ).join('');
   }).join('') || '<tr><td colspan="6" class="p-6 text-center" style="color:var(--text-muted)">Aucun paquet produit correspondant.</td></tr>';
@@ -512,6 +614,7 @@ async function validateAPPrint(run, button) {
 
 // Valide la plage actuelle d'une machine (ex: IMP2) et démarre immédiatement la plage suivante sur cette même machine sans saisie manuelle
 async function validateAndContinueAPPrint(run, button) {
+  if(!workstationPrinters().includes(run.imprimante)) return message('Choisissez le poste associé à cette imprimante pour lancer la suite.',true);
   if (!canEdit(run)) return;
   if (!window.confirm('Confirmez-vous que l’impression sur '+run.imprimante+' de '+run.numero_debut+' à '+run.numero_fin+' est terminée ? Le paquet sera mis en stock.')) return;
   const order = apState.orders.find(o => o.id === run.commande_id);
@@ -532,6 +635,7 @@ async function validateAndContinueAPPrint(run, button) {
         quantite_prevue: nextQty,
         quantite_imprimee: 0,
         imprimante: run.imprimante,
+        poste_travail: run.poste_travail || (/^IMP0[56]$/.test(run.imprimante)?'Poste02':'Poste01'),
         numero_debut: nextStart,
         numero_fin: nextEnd,
         date_production: logitrakToday(),
@@ -561,7 +665,9 @@ function openProductionOrder(id) {
   $('#apPrintRows').replaceChildren();
   delete $('#apPrintRows').dataset.orderId;
   setupInlineProductionForm();
-  $('#apPrintRows .ap-first')?.focus();
+  if(!document.body.classList.contains('is-operator')) return;
+  if(!$('#apWorkstation').value) $('#apWorkstation').focus();
+  else $('#apPrintRows .ap-first')?.focus();
 }
 function handleAction(event) {
   const button = event.target.closest('[data-ap-action]');
@@ -626,6 +732,18 @@ async function start() {
 
 document.addEventListener('DOMContentLoaded', () => {
   syncThemeIcon();
+  $('#apTraceRows').onclick=event=>{
+    const button=event.target.closest('[data-delete-run]');
+    if(!button||!apState.admin||!confirm('Supprimer ce tirage de la production et de l’historique ?')) return;
+    withButton(button,async()=>{
+      const {error}=await sb.from('ap_productions').delete().eq('id',button.dataset.deleteRun);
+      if(error) throw error;
+      await loadAP();
+    });
+  };
+  $('#apWorkstation').onchange=event=>changeStation(event.target.value,false);
+  $('#apReleaseStation').onclick=()=>changeStation(apState.station,true);
+  setInterval(()=>{ updatePrintingWarning(); if(apState.username) loadAPNotices().catch(console.warn); },30000);
   $$('[data-ap-tab]').forEach(btn => btn.addEventListener('click', () => switchAPTab(btn.dataset.apTab)));
   $('#apOrderForm').addEventListener('submit', saveOrder);
   $('#apOrderCancel').addEventListener('click', resetOrder);
