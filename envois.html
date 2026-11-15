@@ -224,7 +224,7 @@
           <input id="ppDest" list="clientsList" class="inp input-uppercase" placeholder="Client du lot par défaut" title="Facultatif : remplace le client de toutes les lignes importées">
         </div>
         <div class="flex justify-end"><button type="button" onclick="toggleAllProdPicker()" class="btn btn-secondary"><i class="fa-solid fa-check-double text-xs"></i>Tout cocher / décocher</button></div>
-        <div id="ppList" class="space-y-2"></div>
+        <label>Carton mixte <select id="ppMixedType" class="inp"><option>H1</option><option selected>H2</option></select></label><p id="ppMixedWeight" role="status"></p><div id="ppList" class="space-y-2"></div>
       </div>
       <div class="px-6 py-4 flex items-center justify-end gap-2 border-t" style="border-color:var(--border);background:var(--bg-input)">
         <button onclick="closeModal('prodPickerModal')" class="btn btn-secondary">Annuler</button>
@@ -431,10 +431,10 @@
   <script src="js/colisage-calc.js"></script>
   <script src="js/data-pages.js"></script>
   <script src="js/ap-calc.js"></script>
-  <script src="js/ap-products.js?v=4.0.18"></script>
-  <script src="js/app.js?v=4.0.18"></script>
+  <script src="js/ap-products.js?v=4.0.21"></script>
+  <script src="js/app.js?v=4.0.21"></script>
   <script src="js/scanner.js"></script>
-  <script src="js/nav.js?v=4.0.18"></script>
+  <script src="js/nav.js?v=4.0.19"></script>
   <script src="js/pwa.js"></script>
 </body>
 </html>

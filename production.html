@@ -480,9 +480,11 @@
     function resetForm() {
       $('#fTarget').value='';
       state.editId = null;
+      state.resumeId = null;
       delete $('#fClient').dataset.manual;
       ['#fRef', '#fDes', '#fQty', '#fClient'].forEach(s => { $(s).value = ''; });
       $('#fDate').value = new Date().toISOString().slice(0, 10);
+      $('#fOF').readOnly=false;
       $('#fOF').value = ofPrefix($('#fDate').value);
       $('#fCat').value = '';
       applyCategoryUI(true);
@@ -495,6 +497,8 @@
       const l = state.lots.find(x => x.id === id); if (!l) return;
       if (resume ? !state.isOperator : !canModifyLot(l)) return toast(LOCK_MSG, 'warning');
       state.editId = resume ? null : id;
+      state.resumeId = resume ? id : null;
+      $('#fOF').readOnly=!state.isAdmin&&(resume||!l.of_numero.endsWith('-0000'));
       $('#fOF').value = l.of_numero || '';
       $('#fTarget').value=l.objectif_of||'';
       $('#fRef').value = l.reference || '';
@@ -538,6 +542,11 @@
       if (!$('#fUni').value) return bad('#fUni', "L'unité de comptage est obligatoire.");
       if (qty < 1) return bad('#fQty', 'Quantité produite : nombre entier supérieur à 0.');
 
+      const original=state.lots.find(l=>l.id===state.resumeId);
+      const target=Number($('#fTarget').value);
+      if(!Number.isSafeInteger(target)||target<1||target>2147483647) return bad('#fTarget','Saisissez la quantité totale à produire.');
+      if(original&&(of!==original.of_numero||ref!==original.reference||up('#fClient')!==original.client)) return bad('#fOF','La reprise doit garder le MO, la référence et le client.');
+      if(!of.endsWith('-0000')&&of!==ofBefore&&!original&&state.lots.some(l=>l.of_numero===of)) return bad('#fOF','Cet OF existe déjà. Utilisez Reprendre sur le lot concerné.');
       const fiche = ref ? ficheOf(ref) : null;
       const core = {
         of_numero: of, reference: ref, categorie: up('#fCat'), designation: des, client: up('#fClient'),
@@ -571,6 +580,11 @@
         } else {
           const row = { ...core, created_by: state.username };
           if (fiche) Object.assign(row, colisageColumns(fiche, qty), { qte_reliquat: qty % fiche.qte_par_carton, reliquat_mode: '', reliquat_carton: '' });
+          if(original?.colisage_valide) {
+            for(const field of ['colisage_ref_id','colisage_valide','type_carton','qte_par_carton','poids_carton','poids_bobine','poids_carton_vide','matiere','gabarit','mandrin','etq_par_bobine','cartes_par_paquet']) row[field]=original[field];
+            const remainder=qty%original.qte_par_carton;
+            Object.assign(row,{nb_cartons_total:Math.ceil(qty/original.qte_par_carton),qte_carton_partiel:remainder,qte_reliquat:remainder,reliquat_mode:'',reliquat_carton:''});
+          }
           const { data, error } = await state.sb.from('production').insert(row).select('id').single();
           if (error) throw error;
           savedId = data?.id;
@@ -584,7 +598,7 @@
       render();
 
       const saved = state.lots.find(x => x.id === savedId);
-      if (ref && !fiche && savedId) {
+      if (ref && !fiche && savedId && !saved?.colisage_valide) {
         // Nouvelle référence : le colisage doit être rempli
         const go = await confirmDialog(`Nouvelle référence ${ref} : son colisage n'existe pas encore. Voulez-vous le remplir maintenant ?`, 'Remplir le colisage', 'Plus tard');
         if (go) { location.href = 'colisage.html?' + new URLSearchParams({ ref, cat: core.categorie, des, prod: savedId }).toString(); return; }
@@ -803,7 +817,7 @@
     })();
   </script>
   <script src="js/scanner.js"></script>
-  <script src="js/nav.js?v=4.0.18"></script>
+  <script src="js/nav.js?v=4.0.19"></script>
   <script src="js/pwa.js"></script>
 </body>
 </html>
