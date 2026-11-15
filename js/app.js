@@ -788,7 +788,7 @@ async function saveExpedition() {
   // carton mixte : poids estimé (carton vide + articles) <= 15 kg
   const mix = items.filter(i => i.colisage_detail?.mixte && !i.colisage_detail.stock_box_id).map(i => ({ qte: parseQty(i.quantite), poids_bobine: i.colisage_detail.poids_bobine }));
   if (mix.length && !state.isAdmin) {
-    const kg = window.LTColis.mixedWeight(mix, 'H2');
+    const kg = window.LTColis.mixedWeight(mix, items.find(i=>i.colisage_detail?.mixte&&!i.colisage_detail.stock_box_id)?.colisage_detail.carton_mixte || 'H2');
     if (kg > window.LTColis.MAX_CARTON_KG && !await confirmDialog(`Le carton mixte pèserait environ ${kg.toLocaleString('fr-FR')} kg (maximum ${window.LTColis.MAX_CARTON_KG} kg). Enregistrer quand même ?`)) return;
   }
   const payload = { 
@@ -1256,6 +1256,17 @@ async function loadProductionLots() {
   }));
 }
 
+function previewMixedWeight() {
+  const existing=$$('#itemsBody tr').map(getDetail).find(d=>d?.mixte&&!d.stock_box_id);
+  const type=$('#ppMixedType');
+  if(existing) type.value=existing.carton_mixte||'H2';
+  type.disabled=!!existing;
+  const contents=$('#ppList .pp-mix').filter(row=>row.querySelector('.pp-check').checked).map(row=>{
+    const lot=state.production.find(l=>l.id===row.dataset.id);
+    return {qte:parseQty(row.querySelector('.pp-qty').value),poids_bobine:LTColis.unitWeight(lot)};
+  });
+  $('#ppMixedWeight').textContent=contents.length?'Poids estimé '+fmtKg(LTColis.mixedWeight(contents,type.value))+' kg':'';
+}
 async function openProdPicker() {
   if (!requireOperator()) return;
   $('#ppSearch').value = '';
@@ -1269,6 +1280,7 @@ async function openProdPicker() {
     return;
   }
   renderProdPicker();
+  previewMixedWeight();
 }
 
 function packingFor(lot, qty) {
@@ -1349,7 +1361,7 @@ function renderProdPicker() {
     (boxHtml ? '<h4 class="text-xs font-bold">Cartons déjà composés en stock</h4>' + boxHtml : '') +
     ((normalHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mb-2" style="color:var(--text-muted)"><i class="fa-solid fa-box mr-1.5"></i>Lots à expédier en cartons</div><div class="space-y-2">${normalHtml}</div>` : '') +
     (mixteHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mt-5 mb-1" style="color:var(--text-muted)"><i class="fa-solid fa-warehouse mr-1.5"></i>Reliquats en stock — CARTON MIXTE</div>
-       <p class="text-[11px] mb-2" style="color:var(--text-dim)">Les reliquats cochés ci-dessous partent ensemble dans <b>un carton mixte H2</b>. Pour choisir le type ou préparer plusieurs cartons, utilisez <b>Cartons en stock</b> dans Production. Limite de référence : ${window.LTColis.MAX_CARTON_KG} kg.</p><div class="space-y-2">${mixteHtml}</div>` : '') || (boxHtml ? '' :
+       <p class="text-[11px] mb-2" style="color:var(--text-dim)">Les reliquats cochés ci-dessous partent ensemble dans <b>un carton mixte du type choisi</b>. Pour choisir le type ou préparer plusieurs cartons, utilisez <b>Cartons en stock</b> dans Production. Limite de référence : ${window.LTColis.MAX_CARTON_KG} kg.</p><div class="space-y-2">${mixteHtml}</div>` : '') || (boxHtml ? '' :
     '<div class="p-8 text-center text-xs" style="color:var(--text-muted)">Rien à expédier pour le moment.</div>'));
 }
 
@@ -1424,7 +1436,7 @@ function addLotRows(picked, dest) {
     const base = lotDetail(p.lot);
     let detail, cartons;
     if (p.mixte) {
-      detail = { ...base, mixte: true, qte: p.qty };
+      detail = { ...base, mixte: true, qte: p.qty, carton_mixte:p.mixedType, poids_bobine:LTColis.unitWeight(p.lot) };
       if (p.box) Object.assign(detail, { stock_box_id: p.box.id, carton_mixte: p.box.type_carton, poids_bobine: LTColis.unitWeight(p.lot) });
       cartons = 0;
     } else {
@@ -1441,7 +1453,9 @@ function addLotRows(picked, dest) {
   updateModalTotals();
 }
 
-function importFromProduction() {
+$('#prodPickerModal').addEventListener('input',previewMixedWeight);
+$('#prodPickerModal').addEventListener('click',()=>queueMicrotask(previewMixedWeight));
+async function importFromProduction() {
   const dest = $('#ppDest').value.trim().toUpperCase();
   const picked = [];
   $$('#ppList .pp-row').forEach(row => {
@@ -1454,12 +1468,21 @@ function importFromProduction() {
     const lot = state.production.find(l => l.id === row.dataset.id); if (!lot || (!lot.colisage_valide && !state.isAdmin)) return;
     const qty = parseQty(row.querySelector('.pp-qty').value);
     if (qty < 1) return;
-    if (row.classList.contains('pp-mix')) { picked.push({ lot, qty, mixte: true }); return; }
+    if (row.classList.contains('pp-mix')) { const existing=$$('#itemsBody tr').map(getDetail).find(d=>d?.mixte&&!d.stock_box_id); picked.push({ lot, qty, mixte: true, mixedType:existing?.carton_mixte||$('#ppMixedType').value }); return; }
     const cInp = row.querySelector('.pp-cartons');
     picked.push({ lot, qty, cartons: Math.max(1, parseInt(cInp.value) || 1), manual: cInp.dataset.manual === '1', mixte: false });
   });
   if (!picked.length) return toast('Cochez au moins un lot de production avec une quantité.', 'warning');
-  if (picked.length) addLotRows(picked, dest);
+  const selectedOFs=new Set(picked.filter(line=>!line.box).map(({lot})=>JSON.stringify([lot.of_numero,lot.reference,lot.client])));
+  const loose=state.production.filter(lot=>lotAvail(lot).mixte>0&&
+    selectedOFs.has(JSON.stringify([lot.of_numero,lot.reference,lot.client]))&&
+    !picked.some(line=>line.mixte&&line.lot.id===lot.id));
+  if(loose.length) {
+    const labels=[...new Set(loose.map(lot=>lot.of_numero+' · '+lot.reference))].join(', ');
+    const proceed=await confirmDialog('Reliquats en vrac pour '+labels+'. Vous pouvez les cocher et choisir un carton H1 ou H2. Ajouter les lignes sélectionnées sans ces reliquats ?');
+    if(!proceed) return;
+  }
+  addLotRows(picked, dest);
   updateModalTotals();
   closeModal('prodPickerModal');
   const nm = picked.filter(p => p.mixte).length;

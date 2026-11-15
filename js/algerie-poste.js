@@ -151,7 +151,7 @@ async function changeStation(station,release) {
     picker.disabled=!!apState.station;
     button.disabled=false;
     $('#apPrintRows').replaceChildren();
-    setupInlineProductionForm();
+    renderProductionTab();
   }
 }
 function workstationPrinters() {
@@ -196,16 +196,24 @@ function renderAPStats() {
   const max=Math.max(1,...series.map(([,qty])=>qty));
   const points=series.map(([,qty],i)=>[10+580*i/Math.max(1,series.length-1),105-95*qty/max]);
   const trend=series.length?'<svg class="ap-trend" viewBox="0 0 600 115" role="img" aria-label="Évolution des quantités produites par jour">'+
-    '<polyline fill="none" stroke="#0284c7" stroke-width="3" points="'+points.map(pair=>pair.join(',')).join(' ')+'"/>'+
+    '<polyline fill="none" stroke="#0284c7" stroke-width="2.5" points="'+points.map(point=>point.join(',')).join(' ')+'"/>'+
     points.map(([x,y],i)=>'<circle cx="'+x+'" cy="'+y+'" r="4" fill="#0284c7"><title>'+esc(series[i][0])+' · '+fmt(series[i][1])+' ID</title></circle>').join('')+
     '</svg><p class="text-xs">'+esc(series[0][0])+' au '+esc(series.at(-1)[0])+' · Pic '+fmt(max)+' ID</p>':'<p>Aucune production.</p>';
   const colors=['#0284c7','#ea580c','#7c3aed','#059669','#db2777'];
   $('#apTab_statistiques').innerHTML='<section class="panel-soft p-4"><h3 class="font-bold">Production par jour</h3>'+trend+'</section>'+
     '<div class="grid md:grid-cols-2 gap-3 mt-4">'+groups.map((group,index)=>{
-      const entries=[...group].sort((a,b)=>b[1]-a[1]), peak=Math.max(1,entries[0]?.[1]||0);
-      return '<section class="panel-soft p-4 space-y-3" style="--ap-stat:'+colors[index]+'"><h3 class="font-bold">'+labels[index]+'</h3>'+
-        (entries.map(([name,qty])=>'<div><p class="flex justify-between gap-2 text-sm"><span>'+esc(name)+'</span><b>'+fmt(qty)+' ID</b></p>'+
-        '<div class="ap-stat-track"><i style="width:'+100*qty/peak+'%"></i></div></div>').join('')||'<p>Aucune production.</p>')+'</section>';
+      const entries=[...group].filter(([,qty])=>qty>0).sort((a,b)=>b[1]-a[1]);
+      const total=entries.reduce((sum,[,qty])=>sum+qty,0);
+      let offset=0;
+      const slices=entries.map(([name,qty],i)=>{
+        const from=offset;
+        offset+=100*qty/total;
+        return {name,qty,color:colors[i%colors.length],from,to:offset};
+      });
+      const gradient=slices.map(slice=>slice.color+' '+slice.from+'% '+slice.to+'%').join(',');
+      return '<section class="panel-soft p-4 space-y-3"><h3 class="font-bold">'+labels[index]+'</h3>'+
+        (total?'<div class="ap-stat-layout"><div class="ap-stat-donut" style="background:conic-gradient('+gradient+')"><div><b>'+fmt(total)+'</b><small>ID au total</small></div></div>'+
+          '<ul class="ap-stat-legend">'+slices.map(slice=>'<li><i style="background:'+slice.color+'"></i><span>'+esc(slice.name)+'</span><b>'+fmt(slice.qty)+' ID</b></li>').join('')+'</ul></div>':'<p>Aucune production.</p>')+'</section>'; 
     }).join('')+'</div>';
 }
 function renderKPIs() {
@@ -242,6 +250,7 @@ function renderOrders() {
       '</div>' +
       '<div class="flex flex-wrap items-center gap-2">' +
         (rem > 0 ? '<button type="button" class="btn btn-primary op-only" data-ap-action="goto-prod" data-id="' + esc(order.id) + '"><i class="fa-solid fa-print"></i>Produire</button>' : '<span class="badge" style="background:rgba(16,185,129,.15);color:#34d399">Complète</span>') +
+        (apState.admin&&rem>0?'<button class="btn btn-secondary" type="button" data-ap-action="permit-order" data-id="'+esc(order.id)+'">'+(order.autorise_nouvelle_commande?'Retirer l’autorisation':'Autoriser une nouvelle commande')+'</button>':'')+
         (canEdit(order) ? '<button type="button" class="btn btn-secondary" data-ap-action="edit-order" data-id="' + esc(order.id) + '">Modifier</button>' : '') +
         (canEdit(order)&&(apState.admin||!orderRuns(order.id).length) ?
         '<button type="button" class="btn btn-secondary" data-ap-action="delete-order" data-id="' + esc(order.id) + '">Supprimer</button>' : '') +
@@ -265,7 +274,8 @@ function renderProductionTab() {
   setupInlineProductionForm();
 
   // Impressions en cours sur les machines
-  const active = apState.runs.filter(run => run.statut === 'EN_COURS');
+  const assigned=apState.station==='Poste01'?['IMP01','IMP02','IMP03','IMP04']:apState.station==='Poste02'?['IMP05','IMP06']:[];
+  const active = apState.runs.filter(run => run.statut === 'EN_COURS' && (apState.admin || assigned.includes(run.imprimante)));
   $('#apActive').innerHTML = active.map(run => {
     const order = apState.orders.find(row => row.id === run.commande_id);
     const remOrder = order ? remainingForPrint(order) : 0;
@@ -687,6 +697,10 @@ function handleAction(event) {
   if (!order) return;
   if (act === 'goto-prod') return openProductionOrder(order.id);
   if (act === 'ship-order') return shipAPOrder(order);
+  if(act==='permit-order'&&apState.admin) return withButton(button,async()=>{
+    await saveRecord('ap_commandes',{autorise_nouvelle_commande:!order.autorise_nouvelle_commande},order);
+    await loadAP();
+  });
   if (act === 'delete-order') return deleteOrder(order, button);
   if (act === 'edit-order') return editOrder(order);
 }
