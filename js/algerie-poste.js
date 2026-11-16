@@ -24,7 +24,7 @@ function switchAPTab(tab) {
   if(tab==='statistiques'&&!apState.admin) return;
   apState.tab = tab;
   $$('[data-ap-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.apTab === tab));
-  ['commandes', 'production', 'historique','statistiques'].forEach(name => {
+  ['commandes', 'production', 'historique','statistiques','expedition'].forEach(name => {
     const box = $('#apTab_' + name);
     if (box) box.classList.toggle('hidden', name !== tab);
   });
@@ -86,7 +86,16 @@ function fillSubtypes(selected = '') {
   $('#apSubtype').value = selected;
 }
 
+async function syncAPClock() {
+  const {data,error}=await sb.rpc('ap_server_time_ms');
+  if(error||!Number.isFinite(Number(data))||data===null) throw error||new Error('Horloge Supabase indisponible.');
+  apState.clock={server:Number(data),local:performance.now()};
+}
+function apNow() {
+  return apState.clock?apState.clock.server+performance.now()-apState.clock.local:NaN;
+}
 async function loadAP() {
+  await syncAPClock().catch(console.warn);
   const [orders, runs, shipments, machines] = await Promise.all([
     readLogiTrakRows(sb, 'ap_commandes'),
     readLogiTrakRows(sb, 'ap_productions'),
@@ -129,6 +138,16 @@ async function refreshStations() {
     option.disabled=!!owner&&owner!==apState.username;
     option.textContent=option.value+(option.disabled?' · Réservé par '+owner:'');
   }
+  const adminStations=$('#apAdminStations');
+  adminStations.replaceChildren();
+  if(apState.admin) for(const row of data) {
+    if(row.operateur===apState.username) continue;
+    const release=document.createElement('button');
+    release.type='button'; release.className='btn btn-secondary';
+    release.textContent='Libérer '+row.poste+' ('+row.operateur+')';
+    release.onclick=()=>changeStation(row.poste,true);
+    adminStations.append(release);
+  }
   picker.value=apState.station;
   picker.disabled=!!apState.station;
   $('#apReleaseStation').hidden=!apState.station;
@@ -152,6 +171,16 @@ async function changeStation(station,release) {
     button.disabled=false;
     $('#apPrintRows').replaceChildren();
     renderProductionTab();
+  }
+}
+function printUnlockTime(run) {
+  const previous=apState.runs.filter(row=>row.id!==run.id&&row.imprimante===run.imprimante&&row.termine_at);
+  return Math.max(Date.parse(run.created_at),...previous.map(row=>Date.parse(row.termine_at)))+300000;
+}
+function updatePrintCountdowns() {
+  for(const timer of document.querySelectorAll('[data-ap-unlock]')) {
+    const left=Math.max(0,Math.ceil((Number(timer.dataset.apUnlock)-apNow())/1000));
+    timer.textContent=!Number.isFinite(left)?'Heure indisponible':left?String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0'):'Validation possible';
   }
 }
 function workstationPrinters() {
@@ -293,10 +322,12 @@ function renderProductionTab() {
       '</div>' +
       '<div class="flex flex-wrap gap-2">' +
         (canEdit(run) && nextStart && nextEnd ? '<button type="button" class="btn btn-primary" data-ap-action="validate-and-continue" data-id="' + esc(run.id) + '" title="Valide ce paquet et lance immédiatement la plage ' + esc(nextStart) + ' → ' + esc(nextEnd) + ' sur ' + esc(run.imprimante) + '"><i class="fa-solid fa-forward"></i>Valider &amp; lancer la suite (' + esc(nextStart) + ')</button>' : '') +
+        '<span class="ap-print-countdown font-mono-code" data-ap-unlock="' + printUnlockTime(run) + '"></span>' +
         (canEdit(run) ? '<button type="button" class="btn btn-secondary" data-ap-action="validate-run" data-id="' + esc(run.id) + '"><i class="fa-solid fa-check text-emerald-400"></i>Valider et stocker</button>' : '') +
       '</div></div>';
   }).join('') || '<p class="text-xs" style="color:var(--text-muted)">Aucune impression en cours sur les machines.</p>';
 
+  updatePrintCountdowns();
   // Stock des paquets produits & colisage par commande
   const stockHtml = [];
   for (const order of apState.orders) {
@@ -612,6 +643,7 @@ async function deleteOrder(order, button) {
   });
 }
 async function validateAPPrint(run, button) {
+  if(apNow()<printUnlockTime(run)) return message('Attendez la fin du compte à rebours avant de valider.',true);
   if (!canEdit(run)) return;
   await withButton(button, async () => {
     await saveRecord('ap_productions', { statut: 'TERMINE', quantite_imprimee: run.quantite_prevue }, run);
@@ -624,6 +656,7 @@ async function validateAPPrint(run, button) {
 
 // Valide la plage actuelle d'une machine (ex: IMP2) et démarre immédiatement la plage suivante sur cette même machine sans saisie manuelle
 async function validateAndContinueAPPrint(run, button) {
+  if(apNow()<printUnlockTime(run)) return message('Attendez la fin du compte à rebours avant de valider.',true);
   if(!workstationPrinters().includes(run.imprimante)) return message('Choisissez le poste associé à cette imprimante pour lancer la suite.',true);
   if (!canEdit(run)) return;
   if (!window.confirm('Confirmez-vous que l’impression sur '+run.imprimante+' de '+run.numero_debut+' à '+run.numero_fin+' est terminée ? Le paquet sera mis en stock.')) return;
@@ -757,6 +790,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   $('#apWorkstation').onchange=event=>changeStation(event.target.value,false);
   $('#apReleaseStation').onclick=()=>changeStation(apState.station,true);
+  setInterval(updatePrintCountdowns,1000);
   setInterval(()=>{ updatePrintingWarning(); if(apState.username) loadAPNotices().catch(console.warn); },30000);
   $$('[data-ap-tab]').forEach(btn => btn.addEventListener('click', () => switchAPTab(btn.dataset.apTab)));
   $('#apOrderForm').addEventListener('submit', saveOrder);

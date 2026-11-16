@@ -65,6 +65,7 @@ async function loadAPColisage() {
       const kg=value=>Number(value).toLocaleString('fr-FR',{minimumFractionDigits:3,maximumFractionDigits:3});
       // Regrouper les paquets au niveau de la commande, jamais par imprimante/opérateur.
       // Chaque tranche validée de 1 000 ID alimente le même flux de colisage.
+      const formatID=value=>String(value).padStart(8,'0').replace(/^(\d{2})(\d{3})(\d{3})$/,'$1 $2 $3');
       const packetRows=[];
       for (const run of [...completed].sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)))) {
         const qty=Number(run.quantite_imprimee||0);
@@ -100,19 +101,19 @@ async function loadAPColisage() {
           const tare=LTColis.TARE[cartonType];
         const ids=packets.reduce((sum,packet)=>sum+packet.count,0);
         const net=ids/1000*packetKg;
-        cartonRows.push('<tr><td>'+cartonType+' · '+(cartonRows.length+1)+'</td><td>'+packets.length+(combined?'':' / '+capacity)+' paquets</td><td>'+fmtNum(ids)+' ID</td><td>'+kg(net)+' kg</td><td>'+(typeof tare==='number'?kg(net+tare)+' kg':'Tare non renseignée')+'</td><td>'+packets.map((packet,index)=>'<div class="mb-1">P'+(i+index+1)+' · '+(packet.from?esc(packet.from.replace(/(\d{2})(\d{3})(\d{3})/,'$1 $2 $3'))+' → '+esc(packet.to.replace(/(\d{2})(\d{3})(\d{3})/,'$1 $2 $3')):'Plage non renseignée')+' · '+esc(packet.printer)+' · '+esc(packet.operator)+'</div>').join('')+'</td></tr>');
+        cartonRows.push('<tr><td>'+cartonType+' · '+(cartonRows.length+1)+'</td><td>'+packets.length+(combined?'':' / '+capacity)+' paquets</td><td>'+fmtNum(ids)+' ID</td><td>'+kg(net)+' kg</td><td>'+(typeof tare==='number'?kg(net+tare)+' kg':'Tare non renseignée')+'</td><td><table class="w-full"><thead><tr><th>Plage</th><th>Imprimante</th><th>Opérateur</th></tr></thead><tbody>'+packets.map(packet=>'<tr><td class="font-mono-code">'+(packet.from?esc(formatID(packet.from)+' → '+formatID(packet.to)):'—')+'</td><td>'+esc(packet.printer)+'</td><td>'+esc(packet.operator)+'</td></tr>').join('')+'</tbody></table></td></tr>');
         if(combined) break;
       }
       }
       const rows=cartonRows.join('');
       output.innerHTML='<p><b>'+esc(order.client)+'</b> · '+esc(spec.label)+' · '+spec.copies+' exemplaires</p>'+
         '<p>Référence '+spec.reference+' · Gabarit '+spec.format+' · '+esc(spec.colors)+'</p>'+
-        (rows?'<div class="overflow-x-auto"><table class="ap-packing-table w-full text-xs"><thead><tr><th>Carton</th><th>Remplissage</th><th>Contenu</th><th>Poids net</th><th>Poids brut estimé</th><th>Paquets (opérateur / imprimante / plage)</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p>Aucun tirage validé.</p>')+
-        '<p class="text-xs">Les paquets validés sont regroupés par commande, même s’ils proviennent de plusieurs opérateurs ou imprimantes. Un carton ne mélange jamais deux commandes. H1 : '+spec.capacity/1000+' paquets. Choisissez H2 sur les tirages à placer en reliquat.</p>';
+        (rows?'<div class="overflow-x-auto"><table class="ap-packing-table w-full text-xs"><thead><tr><th>Carton</th><th>Remplissage</th><th>Contenu</th><th>Poids net</th><th>Poids brut estimé</th><th>Détail des paquets</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<p>Aucun tirage validé.</p>')+
+        '<p class="text-xs no-print">Les paquets validés sont regroupés par commande, même s’ils proviennent de plusieurs opérateurs ou imprimantes. Un carton ne mélange jamais deux commandes. H1 : '+spec.capacity/1000+' paquets. Choisissez H2 sur les tirages à placer en reliquat.</p>';
       if(canMerge&&(order.regroupement_h2||editable(order))) {
         const action=document.createElement('button');
         action.type='button';
-        action.className='btn btn-secondary';
+        action.className='btn btn-secondary no-print';
         action.textContent=order.regroupement_h2?'Rétablir le colisage H1':'Regrouper un H1 plein et le reliquat dans un H2';
         action.disabled=!editable(order);
         action.onclick=async()=>{
@@ -139,7 +140,9 @@ async function loadAPColisage() {
     if(requested) section.scrollIntoView({block:'start'});
     button.addEventListener('click',async()=>{
       const sheet=document.getElementById('apPackingSheet');
-      sheet.innerHTML='<div class="print-brand"><img src="assets/logitrak-eurequat.jpg" alt="LogiTrak" width="2752" height="1536"></div><h1>Colisage Algérie Poste</h1>'+output.innerHTML;
+      const printable=output.cloneNode(true);
+      printable.querySelectorAll('button,.no-print').forEach(element=>element.remove());
+      sheet.innerHTML='<div class="print-brand"><img src="assets/logitrak-eurequat.jpg" alt="LogiTrak" width="2752" height="1536"></div><h1>Colisage Algérie Poste</h1>'+printable.innerHTML;
       document.body.classList.add('ap-printing');
       try { await printLogiTrakDocument(sheet); }
       finally { document.body.classList.remove('ap-printing'); }

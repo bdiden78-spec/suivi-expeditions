@@ -323,6 +323,18 @@ function shipmentDisplayItems(items) {
   for(const item of items) {
     const detail=item.colisage_detail, packing=detail?.ap_pack;
     if(!detail?.ap_production_id || !apProductSpec(packing?.type)) {
+      if(detail?.mixte&&item.reference) {
+        const key=JSON.stringify(['mixte',detail.stock_box_id||'direct',item.reference,item.categorie,item.designation,item.destinataire,item.unite]);
+        if(!lots.has(key)) {
+          const line={...item,quantite:'0',cartons:0};
+          lots.set(key,line);
+          visible.push(line);
+        }
+        const line=lots.get(key);
+        line.quantite=String(Number(line.quantite)+Number(digitsOnly(item.quantite)));
+        line.cartons+=cartonsOfItem(item);
+        continue;
+      }
       if(!item.production_id||!item.of_numero||!item.reference||detail?.mixte||detail?.manual) {visible.push(item);continue;}
       const key=JSON.stringify([item.of_numero,item.reference,item.destinataire,item.unite,item.categorie,item.designation,item.type_carton,detail?.qpc,detail?.poids_bobine]);
       if(!lots.has(key)) {
