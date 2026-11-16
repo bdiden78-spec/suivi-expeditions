@@ -78,7 +78,7 @@
     .ap-stat-legend li{display:grid;grid-template-columns:12px 1fr auto;align-items:center;gap:8px;padding:6px 0}
     .ap-stat-legend i{width:10px;height:10px;border-radius:50%}
     @media(prefers-reduced-motion:no-preference){#apTab_statistiques:not(.hidden) .ap-stat-donut{animation:ap-stat-fade .55s ease-out}}
-  </style>
+  .ap-print-countdown{align-self:center;font-size:1.125rem;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;padding:.25rem .5rem}</style>
 </head>
 <body data-module="algerie-poste" class="min-h-screen flex flex-col antialiased">
 
@@ -124,6 +124,7 @@
         <button type="button" class="seg active" data-ap-tab="commandes"><i class="fa-solid fa-file-invoice"></i>Commandes</button>
         <button type="button" class="seg" data-ap-tab="production"><i class="fa-solid fa-boxes-packing"></i>Production</button>
         <button type="button" class="seg" data-ap-tab="historique"><i class="fa-solid fa-table-list"></i>Historique</button>
+        <button type="button" class="seg" data-ap-tab="expedition">Expédition</button>
         <button type="button" class="seg adm-only" data-ap-tab="statistiques">Statistiques</button>
       </div>
 
@@ -161,7 +162,7 @@
       </div>
 
       <!-- ==================== SOUS-SECTION 2 : PRODUCTION ==================== -->
-      <div id="apTab_production" class="hidden space-y-5"><div class="panel p-4 op-only" style="border:2px solid #ea580c"><label class="lbl" for="apWorkstation">Poste de travail obligatoire</label><select id="apWorkstation" class="inp" style="background:#ffedd5;color:#9a3412" required aria-describedby="apChooseStation"><option value="">Choisir un poste</option><option>Poste01</option><option>Poste02</option></select><button id="apReleaseStation" type="button" class="btn btn-secondary" hidden>Libérer le poste</button><p id="apStationStatus" role="status"></p><p id="apChooseStation" role="status">Choisissez votre poste de travail pour démarrer la production.</p></div><p id="apPrintingWarning" role="status" class="text-amber-600 font-bold"></p>
+      <div id="apTab_production" class="hidden space-y-5"><div class="panel p-4 op-only" style="border:2px solid #ea580c"><label class="lbl" for="apWorkstation">Poste de travail obligatoire</label><select id="apWorkstation" class="inp" style="background:#ffedd5;color:#9a3412" required aria-describedby="apChooseStation"><option value="">Choisir un poste</option><option>Poste01</option><option>Poste02</option></select><button id="apReleaseStation" type="button" class="btn btn-secondary" hidden>Libérer le poste</button><p id="apStationStatus" role="status"></p><div id="apAdminStations" class="adm-only"></div><p id="apChooseStation" role="status">Choisissez votre poste de travail pour démarrer la production.</p></div><p id="apPrintingWarning" role="status" class="text-amber-600 font-bold"></p>
         <section class="panel p-4 sm:p-5 space-y-4 op-only">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -212,6 +213,8 @@
           <div id="apActive" class="space-y-2"></div>
         </section>
 
+</div>
+<div id="apTab_expedition" class="hidden space-y-5">
         <section class="panel p-4 sm:p-5 space-y-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -268,8 +271,8 @@
   <script src="js/ap-products.js"></script>
   <script src="js/colisage-calc.js"></script>
   <script src="js/ap-trace.js"></script>
-  <script src="js/algerie-poste.js?v=4.0.22"></script>
-  <script src="js/nav.js?v=4.0.19"></script>
+  <script src="js/algerie-poste.js?v=4.0.25"></script>
+  <script src="js/nav.js?v=4.0.25"></script>
   <script src="js/pwa.js"></script>
 </body>
 </html>

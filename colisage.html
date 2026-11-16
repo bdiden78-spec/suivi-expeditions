@@ -54,6 +54,14 @@
       .chip-todo{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(245,158,11,.14);color:#d97706;border:1px solid rgba(245,158,11,.4);cursor:pointer;text-decoration:none}
     .chip-todo:hover{background:rgba(245,158,11,.25)}
   </style>
+<style>
+  .ap-packing-table > thead > tr > th,
+  .ap-packing-table > tbody > tr > td { padding: .35rem .45rem; vertical-align: top; }
+  .ap-packing-table > thead > tr > th:nth-child(-n+5) { width: 1%; }
+  .ap-packing-table > tbody > tr > td:nth-child(-n+5) { white-space: nowrap; }
+  .ap-packing-table > tbody > tr > td:last-child td,
+  .ap-packing-table > tbody > tr > td:last-child th { padding: .3rem .45rem; }
+</style>
 </head>
 <body data-module="colisage" class="min-h-screen flex flex-col antialiased">
 
@@ -219,7 +227,7 @@
   <script src="js/data-pages.js"></script>
   <script src="js/ap-products.js"></script>
   <script src="js/ap-calc.js"></script>
-  <script src="js/ap-packing.js"></script>
+  <script src="js/ap-packing.js?v=4.0.23"></script>
   <script>
     const THEME_KEY = 'logitrak_theme', LOCAL_KEY = 'eurequat_expeditions_v1';
     const state = {
@@ -950,7 +958,7 @@
       boot();
     })();
   </script>
-  <script src="js/nav.js?v=4.0.19"></script>
+  <script src="js/nav.js?v=4.0.23"></script>
   <script src="js/pwa.js"></script>
 </body>
 </html>
