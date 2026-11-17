@@ -99,7 +99,8 @@
         <input type="hidden" id="fType" value="ETIQUETTE">
         <div id="productionFields" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div><label class="lbl" for="fOF">Ordre de fabrication (OF) * <span style="color:var(--text-dim);font-weight:500">MOyymm-xxxx</span></label><input id="fOF" class="inp font-mono-code input-uppercase" placeholder="MO2610-0000" maxlength="11" autocomplete="off" spellcheck="false" title="Format imposé : MOyymm-xxxx (ex. MO2610-0000)"></div>
-          <div><label class="lbl" for="fRef">Référence * <span style="color:var(--text-dim);font-weight:500">(toucher = scanner)</span></label><input id="fRef" data-field="reference" class="inp font-mono-code input-uppercase" list="refList" placeholder="📷 Réf" autocomplete="off"></div>
+          <div><label class="lbl" for="fRef">Référence * <span style="color:var(--text-dim);font-weight:500">(toucher = scanner)</span></label><input id="fRef" data-field="reference" class="inp font-mono-code input-uppercase" list="refList" placeholder="📷 Réf" autocomplete="off"><div id="fInlayHint" class="flex flex-wrap gap-1 mt-1" aria-live="polite"></div></div>
+          <label id="fInlayField" hidden class="lbl">Inlay RFID<input id="fInlay" class="inp" maxlength="160"></label>
           <div><label class="lbl" for="fCat">Catégorie * <button type="button" class="lst-btn adm-only" onclick="Listes.manage('categories')" title="Ajouter / retirer une catégorie"><i class="fa-solid fa-gear"></i></button></label><select id="fCat" class="inp font-bold"><option value="">— Choisir —</option><option value="ETIQUETTES">ETIQUETTES</option><option value="ETIQUETTES RFID">ETIQUETTES RFID</option><option value="RUBAN TTR">RUBAN TTR</option><option value="CARTE PVC">CARTE PVC</option><option value="TAG">TAG</option></select></div>
           <div><label class="lbl" for="fDes">Désignation</label><input id="fDes" class="inp input-uppercase" placeholder="Ex : ETIQUETTE TT 100x150" autocomplete="off"></div>
           <div><label class="lbl" for="fUni">Unité de comptage <button type="button" class="lst-btn adm-only" onclick="Listes.manage('unites')" title="Ajouter / retirer une unité"><i class="fa-solid fa-gear"></i></button></label><select id="fUni" class="inp font-bold"></select></div>
@@ -203,6 +204,7 @@
   <script src="js/config.js"></script>
   <script src="js/listes.js"></script>
   <script src="js/colisage-calc.js"></script>
+  <script src="js/product-reference.js?v=2"></script>
   <script src="js/reliquat.js"></script>
   <script src="js/cartons-stock.js"></script>
   <script src="js/data-pages.js"></script>
@@ -478,6 +480,7 @@
     }
 
     function resetForm() {
+      document.getElementById("fInlay").value="";
       $('#fTarget').value='';
       state.editId = null;
       state.resumeId = null;
@@ -501,6 +504,7 @@
       $('#fOF').readOnly=!state.isAdmin&&(resume||!l.of_numero.endsWith('-0000'));
       $('#fOF').value = l.of_numero || '';
       $('#fTarget').value=l.objectif_of||'';
+      document.getElementById("fInlay").value=l.inlay||"";
       $('#fRef').value = l.reference || '';
       Listes.setValue('#fCat', l.categorie || '');
       $('#fDes').value = l.designation || '';
@@ -548,7 +552,11 @@
       if(original&&(of!==original.of_numero||ref!==original.reference||up('#fClient')!==original.client)) return bad('#fOF','La reprise doit garder le MO, la référence et le client.');
       if(!of.endsWith('-0000')&&of!==ofBefore&&!original&&state.lots.some(l=>l.of_numero===of)) return bad('#fOF','Cet OF existe déjà. Utilisez Reprendre sur le lot concerné.');
       const fiche = ref ? ficheOf(ref) : null;
+      const traits=productReference(ref,document.getElementById('fCat').value);
+      const inlay=document.getElementById('fInlay').value.trim();
+      if(traits.rfid&&!inlay) return bad('#fInlay','Renseignez l’inlay RFID utilisé.');
       const core = {
+        inlay:traits.rfid?inlay:'',
         of_numero: of, reference: ref, categorie: up('#fCat'), designation: des, client: up('#fClient'),
         type_produit: $('#fType').value || 'ETIQUETTE', unite: $('#fUni').value,
         objectif_of: Number($('#fTarget').value)||null,
@@ -574,6 +582,7 @@
             upd.qte_carton_partiel = R;
             if (R !== (lot.qte_reliquat || 0)) { upd.reliquat_mode = ''; upd.reliquat_carton = ''; upd.qte_reliquat = R; }
           }
+          if(traits.packet) upd.cartes_par_paquet=traits.packet;
           const { error } = await state.sb.from('production').update(upd).eq('id', state.editId);
           if (error) throw error;
           toast('Lot de production modifié.', 'success');
@@ -585,6 +594,7 @@
             const remainder=qty%original.qte_par_carton;
             Object.assign(row,{nb_cartons_total:Math.ceil(qty/original.qte_par_carton),qte_carton_partiel:remainder,qte_reliquat:remainder,reliquat_mode:'',reliquat_carton:''});
           }
+          if(traits.packet) row.cartes_par_paquet=traits.packet;
           const { data, error } = await state.sb.from('production').insert(row).select('id').single();
           if (error) throw error;
           savedId = data?.id;
@@ -817,5 +827,20 @@
   <script src="js/scanner.js"></script>
   <script src="js/nav.js?v=4.0.23"></script>
   <script src="js/pwa.js"></script>
-</body>
+<script>
+(() => {
+ const ref=document.getElementById('fRef'), category=document.getElementById('fCat'), field=document.getElementById('fInlayField');
+ const refresh=()=>{
+  const traits=productReference(ref.value,category.value);
+  field.hidden=!traits.rfid;
+  renderReferenceBadges(document.getElementById('fInlayHint'),traits);
+  const packet=document.getElementById('rPaquet');
+  if(packet){packet.readOnly=Boolean(traits.packet);if(traits.packet)packet.value=traits.packet;}
+ };
+ document.addEventListener('input',refresh);
+ document.addEventListener('change',refresh);
+ document.addEventListener('click',()=>queueMicrotask(refresh));
+ refresh();
+})();
+</script></body>
 </html>

@@ -37,7 +37,23 @@
     .chart-box{position:relative;height:300px;width:100%}
     .production-chart-box{position:relative;height:275px;width:100%}
   </style>
-</head>
+<style>
+.monthly-rings{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr));gap:14px}
+.monthly-ring-card{padding:14px}
+.monthly-ring-card h4{font-weight:800}
+.monthly-ring{width:clamp(150px,18vw,190px);aspect-ratio:1;margin:12px auto;display:grid;place-items:center;border-radius:50%}
+.monthly-ring>div{width:72%;aspect-ratio:1;border-radius:50%;background:var(--bg-card);display:grid;place-content:center;text-align:center}
+.monthly-ring strong{font-size:1.2rem}
+.monthly-ring small{color:var(--text-muted)}
+.monthly-ring-card li{display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:8px;padding:4px 0;font-size:.85rem}
+.monthly-ring-card i{width:10px;height:10px;border-radius:50%}
+</style>
+<style>
+.monthly-single{display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:center;padding:16px}
+.monthly-canvas{position:relative;width:min(100%,390px);aspect-ratio:1;flex:none}
+.monthly-total{position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none}
+.monthly-total strong{font-size:clamp(1.1rem,4vw,1.65rem)}
+</style></head>
 <body data-module="statistiques" class="min-h-screen flex flex-col antialiased">
 
   <header class="app-header relative z-30 no-print">
@@ -81,7 +97,7 @@
     <div class="stat-card md:col-span-2 xl:col-span-3" style="--c1:#0284c7;--c2:#f97316">
       <h3><span class="stat-dot"><i class="fa-solid fa-industry"></i></span>Production générale (par mois)</h3>
       <p id="prodChartNote">Évolution mensuelle de la production par catégorie pour l’année sélectionnée</p>
-      <div class="production-chart-box"><canvas id="chartProduction"></canvas></div>
+      <label for="productionMonth">Mois de production</label> <select id="productionMonth" class="inp w-auto"></select><div id="chartProduction" class="monthly-rings"></div>
     </div>
     </div>
   </main>
@@ -95,8 +111,8 @@
   <script>
     const THEME_KEY = 'logitrak_theme';
     let state = { expeditions: [], production: [] };
+    let chartProduction=null;
     const charts = {};            // un graphique par catégorie (+ Algérie Poste)
-    let chartProduction = null;
 
     const $ = s => document.querySelector(s);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -182,11 +198,14 @@
     const AP_CARD = { id: 'AP', label: 'Algérie Poste', short: 'Algérie Poste', icon: 'fa-envelope-open-text', c1: '#f97316', c2: '#fb923c' };
     function allCards() {
       const theme = getComputedStyle(document.documentElement);
-      const colors = { ETQ:'blue', RFID:'cyan', RUBAN:'amber', PVC:'violet', TAG:'green', AP:'amber' };
+      const light = document.documentElement.classList.contains('light');
+      const colors = light
+        ? { ETQ:'#0059d6', RFID:'#c71e32', RUBAN:'#e5ad00', PVC:'#121820', TAG:'#008547', AP:'#862fbe' }
+        : { ETQ:'#54a5ff', RFID:'#ff526a', RUBAN:'#ffdb39', PVC:'#e6ebf2', TAG:'#39da89', AP:'#c991ff' };
       return [...LTColis.CATEGORIES, AP_CARD].map(card => ({
         ...card,
         title: card.id === 'PVC' ? 'Top5 - Carte PVC' : `Top 5 — ${card.label}`,
-        c1: theme.getPropertyValue('--module-' + colors[card.id]).trim() || card.c1,
+        c1: colors[card.id] || card.c1,
       }));
     }
     function buildCards() {
@@ -287,7 +306,6 @@
         note.classList.remove('hidden');
       } else note.classList.add('hidden');
 
-      if (chartProduction) chartProduction.destroy();
       const monthLabels = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'].slice(0, Number(mm));
       const known = new Map(allCards().map(c => [c.id, c]));
       const monthly = new Map();
@@ -299,29 +317,35 @@
         const raw = String(row.categorie || '').trim();
         const category = known.get(resolveLineCategory(row,row));
         const label = category?.label || LTColis.normSpaced(raw) || 'Sans catégorie';
-        if (!monthly.has(label)) monthly.set(label, { label, data: Array(monthLabels.length).fill(0), backgroundColor: category?.c1 || '#0284c7', borderRadius: 9, maxBarThickness: 28 });
+        if (!monthly.has(label)) monthly.set(label, { label, data: Array(monthLabels.length).fill(0), backgroundColor: category?.c1 || '#737b86', borderRadius: 9, maxBarThickness: 28 });
         monthly.get(label).data[month - 1] += parseQty(row.quantite_produite);
       }
       const datasets = [...monthly.values()].sort((a, b) => a.label.localeCompare(b.label, 'fr'));
       $('#prodChartNote').textContent = datasets.length
         ? 'Quantités produites par catégorie, selon la date de production du lot.'
         : 'Aucune production accessible pour cette année. Connectez-vous si nécessaire.';
-      const pctx = document.getElementById('chartProduction');
-      chartProduction = pctx ? new Chart(pctx, {
-        type: 'bar',
-        data: { labels: monthLabels, datasets },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, position: 'top', labels: { color: textColor, font: { weight: '700', size: 11 } } },
-            tooltip: { callbacks: { label: c => `${c.dataset.label} : ${Number(c.raw || 0).toLocaleString('fr-FR')}` } }
-          },
-          scales: {
-            x: { ticks: { color: textColor, font: { size: 10, weight: '600' } }, grid: { display: false } },
-            y: { beginAtZero: true, ticks: { color: textColor, callback: v => Number(v).toLocaleString('fr-FR') }, grid: { color: gridColor } }
-          }
-        }
-      }) : null;
+      const picker=$('#productionMonth');
+      const selected=picker.dataset.year===year&&picker.value!==''?Number(picker.value):monthLabels.length-1;
+      picker.dataset.year=year;
+      picker.innerHTML=monthLabels.map((month,index)=>'<option value="'+index+'">'+esc(month)+'</option>').join('');
+      picker.value=String(Math.min(selected,monthLabels.length-1));
+      if(chartProduction) { chartProduction.destroy(); chartProduction=null; }
+      const index=Number(picker.value);
+      const entries=datasets.filter(category=>category.data[index]>0);
+      const total=entries.reduce((sum,category)=>sum+category.data[index],0);
+      const panel=$('#chartProduction');
+      picker.onchange=renderStatsPage;
+      panel.innerHTML=total?'<section class="monthly-single"><div class="monthly-canvas"><canvas aria-label="Production par catégorie"></canvas>'+
+        '<div class="monthly-total"><strong>'+fmt(total)+'</strong><small>Total produit</small></div></div>'+
+        '<ul class="monthly-ring-card">'+entries.map(category=>'<li><i style="background:'+category.backgroundColor+'"></i><span>'+esc(category.label)+'</span><b>'+fmt(category.data[index])+'</b></li>').join('')+'</ul></section>':'<p>Aucune production pour ce mois.</p>';
+      if(total) chartProduction=new Chart(panel.querySelector('canvas'),{
+        type:'doughnut',
+        data:{labels:entries.map(c=>c.label),datasets:[{data:entries.map(c=>c.data[index]),backgroundColor:entries.map(c=>c.backgroundColor),borderWidth:0,hoverOffset:9}]},
+        options:{responsive:true,maintainAspectRatio:false,cutout:'70%',layout:{padding:12},
+          animation:matchMedia('(prefers-reduced-motion: reduce)').matches?false:{duration:450},
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:item=>item.label+' · '+fmt(item.raw)+' ('+
+            (100*item.raw/total).toLocaleString('fr-FR',{maximumFractionDigits:1})+' % du mois)'}}}}
+      });
     }
 
     document.addEventListener('DOMContentLoaded', async () => {

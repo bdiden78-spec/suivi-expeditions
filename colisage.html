@@ -129,7 +129,8 @@
         </div>
 
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div><label class="lbl" for="rReference">Référence *</label><input id="rReference" class="inp font-mono-code input-uppercase" list="refList" placeholder="Ex : ETQ-100x150" autocomplete="off"></div>
+          <div><label class="lbl" for="rReference">Référence *</label><input id="rReference" class="inp font-mono-code input-uppercase" list="refList" placeholder="Ex : ETQ-100x150" autocomplete="off"><div id="rInlayHint" class="flex flex-wrap gap-1 mt-1" aria-live="polite"></div></div>
+          <label id="rInlayField" hidden class="lbl">Inlay RFID<input id="rInlay" class="inp" maxlength="160"></label>
           <div class="col-span-2 lg:col-span-1"><label class="lbl" for="rDesignation">Désignation</label><input id="rDesignation" class="inp input-uppercase" placeholder="Désignation" autocomplete="off"></div>
           <div><label class="lbl" for="rCat">Catégorie * <button type="button" class="lst-btn adm-only" onclick="Listes.manage('categories')" title="Ajouter / retirer une catégorie"><i class="fa-solid fa-gear"></i></button></label><select id="rCat" class="inp font-bold" onchange="onCatChange()"><option value="">— Choisir —</option><option value="ETIQUETTES">ETIQUETTES</option><option value="ETIQUETTES RFID">ETIQUETTES RFID</option><option value="RUBAN TTR">RUBAN TTR</option><option value="CARTE PVC">CARTE PVC</option><option value="TAG">TAG</option></select></div>
           <div><label class="lbl" for="rMatiere" id="lblMatiere">Matière *</label><input id="rMatiere" class="inp input-uppercase" maxlength="40" placeholder="Ex : THERMIQUE, PP, CIRE, PVC" autocomplete="off"></div>
@@ -223,6 +224,7 @@
   <script src="js/print-document.js"></script>
   <script src="js/listes.js"></script>
   <script src="js/colisage-calc.js"></script>
+  <script src="js/product-reference.js?v=2"></script>
   <script src="js/reliquat.js"></script>
   <script src="js/data-pages.js"></script>
   <script src="js/ap-products.js"></script>
@@ -460,6 +462,7 @@
     }
 
     function resetFiche() {
+      document.getElementById("rInlay").value="";
       state.editFicheId = null;
       ['#rReference', '#rDesignation', '#rMatiere', '#rGabarit', '#rEtqBob', '#rMandrin', '#rPoidsBobine', '#rDiametre', '#rQpc'].forEach(s => { $(s).value = ''; });
       $('#rReference').readOnly = false;
@@ -476,6 +479,7 @@
       const f = state.fiches.find(x => x.id === id); if (!f) return;
       if (!canModifyFiche(f)) return toast(LOCK_MSG, 'warning');
       state.editFicheId = id;
+      document.getElementById("rInlay").value=f.inlay||"";
       $('#rReference').value = f.reference; $('#rReference').readOnly = true;       // la référence ne change pas
       $('#rDesignation').value = f.designation || '';
       Listes.setValue('#rCat', f.categorie || '');
@@ -510,10 +514,14 @@
       const kg = LTColis.boxWeight(f.type_carton, f.qte_par_carton, f);
       if (f.poids_bobine > 0 && kg > LTColis.MAX_CARTON_KG && !confirm(`Un carton ${f.type_carton} plein pèserait ${fmtKg(kg)} kg (maximum ${LTColis.MAX_CARTON_KG} kg). Enregistrer quand même ?`)) return;
 
+      const traits=productReference(ref,document.getElementById('rCat').value);
+      const inlay=document.getElementById('rInlay').value.trim();
+      if(traits.rfid&&!inlay) return badField('#rInlay','Renseignez l’inlay RFID utilisé.');
       const row = {
+        inlay:traits.rfid?inlay:'',
         designation: upv('#rDesignation'), categorie: upv('#rCat'), type_produit: t,
         matiere, gabarit: upv('#rGabarit'), etq_par_bobine: t === 'ETIQUETTE' ? etq : 0,
-        cartes_par_paquet: t === 'CARTE_PVC' ? (parseInt($('#rPaquet').value) || 100) : 100,
+        cartes_par_paquet: t === 'CARTE_PVC' ? (traits.packet || parseInt($('#rPaquet').value) || 100) : 100,
         mandrin: (t === 'ETIQUETTE' || t === 'RUBAN') ? mandrin : '',
         poids_bobine: f.poids_bobine, diametre_bobine: (t === 'ETIQUETTE' || t === 'RUBAN') ? (parseInt($('#rDiametre').value) || 0) : 0,
         type_carton: f.type_carton, qte_par_carton: f.qte_par_carton, poids_carton_vide: f.poids_carton_vide || LTColis.tareOf(f.type_carton),
@@ -960,5 +968,20 @@
   </script>
   <script src="js/nav.js?v=4.0.23"></script>
   <script src="js/pwa.js"></script>
-</body>
+<script>
+(() => {
+ const ref=document.getElementById('rReference'), category=document.getElementById('rCat'), field=document.getElementById('rInlayField');
+ const refresh=()=>{
+  const traits=productReference(ref.value,category.value);
+  field.hidden=!traits.rfid;
+  renderReferenceBadges(document.getElementById('rInlayHint'),traits);
+  const packet=document.getElementById('rPaquet');
+  if(packet){packet.readOnly=Boolean(traits.packet);if(traits.packet)packet.value=traits.packet;}
+ };
+ document.addEventListener('input',refresh);
+ document.addEventListener('change',refresh);
+ document.addEventListener('click',()=>queueMicrotask(refresh));
+ refresh();
+})();
+</script></body>
 </html>
