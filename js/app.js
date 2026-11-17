@@ -758,9 +758,34 @@ function renderAPCartonSummary(rows) {
     box.append(div);
   }
 }
+function regroupReferenceCartons(rows) {
+  const groups=new Map();
+  for(const row of rows) {
+    const detail=getDetail(row);
+    if(!detail?.stock_par_reference||detail.manual||!detail.qpc||!detail.type_carton) continue;
+    const field=name=>row.querySelector('[data-field="'+name+'"]').value;
+    if(!field('reference')) continue;
+    const key=JSON.stringify([field('reference'),field('destinataire'),field('unite'),
+      detail.type_carton,detail.qpc,detail.poids_bobine,detail.poids_carton,detail.poids_carton_vide]);
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push({row,detail,quantity:parseQty(field('quantite'))});
+  }
+  for(const group of groups.values()) {
+    const d=group[0].detail, qty=group.reduce((sum,item)=>sum+item.quantity,0);
+    const pack=packingFor({colisage_valide:true,type_carton:d.type_carton,qte_par_carton:d.qpc,
+      poids_bobine:d.poids_bobine,poids_carton:d.poids_carton,poids_carton_vide:d.poids_carton_vide},qty);
+    if(!pack) continue;
+    group.forEach(({row,detail},index)=>{
+      detail.parts=index?[]:pack.parts;
+      setDetail(row,detail);
+      row.querySelector('[data-field="cartons"]').value=index?0:pack.total;
+    });
+  }
+}
 function updateModalTotals() {
   const rows = $$('#itemsBody tr'); let total = 0;
   regroupAPCartons(rows);
+  regroupReferenceCartons(rows);
   renderAPCartonSummary(rows);
   const mixed = new Set();
   rows.forEach(tr => {
@@ -1226,8 +1251,7 @@ function lotAvail(lot) {
   const s = shippedSplit(lot.id), f = qtyInFormSplit(lot.id);
   const reserved = reservedStockFor(lot.id);
   const total = Math.max(0, lot.quantite_produite - s.n - s.m - f.n - f.m - reserved);
-  const av = window.LTColis.availability(lot, s.n + f.n, s.m + f.m, reserved);
-  return state.isAdmin && (!lot.colisage_valide || av.blocked) ? { normal: total, mixte: 0, blocked: false } : av;
+  return {normal:total,mixte:0,blocked:false};
 }
 // Contrôles avant enregistrement : colisage validé, reliquat décidé, quantités <= reste, carton mixte <= 15 kg
 async function checkProductionLimits(items) {
@@ -1240,13 +1264,10 @@ async function checkProductionLimits(items) {
     const lot = { ...raw, quantite_produite: +raw.quantite_produite, qte_par_carton: +raw.qte_par_carton || 1 };
     const label = `Lot ${lot.of_numero} (${lot.reference})`;
     if (!lot.colisage_valide) return `${label} : le colisage n'est pas rempli. Remplissez-le dans la page Colisage avant d'expédier.`;
-    const s = shippedSplit(lot.id), av = window.LTColis.availability(lot, s.n, s.m, reservedStockFor(lot.id));
-    if (av.blocked) return `${label} : le reliquat n'est pas décidé. Choisissez carton ou stock (page Production ou Colisage).`;
-    const lines = items.filter(i => i.production_id === lot.id);
-    const askN = lines.filter(i => !(i.colisage_detail && i.colisage_detail.mixte)).reduce((t, i) => t + parseQty(i.quantite), 0);
-    const askM = lines.filter(i => i.colisage_detail && i.colisage_detail.mixte).reduce((t, i) => t + parseQty(i.quantite), 0);
-    if (askN > av.normal) return `${label} : ${fmtNum(askN)} demandés en cartons, mais il n'en reste que ${fmtNum(av.normal)} à expédier.`;
-    if (askM > av.mixte) return `${label} : ${fmtNum(askM)} demandés en carton mixte, mais il n'en reste que ${fmtNum(av.mixte)} en stock.`;
+    const reserved=shippedSplit(lot.id);
+    const remaining=lot.quantite_produite-reserved.n-reserved.m-reservedStockFor(lot.id);
+    const requested=items.filter(item=>item.production_id===lot.id).reduce((sum,item)=>sum+parseQty(item.quantite),0);
+    if(requested>remaining) return label+' : quantité supérieure au stock disponible.';
   }
   return null;
 }
@@ -1296,6 +1317,7 @@ async function openProdPicker() {
 }
 
 function packingFor(lot, qty) {
+  lot={...lot,reliquat_mode:'CARTON',reliquat_carton:lot.type_carton};
   return window.LTColis.packing({ ...lot, reliquat_carton: lot.reliquat_carton || lot.type_carton }, qty);
 }
 
@@ -1321,6 +1343,7 @@ function renderProdPicker() {
   };
 
   let normalHtml = '', mixteHtml = '';
+  const byReference=new Map();
   open.forEach(({ lot, av }) => {
     const search = [lot.of_numero, lot.reference, lot.designation, lot.categorie, lot.type_carton, lot.matiere].join(' ').toLowerCase();
     const tot = (lot.quantite_produite - (shippedSplit(lot.id).n + shippedSplit(lot.id).m));
@@ -1338,18 +1361,23 @@ function renderProdPicker() {
       return;
     }
     if (av.normal > 0) {
+      const ref=lot.reference||lot.designation||lot.of_numero;
+      if(!byReference.has(ref)) byReference.set(ref,{rows:[],clients:new Set(),totals:new Map()});
+      const group=byReference.get(ref);
+      group.clients.add(lot.client||'STOCK');
+      group.totals.set(lot.unite,(group.totals.get(lot.unite)||0)+av.normal);
       const pk = packingFor(lot, av.normal);
-      normalHtml += `<div class="pp-row panel-soft p-3 flex flex-wrap items-center gap-3" data-id="${esc(lot.id)}" data-search="${esc(search)}">
+      group.rows.push(`<div class="pp-row panel-soft p-3 flex flex-wrap items-center gap-3" data-id="${esc(lot.id)}" data-search="${esc(search)}">
         <input type="checkbox" class="pp-check w-5 h-5 accent-indigo-500" aria-label="Sélectionner">
         ${headOf(lot)}
-          <div class="text-[11px]" style="color:var(--text-muted)">Dispo : <b>${fmtNum(av.normal)}</b> ${esc(lot.unite)} • ${esc(lot.type_carton)} = ${lot.qte_par_carton} par carton${lot.reliquat_mode === 'STOCK' && window.LTColis.remainderOf(lot) ? ' • reliquat en stock' : ''}</div>
+          <div class="text-[11px]" style="color:var(--text-muted)">Client d’origine : <b>${esc(lot.client||'STOCK')}</b> · Dispo : <b>${fmtNum(av.normal)}</b> ${esc(lot.unite)} • ${esc(lot.type_carton)} = ${lot.qte_par_carton} par carton${lot.reliquat_mode === 'STOCK' && window.LTColis.remainderOf(lot) ? ' • reliquat en stock' : ''}</div>
           <div class="text-[11px] font-bold text-amber-400 mt-0.5 pp-smart-detail">${pk ? esc(window.LTColis.text(pk.parts)) : ''}</div>
         </div>
         <div class="w-32"><label class="block text-[10px] font-bold mb-1" style="color:var(--text-muted)">Qté (${esc(lot.unite)})</label>
           <input class="inp text-right font-mono-code font-bold pp-qty" inputmode="numeric" pattern="[0-9]*" maxlength="9" value="${av.normal}" data-avail="${av.normal}"></div>
         <div class="w-24"><label class="block text-[10px] font-bold mb-1" style="color:var(--text-muted)">Cartons</label>
           <input type="number" min="1" step="1" class="inp text-center font-bold text-amber-400 pp-cartons" value="${pk ? pk.total : 1}"></div>
-      </div>`;
+      </div>`);
     }
     if (av.mixte > 0) {
       mixteHtml += `<div class="pp-row pp-mix panel-soft p-3 flex flex-wrap items-center gap-3" data-id="${esc(lot.id)}" data-search="${esc(search)}">
@@ -1361,6 +1389,7 @@ function renderProdPicker() {
     }
   });
 
+  normalHtml+=[...byReference].map(([reference,group])=>`<section class="panel p-3 space-y-2" data-stock-reference><b>${esc(reference)} · ${[...group.totals].map(([unit,qty])=>esc(fmtNum(qty)+' '+unit)).join(' / ')}</b><p class="text-xs">Clients d’origine : ${esc([...group.clients].join(', '))}${group.clients.size>1?' · Cochez les lots des clients à expédier.':''}</p>${group.rows.join('')}</section>`).join('');
   const boxHtml = boxes.map(box => {
     const content = Object.entries(box.contenu).map(([id, qty]) => {
       const lot = state.production.find(l => l.id === id);
@@ -1410,22 +1439,6 @@ document.addEventListener('input', e => {
     e.target.dataset.manual = '1'; check.checked = true;
   }
 });
-// Reliquat « en stock » : la quantité en cartons doit remplir des cartons entiers
-document.addEventListener('change', e => {
-  const row = e.target.closest && e.target.closest('#ppList .pp-row'); if (!row || row.dataset.nocol || row.classList.contains('pp-mix')) return;
-  if (!e.target.classList.contains('pp-qty')) return;
-  const lot = state.production.find(l => l.id === row.dataset.id);
-  if (!lot || String(lot.reliquat_mode || '') !== 'STOCK') return;
-  const q = parseQty(e.target.value), qpc = lot.qte_par_carton, fixed = Math.floor(q / qpc) * qpc;
-  if (fixed !== q) {
-    e.target.value = String(fixed); flashError(e.target);
-    toast(`Le reliquat reste en stock : la quantité est arrondie à des cartons entiers de ${qpc}.`, 'info');
-    const pk = fixed > 0 ? packingFor(lot, fixed) : null, c = row.querySelector('.pp-cartons');
-    if (c.dataset.manual !== '1' && pk) c.value = pk.total;
-    const det = row.querySelector('.pp-smart-detail'); if (det) det.textContent = pk ? window.LTColis.text(pk.parts) : '';
-  }
-});
-
 // Copie FIGÉE du colisage du lot : elle reste telle quelle dans l'envoi même si le lot est modifié plus tard
 function lotDetail(lot) {
   return {
@@ -1453,7 +1466,7 @@ function addLotRows(picked, dest) {
       cartons = 0;
     } else {
       const pk = packingFor(p.lot, p.qty);
-      detail = { ...base, parts: p.manual || !pk ? [] : pk.parts, manual: p.manual || !pk };
+      detail = { ...base, stock_par_reference:true, parts: p.manual || !pk ? [] : pk.parts, manual: p.manual || !pk };
       cartons = p.manual || !pk ? p.cartons : pk.total;
     }
     addItemRow({
@@ -1494,6 +1507,8 @@ async function importFromProduction() {
     const proceed=await confirmDialog('Reliquats en vrac pour '+labels+'. Vous pouvez les cocher et choisir un carton H1 ou H2. Ajouter les lignes sélectionnées sans ces reliquats ?');
     if(!proceed) return;
   }
+  const clients=[...new Set(picked.filter(line=>!line.box).map(line=>line.lot.client||'STOCK'))];
+  if(dest&&clients.length>1&&!await confirmDialog('Clients d’origine : '+clients.join(', ')+'. Remplacer ces destinataires par '+dest+' ?')) return;
   addLotRows(picked, dest);
   updateModalTotals();
   closeModal('prodPickerModal');
@@ -1529,7 +1544,6 @@ async function importLotsByIds(ids) {
     const av = lotAvail(lot);
     if (av.blocked) return skipped.push(`${lot.reference} (reliquat à décider)`);
     let qty = av.normal;
-    if (lot.colisage_valide && !window.LTColis.needsDecision(lot) && lot.reliquat_mode === 'STOCK') qty = Math.floor(qty / lot.qte_par_carton) * lot.qte_par_carton;
     if (qty < 1) return skipped.push(`${lot.reference} (rien à expédier)`);
     picked.push({ lot, qty, cartons: 1, manual: false, mixte: false });
   });
