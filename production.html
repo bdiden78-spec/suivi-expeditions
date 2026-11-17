@@ -111,7 +111,7 @@
           <div id="colisInfo" class="col-span-2 lg:col-span-4 px-4 py-3 rounded-xl text-xs" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--text-muted)"></div>
         </div>
         <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <p class="text-[11px]" style="color:var(--text-dim)"><i class="fa-solid fa-circle-info mr-1 text-emerald-400"></i>Modification et suppression : opérateur pendant <b>24 h</b> après la création du lot, administrateur à tout moment. Le colisage se saisit dans la page <b>Colisage</b>, une seule fois par référence.</p>
+          <p class="text-[11px]" style="color:var(--text-dim)"><i class="fa-solid fa-circle-info mr-1 text-emerald-400"></i>Modification et suppression : opérateur pendant <b>24 h</b> après la création du lot, administrateur à tout moment. La fiche de colisage définit les paramètres de la référence. Les cartons sont calculés dans Nouvel envoi.</p>
           <div class="flex items-center gap-2">
             <button id="btnSave" type="button" onclick="saveLot()" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer le lot</button>
           </div>
@@ -603,8 +603,6 @@
         const go = await confirmDialog(`Nouvelle référence ${ref} : son colisage n'existe pas encore. Voulez-vous le remplir maintenant ?`, 'Remplir le colisage', 'Plus tard');
         if (go) { location.href = 'colisage.html?' + new URLSearchParams({ ref, cat: core.categorie, des, prod: savedId }).toString(); return; }
         toast(`Colisage de la référence ${ref} à remplir (page Colisage) : le lot ne peut pas être expédié avant.`, 'warning');
-      } else if (saved && LTColis.needsDecision(saved)) {
-        await askReliquat(saved);     // reste-t-il des bobines hors carton ? l'opérateur décide
       }
     }
 
