@@ -323,22 +323,11 @@ function shipmentDisplayItems(items) {
   for(const item of items) {
     const detail=item.colisage_detail, packing=detail?.ap_pack;
     if(!detail?.ap_production_id || !apProductSpec(packing?.type)) {
-      if(detail?.mixte&&item.reference) {
-        const key=JSON.stringify(['mixte',detail.stock_box_id||'direct',item.reference,item.categorie,item.designation,item.destinataire,item.unite]);
-        if(!lots.has(key)) {
-          const line={...item,quantite:'0',cartons:0};
-          lots.set(key,line);
-          visible.push(line);
-        }
-        const line=lots.get(key);
-        line.quantite=String(Number(line.quantite)+Number(digitsOnly(item.quantite)));
-        line.cartons+=cartonsOfItem(item);
-        continue;
-      }
-      if(!item.production_id||!item.of_numero||!item.reference||detail?.mixte||detail?.manual) {visible.push(item);continue;}
-      const key=JSON.stringify([item.of_numero,item.reference,item.destinataire,item.unite,item.categorie,item.designation,item.type_carton,detail?.qpc,detail?.poids_bobine]);
+      if(detail?.ap_production_id||!item.reference) {visible.push(item);continue;}
+      const normalize=value=>String(value||'').trim().toUpperCase();
+      const key=JSON.stringify([normalize(item.reference),normalize(item.destinataire||'STOCK'),normalize(item.unite||'UN')]);
       if(!lots.has(key)) {
-        const line={...item,quantite:'0',cartons:0};
+        const line={...item,quantite:'0',cartons:0,colisage_detail:null};
         lots.set(key,line);
         visible.push(line);
       }
@@ -506,7 +495,7 @@ function render() {
   }).join('');
 
   const body = $('#tableBody'); let html = '';
-  state.filtered.forEach(e => (e.items||[]).forEach(it => {
+  state.filtered.forEach(e => shipmentDisplayItems(e.items||[]).forEach(it => {
     html += `<tr class="hover:bg-[var(--bg-hover)] transition"><td class="p-3 pl-5 font-bold whitespace-nowrap">${esc(fmtDate(e.date_envoi))}</td><td class="p-3 font-mono-code text-indigo-400">${esc(e.numero_bl || '-')}</td><td class="p-3 font-semibold">${esc(e.transporteur)}</td><td class="p-3 font-mono-code font-bold text-indigo-400">${esc(it.reference || '-')}</td><td class="p-3 font-semibold text-slate-400 text-xs uppercase">${esc(it.categorie || '-')}</td><td class="p-3">${esc(it.designation || '-')}</td><td class="p-3"><span class="badge ${it.destinataire==='STOCK'?'badge-stock':'badge-client'}">${esc(it.destinataire || 'STOCK')}</span></td><td class="p-3 text-center" style="color:var(--text-muted)">${esc(it.unite || 'UN')}</td><td class="p-3 text-right font-mono-code font-bold">${fmtNum(it.quantite)}</td><td class="p-3 text-center font-bold text-amber-400">${(it.colisage_detail && it.colisage_detail.mixte ? 'mixte' : esc(it.cartons ?? '1'))}</td><td class="p-3 text-xs truncate max-w-xs" style="color:var(--text-muted)">${esc(e.observations || '-')}</td></tr>`;
   }));
   body.innerHTML = html || `<tr><td colspan="11" class="p-8 text-center text-xs" style="color:var(--text-muted)">Aucune expédition</td></tr>`;
