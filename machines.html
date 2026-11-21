@@ -3,20 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#14395f">
+  <meta name="theme-color" content="#f8fafc">
   <meta name="application-name" content="LogiTrak">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="manifest" href="./manifest.webmanifest">
+  <script>if(location.protocol!=='file:'){const l=document.createElement('link');l.rel='manifest';l.href='./manifest.webmanifest';document.head.appendChild(l);}</script>
   <link rel="apple-touch-icon" href="assets/app-icon-192.png">
-  <meta name="description" content="Fabrication des étiquettes Algérie Poste — LogiTrak Eurequat Algérie">
+  <meta name="description" content="Paramètres et administration — LogiTrak Eurequat Algérie">
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <title>Paramètres • LogiTrak</title>
 
   <script>
-    try {
-      if (localStorage.getItem('logitrak_theme') !== 'dark')
-        document.documentElement.classList.add('light');
-    } catch(e) {}
+    (function () {
+      try {
+        var a = false;
+        for (var i = 0; i < localStorage.length; i++) {
+          if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+            var v = JSON.parse(localStorage.getItem(localStorage.key(i)));
+            if ((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email)) {
+              a = true; break;
+            }
+          }
+        }
+        if (!a) {
+          var cur = encodeURIComponent(location.pathname.split('/').pop() || 'machines.html');
+          location.replace('login.html?from=' + cur + (location.search ? encodeURIComponent(location.search) : ''));
+        }
+      } catch (e) {
+        location.replace('login.html');
+      }
+    })();
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -24,62 +39,109 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="css/style.css">
-
-</head><body data-module="machines" class="min-h-screen flex flex-col">
+  <link rel="stylesheet" href="css/style.css?v=5.0.0">
+</head>
+<body data-module="machines" class="min-h-screen flex flex-col">
   <header class="app-header relative z-30 no-print">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.25rem] py-2 flex items-center justify-between gap-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[5.5rem] py-2.5 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="app-brand"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536" decoding="async"></div>
+        <a href="index.html" class="app-brand" title="Accueil LogiTrak"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak" width="2752" height="1536" decoding="async"></a>
         <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
-      <div id="headerActions" class="flex items-center gap-2">
-        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
-      </div>
+      <div id="headerActions" class="flex items-center gap-2"></div>
     </div>
   </header>
 
-
-<main class="max-w-7xl mx-auto px-4 py-8 w-full flex-1 space-y-5">
-  <div class="page-heading"><h1 class="text-xl font-extrabold">Paramètres</h1></div>
-  <p id="machineMessage" role="status"></p>
-  <section id="accountSettings" hidden class="panel p-5 space-y-3">
-    <h2 class="font-bold">Utilisateurs</h2>
-    <a class="btn btn-secondary" href="envois.html?admin=ops">Supprimer un compte</a>
-    <form id="accountCreate" class="grid sm:grid-cols-3 gap-2">
-      <label>Identifiant<input class="inp" name="username" required></label>
-      <label>Mot de passe<input class="inp" name="password" type="password" minlength="8" required autocomplete="new-password"></label>
-      <label>Rôle<select class="inp" name="role"><option value="operateur">Opérateur</option><option value="visionnaire">Visionnaire</option><option value="admin">Administrateur</option></select></label>
-      <button class="btn btn-primary">Créer le compte</button>
-    </form>
-    <form id="accountEdit" class="grid sm:grid-cols-3 gap-2">
-      <label>Compte<select class="inp" name="current" required></select></label>
-      <label>Nouvel identifiant<input class="inp" name="username" required></label>
-      <label>Nouveau mot de passe<input class="inp" name="password" type="password" autocomplete="new-password" placeholder="Laisser vide pour le conserver"></label>
-      <button class="btn btn-primary">Enregistrer le compte</button>
-    </form>
-    <a class="btn btn-secondary" href="envois.html?admin=config">Réglages LogiTrak</a>
-  </section>
-  <form id="machineForm" hidden class="panel p-5 space-y-3">
-    <h2 class="font-bold">Fiche machine</h2>
-    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      <label>Nom <input class="inp" name="nom" required maxlength="160"></label>
-      <label>Marque <input class="inp" name="marque" required></label>
-      <label>Référence <input class="inp" name="reference" required></label>
-      <label>N° de série <input class="inp" name="numero_serie" required></label>
-      <label>Mise en service <input class="inp" name="mise_en_service" type="date"></label>
-      <label>État <select class="inp" name="etat"><option>En service</option><option>En maintenance</option><option>Hors service</option></select></label>
-      <label>Prochain entretien préventif <input class="inp" name="prochain_preventif" type="date"></label>
-      <label><input type="checkbox" name="imprimante_ap"> Imprimante Algérie Poste</label>
+<main class="max-w-7xl mx-auto px-4 py-8 w-full flex-1 space-y-6">
+  <div class="page-heading">
+    <div class="flex items-center gap-3">
+      <div class="heading-icon"><i class="fa-solid fa-gears"></i></div>
+      <div>
+        <h1 class="text-xl font-extrabold">Paramètres & Administration</h1>
+        <p class="text-xs text-slate-500">Gestion des utilisateurs, registre des machines usine et listes de référence.</p>
+      </div>
     </div>
-    <label>Observations <textarea class="inp" name="notes"></textarea></label>
-    <button type="submit" class="btn btn-primary">Enregistrer la fiche</button>
-    <button id="machineReset" type="button" class="btn btn-secondary">Nouvelle fiche</button>
+  </div>
+
+  <p id="machineMessage" role="status" class="text-sm font-semibold"></p>
+
+  <!-- Section Comptes Utilisateurs -->
+  <section id="accountSettings" hidden class="panel p-5 space-y-4">
+    <div class="flex items-center justify-between gap-3 border-b pb-3 border-slate-200">
+      <h2 class="font-bold text-base text-slate-900 flex items-center gap-2">
+        <i class="fa-solid fa-users text-emerald-600"></i> Comptes Utilisateurs
+      </h2>
+      <div class="flex items-center gap-2">
+        <a class="btn btn-secondary text-xs" href="envois.html?admin=ops"><i class="fa-solid fa-user-xmark mr-1 text-rose-500"></i>Supprimer un compte</a>
+        <a class="btn btn-secondary text-xs" href="envois.html?admin=config"><i class="fa-solid fa-sliders mr-1 text-sky-500"></i>Réglages LogiTrak</a>
+      </div>
+    </div>
+    
+    <div class="grid lg:grid-cols-2 gap-4">
+      <form id="accountCreate" class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+        <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700">Créer un nouveau compte</h3>
+        <label class="block text-xs font-bold text-slate-700">Identifiant<input class="inp mt-1" name="username" required placeholder="ex: amine"></label>
+        <label class="block text-xs font-bold text-slate-700">Mot de passe<input class="inp mt-1" name="password" type="password" minlength="8" required autocomplete="new-password" placeholder="8 caractères min."></label>
+        <label class="block text-xs font-bold text-slate-700">Rôle<select class="inp mt-1" name="role"><option value="operateur">Opérateur</option><option value="admin">Administrateur</option></select></label>
+        <button class="btn btn-primary w-full mt-2"><i class="fa-solid fa-user-plus mr-1"></i>Créer le compte</button>
+      </form>
+
+      <form id="accountEdit" class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+        <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700">Modifier un compte existant</h3>
+        <label class="block text-xs font-bold text-slate-700">Compte à modifier<select class="inp mt-1" name="current" required></select></label>
+        <label class="block text-xs font-bold text-slate-700">Nouvel identifiant<input class="inp mt-1" name="username" required></label>
+        <label class="block text-xs font-bold text-slate-700">Nouveau mot de passe<input class="inp mt-1" name="password" type="password" autocomplete="new-password" placeholder="Laisser vide pour ne pas modifier"></label>
+        <button class="btn btn-primary w-full mt-2"><i class="fa-solid fa-floppy-disk mr-1"></i>Enregistrer le compte</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Formulaire Fiche Machine -->
+  <form id="machineForm" hidden class="panel p-5 space-y-4">
+    <div class="flex items-center justify-between border-b pb-3 border-slate-200">
+      <h2 class="font-bold text-base text-slate-900 flex items-center gap-2">
+        <i class="fa-solid fa-industry text-amber-600"></i> Fiche Machine Usine
+      </h2>
+      <button id="machineReset" type="button" class="btn btn-secondary text-xs"><i class="fa-solid fa-plus mr-1"></i>Nouvelle fiche</button>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <label class="block text-xs font-bold text-slate-700">Nom de la machine <input class="inp mt-1 input-uppercase" name="nom" required maxlength="160" placeholder="ex: MACHINE 01"></label>
+      <label class="block text-xs font-bold text-slate-700">Marque <input class="inp mt-1" name="marque" required placeholder="ex: Mark Andy"></label>
+      <label class="block text-xs font-bold text-slate-700">Référence modèle <input class="inp mt-1" name="reference" required></label>
+      <label class="block text-xs font-bold text-slate-700">N° de série <input class="inp mt-1 font-mono-code" name="numero_serie" required></label>
+      <label class="block text-xs font-bold text-slate-700">Mise en service <input class="inp mt-1" name="mise_en_service" type="date"></label>
+      <label class="block text-xs font-bold text-slate-700">État opérationnel <select class="inp mt-1" name="etat"><option>En service</option><option>En maintenance</option><option>Hors service</option></select></label>
+      <label class="block text-xs font-bold text-slate-700">Prochain entretien préventif <input class="inp mt-1" name="prochain_preventif" type="date"></label>
+      <div class="flex items-center gap-2 pt-6">
+        <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+          <input type="checkbox" name="imprimante_ap" class="rounded text-sky-600"> Imprimante Algérie Poste
+        </label>
+      </div>
+    </div>
+    <label class="block text-xs font-bold text-slate-700">Observations & Notes <textarea class="inp mt-1" name="notes" rows="2" placeholder="Historique, pièces remplacées..."></textarea></label>
+    <div class="flex items-center gap-2 pt-2">
+      <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk mr-1"></i>Enregistrer la machine</button>
+    </div>
   </form>
-  <div id="machineList" class="space-y-3"></div>
+
+  <!-- Liste des Machines -->
+  <div class="space-y-3">
+    <div class="flex items-center justify-between">
+      <h2 class="font-bold text-sm uppercase tracking-wider text-slate-700 flex items-center gap-2">
+        <i class="fa-solid fa-list-check text-sky-600"></i> Registre du Parc Machines
+      </h2>
+    </div>
+    <div id="machineList" class="space-y-3"></div>
+  </div>
 </main>
-<script src="js/config.js"></script><script src="js/calendar.js"></script><script src="js/data-pages.js"></script>
-<script src="js/machines.js"></script><script src="js/nav.js?v=4.0.23"></script><script src="js/pwa.js"></script>
-</body></html>
+
+<script src="js/config.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/data-pages.js"></script>
+<script src="js/machines.js?v=5.0.0"></script>
+<script src="js/nav.js?v=5.2.0"></script>
+<script src="js/pwa.js"></script>
+</body>
+</html>

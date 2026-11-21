@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f8fafc">
+  <meta name="application-name" content="LogiTrak">
+  <script>if(location.protocol!=='file:'){const l=document.createElement('link');l.rel='manifest';l.href='./manifest.webmanifest';document.head.appendChild(l);}</script>
+  <link rel="apple-touch-icon" href="assets/app-icon-192.png">
+  <meta name="description" content="Connexion • LogiTrak Eurequat Algérie">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <title>Connexion • LogiTrak Eurequat Algérie</title>
+
+  <script>
+    // Si déjà authentifié, redirection immédiate vers l'application
+    (function () {
+      try {
+        var isAuth = false;
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (/^sb-.*-auth-token$/.test(k)) {
+            var v = JSON.parse(localStorage.getItem(k));
+            if ((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email)) {
+              isAuth = true; break;
+            }
+          }
+        }
+        if (isAuth) {
+          var dest = new URLSearchParams(location.search).get('from') || 'index.html';
+          if (!/^[\w\-./]+\.html(\?.*)?$/i.test(dest) || dest.startsWith('login')) dest = 'index.html';
+          location.replace(dest);
+        }
+      } catch (e) {}
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com" defer></script>
+  <script src="js/tailwind-config.js" defer></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=5.0.0">
+  <script src="js/config.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+    body {
+      background: radial-gradient(circle at 50% 20%, rgba(2, 132, 199, 0.12) 0%, #f8fafc 70%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      -webkit-font-smoothing: antialiased;
+    }
+    .login-container {
+      width: 100%;
+      max-width: 440px;
+      margin: auto;
+      padding: 1.5rem 1rem;
+    }
+    .login-card {
+      background: #ffffff;
+      border: 1.5px solid var(--border-strong);
+      border-radius: 1.25rem;
+      padding: 2.25rem 2rem;
+      box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.18), 0 0 35px -5px rgba(2, 132, 199, 0.14);
+      display: flex;
+      flex-direction: column;
+      gap: 1.35rem;
+      animation: loginCardEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes loginCardEnter {
+      from { opacity: 0; transform: translateY(14px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .space-y-4 > * + * { margin-top: 1rem; }
+    .w-full { width: 100%; }
+    .hidden { display: none !important; }
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .justify-center { justify-content: center; }
+    .relative { position: relative; }
+    .text-center { text-align: center; }
+  </style>
+</head>
+<body class="flex flex-col justify-center items-center p-4 antialiased">
+
+  <main class="login-container">
+    <div class="login-card">
+      
+      <!-- En-tête de marque -->
+      <div class="flex flex-col items-center text-center gap-2.5">
+        <div class="app-brand shadow-md" style="margin: 0 auto">
+          <img src="assets/logitrak-eurequat.jpg" alt="LogiTrak Eurequat Algérie" width="2752" height="1536" decoding="async">
+        </div>
+        <div class="mt-1">
+          <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">Authentification LogiTrak</h1>
+          <p class="text-xs text-slate-500 font-medium mt-0.5">
+            <i class="fa-solid fa-location-dot text-sky-500 text-[10px] mr-1"></i>Eurequat Algérie • Usine Tlemcen
+          </p>
+        </div>
+      </div>
+
+      <!-- Formulaire de connexion -->
+      <form id="loginForm" class="space-y-4 pt-1">
+        <div>
+          <label for="usernameInput" class="block text-xs font-bold mb-1.5 text-slate-700">
+            <i class="fa-solid fa-user-tag text-sky-500 mr-1.5"></i>Identifiant (Nom d'utilisateur)
+          </label>
+          <input
+            type="text"
+            id="usernameInput"
+            name="username"
+            class="inp w-full"
+            required
+            placeholder="ex. operateur1 ou admin"
+            autocomplete="username"
+            autofocus
+          >
+        </div>
+
+        <div>
+          <label for="passwordInput" class="block text-xs font-bold mb-1.5 text-slate-700">
+            <i class="fa-solid fa-lock text-sky-500 mr-1.5"></i>Mot de passe
+          </label>
+          <div class="relative flex items-center">
+            <input
+              type="password"
+              id="passwordInput"
+              name="password"
+              class="inp w-full pr-10"
+              required
+              placeholder="••••••••"
+              autocomplete="current-password"
+            >
+            <button
+              type="button"
+              id="togglePassBtn"
+              class="absolute right-2 text-slate-400 hover:text-slate-600 transition-colors p-2"
+              aria-label="Afficher ou masquer le mot de passe"
+              tabindex="-1"
+            >
+              <i class="fa-solid fa-eye" id="togglePassIcon"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Zone d'alerte / erreur -->
+        <div id="loginAlert" class="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs font-bold hidden flex items-center gap-2">
+          <i class="fa-solid fa-triangle-exclamation text-rose-500 flex-shrink-0"></i>
+          <span id="loginAlertText">Identifiant ou mot de passe incorrect.</span>
+        </div>
+
+        <!-- Bouton Soumission -->
+        <button
+          type="submit"
+          id="submitBtn"
+          class="btn btn-primary w-full justify-center py-2.5 text-sm font-extrabold shadow-lg"
+        >
+          <i class="fa-solid fa-arrow-right-to-bracket mr-2"></i><span>Se connecter</span>
+        </button>
+      </form>
+
+      <!-- Signature & Version -->
+      <div class="text-center pt-3 border-t border-slate-100 flex flex-col items-center gap-1.5">
+        <p class="text-[11px] font-semibold text-slate-400">
+          Accès restreint au personnel habilité • Usine Tlemcen
+        </p>
+        <span class="sig-badge text-[10px]">
+          <span>Designed by</span>
+          <span class="sig-name">Boumediene</span>
+          <span>© 2026</span>
+          <span class="sig-ver">v5.0.0</span>
+          <span class="dz-dots" id="sigDzDots" role="button" tabindex="0" title="Cliquer pour afficher les coordonnées du propriétaire" aria-label="Informations propriétaire Boumediene" style="cursor:pointer"><i style="--dot:#006233"></i><i style="--dot:#fff"></i><i style="--dot:#d21034"></i></span>
+        </span>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const DEFAULT_URL = "https://hswchbamojtmpystcuea.supabase.co";
+      const DEFAULT_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhzd2NoYmFtb2p0bXB5c3RjdWVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2MTc1MzIsImV4cCI6MjEwODE5MzUzMn0.6RUytS5zJEmlK9MBcJuHZ6G32RV63kShes2fNGf0_sU";
+
+      const form = document.getElementById('loginForm');
+      const userInput = document.getElementById('usernameInput');
+      const passInput = document.getElementById('passwordInput');
+      const toggleBtn = document.getElementById('togglePassBtn');
+      const toggleIcon = document.getElementById('togglePassIcon');
+      const alertBox = document.getElementById('loginAlert');
+      const alertText = document.getElementById('loginAlertText');
+      const submitBtn = document.getElementById('submitBtn');
+
+      // Basculer l'affichage du mot de passe
+      toggleBtn?.addEventListener('click', function () {
+        const isPass = passInput.type === 'password';
+        passInput.type = isPass ? 'text' : 'password';
+        toggleIcon.className = isPass ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+        passInput.focus();
+      });
+
+      // Redressement du texte pour les boutons inclinés (-14deg)
+      function normalizeButtons() {
+        document.querySelectorAll('.btn, button').forEach(function (btn) {
+          btn.childNodes.forEach(function (n) {
+            if (n.nodeType === 3 && n.textContent.trim()) {
+              var s = document.createElement('span');
+              s.textContent = n.textContent;
+              n.replaceWith(s);
+            }
+          });
+        });
+      }
+      normalizeButtons();
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        alertBox.classList.add('hidden');
+
+        var u = userInput.value.trim().toLowerCase();
+        var p = passInput.value;
+
+        if (!u || !p) {
+          alertText.textContent = 'Veuillez renseigner votre identifiant et votre mot de passe.';
+          alertBox.classList.remove('hidden');
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i><span>Connexion en cours…</span>';
+        normalizeButtons();
+
+        var email = u.includes('@') ? u : (u + '@logitrak.internal');
+        var supabaseUrl = localStorage.getItem('supabase_url') || (typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : DEFAULT_URL);
+        var supabaseAnon = localStorage.getItem('supabase_key') || (typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : DEFAULT_KEY);
+
+        try {
+          // Appel direct haute vitesse à l'API Auth Supabase
+          var controller = new AbortController();
+          var timeoutId = setTimeout(function () { controller.abort(); }, 12000);
+
+          var response = await fetch(supabaseUrl + '/auth/v1/token?grant_type=password', {
+            method: 'POST',
+            headers: {
+              'apikey': supabaseAnon,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email: email, password: p }),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          var data = await response.json();
+
+          if (!response.ok || !data || !data.access_token) {
+            var isWrongPass = response.status === 400 || (data && (data.error === 'invalid_grant' || data.error_code === 'invalid_credentials'));
+            throw new Error(isWrongPass ? 'Identifiant ou mot de passe incorrect.' : (data.msg || data.error_description || 'Identifiant ou mot de passe incorrect.'));
+          }
+
+          if (!data.expires_at && data.expires_in) {
+            data.expires_at = Math.round(Date.now() / 1000) + data.expires_in;
+          }
+
+          // Déduire la clé de stockage Supabase standard (sb-<projectRef>-auth-token)
+          var projectRef = '';
+          try {
+            var parsed = new URL(supabaseUrl);
+            projectRef = parsed.hostname.split('.')[0] || '';
+          } catch (ex) {
+            projectRef = 'hswchbamojtmpystcuea';
+          }
+          var storageKey = 'sb-' + projectRef + '-auth-token';
+          localStorage.setItem(storageKey, JSON.stringify(data));
+
+          submitBtn.innerHTML = '<i class="fa-solid fa-check mr-2"></i><span>Connexion réussie !</span>';
+          normalizeButtons();
+
+          // Redirection vers la page demandée ou vers index.html
+          var dest = new URLSearchParams(location.search).get('from') || 'index.html';
+          if (!/^[\w\-./]+\.html(\?.*)?$/i.test(dest) || dest.startsWith('login')) dest = 'index.html';
+          
+          setTimeout(function () {
+            location.replace(dest);
+          }, 200);
+
+        } catch (err) {
+          var errorMsg = err.name === 'AbortError'
+            ? 'Délai d’attente dépassé (12s). Vérifiez votre connexion Internet.'
+            : (err.message || 'Impossible de joindre le serveur. Réessayez.');
+          alertText.textContent = errorMsg;
+          alertBox.classList.remove('hidden');
+
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket mr-2"></i><span>Se connecter</span>';
+          normalizeButtons();
+        }
+      });
+
+      // Fenêtre propriétaire Boumediene sur clic des 3 carreaux
+      document.addEventListener('click', function (e) {
+        if (e.target.closest('.dz-dots, #sigDzDots')) {
+          e.preventDefault();
+          e.stopPropagation();
+          var m = document.getElementById('authorContactModal');
+          if (!m) {
+            m = document.createElement('div');
+            m.id = 'authorContactModal';
+            m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+            m.innerHTML = '<div class="w-full max-w-sm p-6 text-center space-y-4 rounded-2xl border shadow-2xl bg-white border-slate-300">' +
+              '<div class="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center text-xl shadow-md" style="background:linear-gradient(135deg,rgba(2,132,199,0.15),rgba(234,88,12,0.15));color:#0284c7;border:1.5px solid rgba(2,132,199,0.3)">' +
+                '<i class="fa-solid fa-crown text-amber-500"></i>' +
+              '</div>' +
+              '<div class="space-y-2">' +
+                '<h3 class="text-base font-extrabold text-slate-900">LogiTrak <span class="text-sky-600">v5.0.0</span></h3>' +
+                '<div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-2">' +
+                  '<p class="text-xs text-slate-700 font-bold">Contacter le propriétaire sur :</p>' +
+                  '<a href="mailto:logitrakapp@gmail.com" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-mono font-extrabold text-sky-700 bg-white border border-sky-300 hover:border-sky-500 hover:bg-sky-50 transition shadow-sm">' +
+                    '<i class="fa-solid fa-envelope text-sky-600"></i> logitrakapp@gmail.com' +
+                  '</a>' +
+                '</div>' +
+              '</div>' +
+              '<div class="pt-1">' +
+                '<button type="button" class="btn btn-primary w-full justify-center text-xs font-bold" id="closeAuthorModalBtn">' +
+                  '<i class="fa-solid fa-check mr-1.5"></i>Fermer' +
+                '</button>' +
+              '</div>' +
+            '</div>';
+            document.body.appendChild(m);
+            var close = function () { m.style.display = 'none'; };
+            m.querySelector('#closeAuthorModalBtn').addEventListener('click', close);
+            m.addEventListener('click', function (ev) { if (ev.target === m) close(); });
+          } else {
+            m.style.display = 'flex';
+          }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

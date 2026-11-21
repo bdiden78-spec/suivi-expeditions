@@ -1,11 +1,11 @@
-/* LogiTrak v3.6. Seuls l'écran hors connexion et son icône sont mis en cache. */
+/* LogiTrak v5.2.0. Seuls l'écran hors connexion et son icône sont mis en cache. */
 'use strict';
-const VERSION = '4.0.25';
+const VERSION = '5.2.0';
 const CACHE_PREFIX = 'logitrak-offline:' + self.registration.scope + ':';
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 const offlineURL = new URL('offline.html', self.registration.scope).href;
-const iconURL = new URL('assets/app-icon-192.png', self.registration.scope).href;
-const pageURLs = new Set(['', 'index.html', 'production.html', 'colisage.html', 'envois.html', 'statistiques.html', 'algerie-poste.html', 'pointage.html', 'machines.html']
+const iconURL = new URL('assets/logitrak-favicon-192.png', self.registration.scope).href;
+const pageURLs = new Set(['', 'index.html', 'login.html', 'production.html', 'colisage.html', 'envois.html', 'statistiques.html', 'algerie-poste.html', 'pointage.html', 'machines.html', 'operations.html']
   .map(page => new URL(page, self.registration.scope).pathname));
 
 self.addEventListener('install', event => {

@@ -3,20 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#14395f">
+  <meta name="theme-color" content="#f8fafc">
   <meta name="application-name" content="LogiTrak">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="manifest" href="./manifest.webmanifest">
+  <script>if(location.protocol!=='file:'){const l=document.createElement('link');l.rel='manifest';l.href='./manifest.webmanifest';document.head.appendChild(l);}</script>
   <link rel="apple-touch-icon" href="assets/app-icon-192.png">
   <meta name="description" content="Pointage — LogiTrak Eurequat Algérie">
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <title>Pointage • LogiTrak Eurequat Algérie</title>
 
   <script>
-    try {
-      if (localStorage.getItem('logitrak_theme') !== 'dark')
-        document.documentElement.classList.add('light');
-    } catch(e) {}
+    (function () {
+      try {
+        var a = false;
+        for (var i = 0; i < localStorage.length; i++) {
+          if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+            var v = JSON.parse(localStorage.getItem(localStorage.key(i)));
+            if ((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email)) {
+              a = true; break;
+            }
+          }
+        }
+        if (!a) {
+          var cur = encodeURIComponent(location.pathname.split('/').pop() || 'pointage.html');
+          location.replace('login.html?from=' + cur + (location.search ? encodeURIComponent(location.search) : ''));
+        }
+      } catch (e) {
+        location.replace('login.html');
+      }
+    })();
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -24,28 +39,26 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <link rel="stylesheet" href="css/style.css?v=5.0.0">
 </head>
 <body data-module="pointage" class="min-h-screen flex flex-col antialiased">
-
   <header class="app-header relative z-30 no-print">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.25rem] py-2 flex items-center justify-between gap-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[5.5rem] py-2.5 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
         <div class="app-brand"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536" decoding="async"></div>
         <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
-      <div id="headerActions" class="flex items-center gap-2">
-        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
-      </div>
+      <div id="headerActions" class="flex items-center gap-2"></div>
     </div>
   </header>
 
   <main id="embedRoot" data-url="https://eurequat.netlify.app/" data-name="Pointage" data-icon="fa-fingerprint" data-c1="#17616d" data-c2="#65c8d2"></main>
 
   <script src="js/embed.js"></script>
-  <script src="js/nav.js?v=4.0.23"></script>
+  <script src="js/nav.js?v=5.2.0"></script>
   <script src="js/pwa.js"></script>
 </body>
 </html>

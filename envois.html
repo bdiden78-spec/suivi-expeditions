@@ -3,20 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#14395f">
+  <meta name="theme-color" content="#f8fafc">
   <meta name="application-name" content="LogiTrak">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="apple-touch-icon" href="assets/app-icon-192.png">
+  <link rel="apple-touch-icon" href="assets/logitrak-favicon-192.png">
   <meta name="description" content="LogiTrak — Suivi d'expéditions Eurequat Algérie">
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <title>LogiTrak • Eurequat Algérie</title>
 
   <script>
-    try {
-      if (localStorage.getItem('logitrak_theme') !== 'dark')
-        document.documentElement.classList.add('light');
-    } catch(e) {}
+    (function () {
+      try {
+        var a = false;
+        for (var i = 0; i < localStorage.length; i++) {
+          if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+            var v = JSON.parse(localStorage.getItem(localStorage.key(i)));
+            if ((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email)) {
+              a = true; break;
+            }
+          }
+        }
+        if (!a) {
+          var cur = encodeURIComponent(location.pathname.split('/').pop() || 'envois.html');
+          location.replace('login.html?from=' + cur + (location.search ? encodeURIComponent(location.search) : ''));
+        }
+      } catch (e) {
+        location.replace('login.html');
+      }
+    })();
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -24,115 +39,233 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=5.0.0">
+<style>
+#shipmentFilters{display:flex;flex-direction:column;gap:14px}
+#shipmentFilters>div:first-child{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;width:100%}
+#shipmentFilters>div:first-child>div{grid-column:1/-1;min-width:0}
+#shipmentFilters select{width:100%!important;min-width:0}
+#shipmentFilters>div:last-child{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+#shipmentFilters #searchInput{padding-left:34px}
+@media(max-width:1000px){#shipmentFilters>div:first-child{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){#shipmentFilters>div:first-child{grid-template-columns:minmax(0,1fr)}#shipmentFilters>div:last-child{justify-content:flex-start}}
+</style><script src="js/pwa.js?v=5.2.0-install-nexa-1"></script>
 </head>
 <body data-module="envois" class="min-h-screen flex flex-col antialiased">
 
 
   <header class="app-header relative z-30 no-print">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.25rem] py-2 flex items-center justify-between gap-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[5.5rem] py-2.5 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
         <div class="app-brand"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536" decoding="async"></div>
         <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
-      <div id="headerActions" class="flex items-center gap-2">
-        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
-      </div>
+      <div id="headerActions" class="flex items-center gap-2"></div>
     </div>
   </header>
 
-  <div id="visitorBar" class="no-print relative z-20 text-xs text-center py-2 px-4" style="background:rgba(99,102,241,.08); border-bottom:1px solid rgba(99,102,241,.2); color:#a5b4fc;">
-    Les envois sont réservés aux opérateurs connectés. <button onclick="authAction()" class="underline font-bold hover:text-white">Connexion</button> pour les consulter et les gérer.
-  </div>
-
   <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
     
-    <!-- Titre mis en évidence de la liste d'envoi -->
-    <div class="page-heading flex items-center justify-between gap-3 flex-wrap">
-      <div class="flex items-center gap-3">
-        <div class="heading-icon"><i class="fa-solid fa-truck-ramp-box"></i></div>
-        <div>
-          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Liste des envois</h2>
-          <p class="text-xs" style="color:var(--text-muted)">Recherchez, filtrez et consultez toutes les expéditions</p>
+    <!-- Vue 1 : Liste des Expéditions -->
+    <div id="shipmentsListView" class="space-y-6">
+      <!-- Titre de la liste d'envoi avec bouton Nouveau -->
+      <div class="page-heading flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-3">
+          <div class="heading-icon"><i class="fa-solid fa-truck-fast"></i></div>
+          <div>
+            <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Liste des envois</h2>
+            <p class="text-xs" style="color:var(--text-muted)">Recherchez, filtrez et consultez toutes les expéditions de l'usine</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="openExpeditionModal()" class="btn btn-primary font-bold shadow-md" id="btnNewExpedition" title="Créer un nouvel envoi">
+            <i class="fa-solid fa-plus mr-1.5"></i>Nouvel envoi
+          </button>
         </div>
       </div>
+
+      <!-- KPI Cards -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="panel p-5 relative overflow-hidden group">
+          <div class="flex items-center justify-between">
+            <div><p class="metric-label" style="color:var(--text-dim)">Journées d'expédition</p><p class="metric-value" id="kpiDays">0</p></div>
+            <div class="w-13 h-13 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-xl"><i class="fa-regular fa-calendar-check"></i></div>
+          </div>
+          <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-clock-rotate-left text-indigo-400 mr-1"></i><span id="kpiYear">Toutes années</span></p>
+        </div>
+        <div class="panel p-5 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <div><p class="metric-label" style="color:var(--text-dim)">Références / Lignes</p><p class="metric-value" id="kpiItems">0</p></div>
+            <div class="w-13 h-13 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-xl"><i class="fa-solid fa-barcode"></i></div>
+          </div>
+          <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-tags text-cyan-400 mr-1"></i>Rubans, étiquettes & PVC</p>
+        </div>
+        <div class="panel p-5 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <div><p class="metric-label" style="color:var(--text-dim)">Volume total colis</p><p class="metric-value" id="kpiCartons">0</p></div>
+            <div class="w-13 h-13 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center text-xl"><i class="fa-solid fa-boxes-stacked"></i></div>
+          </div>
+          <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-box-open text-amber-400 mr-1"></i>Colisage usine</p>
+        </div>
+        <div class="panel p-5 relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <div class="min-w-0"><p class="metric-label" style="color:var(--text-dim)">Transporteur principal</p><p class="metric-value truncate" id="kpiCarrier">—</p></div>
+            <div class="w-13 h-13 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center text-xl"><i class="fa-solid fa-truck-fast"></i></div>
+          </div>
+          <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-chart-pie text-purple-400 mr-1"></i><span id="kpiCarrierShare">—</span></p>
+        </div>
+      </section>
+
+      <section id="shipmentFilters" class="panel list-focus p-3 sm:p-4">
+        <div class="flex flex-wrap items-center gap-2 flex-1">
+          <div class="relative flex-1 min-w-[200px]">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
+            <!-- Recherche dynamique à chaque frappe -->
+            <input id="searchInput" type="text" oninput="applyFilters()" placeholder="Rechercher référence, catégorie, client..." class="inp pl-9" aria-label="Rechercher">
+          </div>
+          <select id="filterYear" onchange="applyFilters()" class="inp w-auto" aria-label="Année"></select>
+          <select id="filterCarrier" onchange="applyFilters()" class="inp w-auto" aria-label="Transporteur">
+            <option value="all">🚛 Tous transporteurs</option>
+          </select>
+          <select id="filterDest" onchange="applyFilters()" class="inp w-auto" aria-label="Destinataire"></select>
+          <select id="filterStatus" onchange="applyFilters()" class="inp w-auto font-bold" aria-label="Statut">
+            <option value="all">🌐 Tous les départs</option>
+            <option value="valide">✅ Validés</option>
+            <option value="pending">⏳ En attente (À valider)</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="p-1 rounded-xl flex items-center gap-1.5" style="background:var(--bg-input); border:1px solid var(--border)">
+            <button id="viewBtnDate" onclick="switchView('date')" class="seg text-xs font-bold transition selected-view"><i class="fa-solid fa-calendar-days mr-1"></i>Par date</button>
+            <button id="viewBtnTable" onclick="switchView('table')" class="seg text-xs font-semibold transition" style="color:var(--text-muted)"><i class="fa-solid fa-table-list mr-1"></i>Tableau</button>
+          </div>
+          <button type="button" onclick="syncData(this)" class="btn-icon" title="Actualiser les envois" aria-label="Actualiser les envois"><i class="fa-solid fa-rotate"></i></button>
+          <button onclick="exportCSV()" class="btn btn-secondary" title="Export CSV"><i class="fa-solid fa-file-excel text-emerald-400"></i><span class="hidden sm:inline">Export</span></button>
+          <button onclick="toggleAllAccordions()" class="btn-icon" title="Déplier / replier tout"><i class="fa-solid fa-up-right-and-down-left-from-center text-xs"></i></button>
+        </div>
+      </section>
+
+      <div id="validationBar" class="hidden panel p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 no-print" style="border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.06)"></div>
+
+      <p id="envoisStatus" class="hidden text-sm" style="color:var(--text-muted)" role="status"></p>
+      <section id="dateView" class="space-y-4"></section>
+
+      <section id="tableView" class="panel overflow-hidden hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead style="background:var(--bg-input)">
+              <tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
+                <th class="p-3 pl-5">Date</th><th class="p-3">N° d'envoi</th><th class="p-3">Transporteur</th>
+                <th class="p-3">Référence</th><th class="p-3">Catégorie</th><th class="p-3">Désignation</th><th class="p-3">Destinataire</th>
+                <th class="p-3 text-center">Unité</th><th class="p-3 text-right">Quantité</th><th class="p-3 text-center">Cartons</th><th class="p-3">Observations</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody" class="divide-y" style="border-color:var(--border)"></tbody>
+          </table>
+        </div>
+      </section>
     </div>
 
-    <!-- KPI Cards -->
-    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="panel p-5 relative overflow-hidden group">
-        <div class="flex items-center justify-between">
-          <div><p class="metric-label" style="color:var(--text-dim)">Journées d'expédition</p><p class="metric-value" id="kpiDays">0</p></div>
-          <div class="w-13 h-13 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center text-xl"><i class="fa-regular fa-calendar-check"></i></div>
+    <!-- Vue 2 : Page Dédiée Préparation & Édition d'Envoi (Plein écran) -->
+    <section id="shipmentEditorPage" class="panel p-5 sm:p-7 space-y-6 hidden" aria-label="Édition d'expédition">
+      <!-- En-tête de la page d'expédition -->
+      <div class="flex flex-wrap items-center justify-between gap-4 pb-5 border-b" style="border-color:var(--border)">
+        <div class="flex items-center gap-3">
+          <button type="button" onclick="closeModal('expeditionModal')" class="btn btn-secondary font-bold" title="Retourner à la liste des envois">
+            <i class="fa-solid fa-arrow-left mr-1.5"></i>Retour à la liste
+          </button>
+          <div class="w-11 h-11 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-500 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-boxes-packing"></i>
+          </div>
+          <div>
+            <h3 id="expTitle" class="text-lg sm:text-2xl font-extrabold tracking-tight">Nouvel envoi</h3>
+            <p class="text-xs" style="color:var(--text-muted)">Préparation complète des colis et références pour cette expédition</p>
+          </div>
         </div>
-        <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-clock-rotate-left text-indigo-400 mr-1"></i><span id="kpiYear">Toutes années</span></p>
-      </div>
-      <div class="panel p-5 relative overflow-hidden">
-        <div class="flex items-center justify-between">
-          <div><p class="metric-label" style="color:var(--text-dim)">Références / Lignes</p><p class="metric-value" id="kpiItems">0</p></div>
-          <div class="w-13 h-13 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-xl"><i class="fa-solid fa-barcode"></i></div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeModal('expeditionModal')" class="btn btn-secondary">Annuler</button>
+          <button type="button" onclick="saveExpedition()" class="btn btn-primary font-bold shadow-md">
+            <i class="fa-solid fa-floppy-disk mr-1.5"></i>Enregistrer l'envoi
+          </button>
         </div>
-        <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-tags text-cyan-400 mr-1"></i>Rubans, étiquettes & PVC</p>
       </div>
-      <div class="panel p-5 relative overflow-hidden">
-        <div class="flex items-center justify-between">
-          <div><p class="metric-label" style="color:var(--text-dim)">Volume total colis</p><p class="metric-value" id="kpiCartons">0</p></div>
-          <div class="w-13 h-13 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center text-xl"><i class="fa-solid fa-boxes-stacked"></i></div>
-        </div>
-        <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-box-open text-amber-400 mr-1"></i>Colisage usine</p>
-      </div>
-      <div class="panel p-5 relative overflow-hidden">
-        <div class="flex items-center justify-between">
-          <div class="min-w-0"><p class="metric-label" style="color:var(--text-dim)">Transporteur principal</p><p class="metric-value truncate" id="kpiCarrier">—</p></div>
-          <div class="w-13 h-13 rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center text-xl"><i class="fa-solid fa-truck-fast"></i></div>
-        </div>
-        <p class="text-xs mt-3 pt-3 border-t" style="color:var(--text-muted); border-color:var(--border)"><i class="fa-solid fa-chart-pie text-purple-400 mr-1"></i><span id="kpiCarrierShare">—</span></p>
-      </div>
-    </section>
 
-    <section class="panel list-focus p-3 sm:p-4 flex flex-col lg:flex-row gap-3">
-      <div class="flex flex-wrap items-center gap-2 flex-1">
-        <div class="relative flex-1 min-w-[200px]">
-          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
-          <!-- Recherche dynamique à chaque frappe -->
-          <input id="searchInput" type="text" oninput="applyFilters()" placeholder="Rechercher référence, catégorie, client..." class="inp pl-9" aria-label="Rechercher">
+      <!-- Formulaire principal -->
+      <input type="hidden" id="expId">
+      <div class="panel-soft p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
+          <label for="formDate" class="block text-xs font-bold mb-1.5">Date d'expédition *</label>
+          <input type="date" id="formDate" class="inp" required>
         </div>
-        <select id="filterYear" onchange="applyFilters()" class="inp w-auto" aria-label="Année"></select>
-        <select id="filterCarrier" onchange="applyFilters()" class="inp w-auto" aria-label="Transporteur">
-          <option value="all">🚛 Tous transporteurs</option>
-        </select>
-        <select id="filterDest" onchange="applyFilters()" class="inp w-auto" aria-label="Destinataire"></select>
-      </div>
-      <div class="flex items-center gap-2">
-        <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input); border:1px solid var(--border)">
-          <button id="viewBtnDate" onclick="switchView('date')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition selected-view"><i class="fa-solid fa-calendar-days mr-1"></i>Par date</button>
-          <button id="viewBtnTable" onclick="switchView('table')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition" style="color:var(--text-muted)"><i class="fa-solid fa-table-list mr-1"></i>Tableau</button>
+        <div>
+          <label for="formBL" class="block text-xs font-bold mb-1.5">N° d'envoi / BL <i id="blLock" class="fa-solid fa-lock text-[10px] text-amber-500 hidden" title="Verrouillé : seul l'administrateur peut le modifier"></i></label>
+          <input type="text" id="formBL" class="inp font-mono-code input-uppercase" placeholder="ENV2611-0001">
         </div>
-        <button type="button" onclick="syncData(this)" class="btn-icon" title="Actualiser les envois" aria-label="Actualiser les envois"><i class="fa-solid fa-rotate"></i></button>
-        <button onclick="exportCSV()" class="btn btn-secondary" title="Export CSV"><i class="fa-solid fa-file-excel text-emerald-400"></i><span class="hidden sm:inline">Export</span></button>
-        <button onclick="toggleAllAccordions()" class="btn-icon" title="Déplier / replier tout"><i class="fa-solid fa-up-right-and-down-left-from-center text-xs"></i></button>
+        <div>
+          <label for="formCarrier" class="block text-xs font-bold mb-1.5">Transporteur *</label>
+          <input type="text" id="formCarrier" list="carriersList" class="inp input-uppercase" placeholder="Ex: YAZID">
+        </div>
+        <div>
+          <label for="formObs" class="block text-xs font-bold mb-1.5">Observations / Consignes</label>
+          <input type="text" id="formObs" class="inp" placeholder="Consignes particulières…">
+        </div>
       </div>
-    </section>
 
-    <div id="validationBar" class="hidden panel p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 no-print" style="border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.06)"></div>
+      <!-- Articles Section -->
+      <div class="space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <h4 class="text-sm sm:text-base font-extrabold">Articles & Colis de l'expédition</h4>
+            <span id="itemsCount" class="badge" style="background:rgba(2,132,199,.15);color:var(--primary);border-color:rgba(2,132,199,.3)">0</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="openProdPicker()" class="btn btn-secondary font-bold text-xs" title="Choisir des lots dans la production">
+              <i class="fa-solid fa-industry text-amber-500 mr-1.5"></i>Importer depuis la production
+            </button>
+            <button type="button" onclick="openAPShipmentPicker()" class="btn btn-secondary font-bold text-xs">
+              <i class="fa-solid fa-envelope-open-text text-sky-500 mr-1.5"></i>Importer Algérie Poste
+            </button>
+            <button type="button" onclick="addItemRow()" class="btn btn-secondary font-bold text-xs">
+              <i class="fa-solid fa-plus text-xs mr-1.5"></i>Ajouter une ligne
+            </button>
+          </div>
+        </div>
 
-    <p id="envoisStatus" class="hidden text-sm" style="color:var(--text-muted)" role="status"></p>
-    <section id="dateView" class="space-y-4"></section>
+        <div id="apOrderPicker" class="panel-soft p-3 space-y-2" hidden></div>
+        <div id="apCartonSummary" class="space-y-2"></div>
 
-    <section id="tableView" class="panel overflow-hidden hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs">
-          <thead style="background:var(--bg-input)">
-            <tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
-              <th class="p-3 pl-5">Date</th><th class="p-3">N° d'envoi</th><th class="p-3">Transporteur</th>
-              <th class="p-3">Référence</th><th class="p-3">Catégorie</th><th class="p-3">Désignation</th><th class="p-3">Destinataire</th>
-              <th class="p-3 text-center">Unité</th><th class="p-3 text-right">Quantité</th><th class="p-3 text-center">Cartons</th><th class="p-3">Observations</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody" class="divide-y" style="border-color:var(--border)"></tbody>
-        </table>
+        <div class="panel-soft overflow-x-auto rounded-xl border" style="border-color:var(--border)">
+          <table class="w-full text-left text-xs" style="min-width:960px">
+            <thead style="background:var(--bg-input)">
+              <tr class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--text-muted)">
+                <th class="p-3 w-36">Référence</th>
+                <th class="p-3 w-36">Catégorie</th>
+                <th class="p-3">Désignation</th>
+                <th class="p-3 w-40">Destinataire</th>
+                <th class="p-3 w-24 text-center">Unité</th>
+                <th class="p-3 w-28 text-right">Quantité</th>
+                <th class="p-3 w-24 text-center">Cartons</th>
+                <th class="p-3 w-12 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="itemsBody" class="divide-y" style="border-color:var(--border)"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Pied de page de l'éditeur -->
+      <div class="p-4 sm:p-5 rounded-xl flex flex-wrap items-center justify-between gap-3 border" style="border-color:var(--border);background:var(--bg-input)">
+        <span class="text-sm font-extrabold text-amber-500">
+          <i class="fa-solid fa-boxes-stacked mr-1.5"></i><span id="modalTotal">Total : 0 carton(s)</span>
+        </span>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeModal('expeditionModal')" class="btn btn-secondary">Annuler</button>
+          <button type="button" onclick="saveExpedition()" class="btn btn-primary font-bold shadow-md">
+            <i class="fa-solid fa-floppy-disk mr-1.5"></i>Enregistrer l'envoi
+          </button>
+        </div>
       </div>
     </section>
   </main>
@@ -144,66 +277,6 @@
 
 
   <div id="toasts" class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
-
-  <!-- Modal Expédition -->
-  <div id="expeditionModal" class="modal-backdrop" role="dialog" aria-modal="true">
-    <div class="modal-content w-full max-w-5xl"> <!-- Agrandi pour faire de la place à la colonne catégorie -->
-      <div class="px-6 py-4 flex items-center justify-between border-b" style="border-color:var(--border)">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center"><i class="fa-solid fa-boxes-packing"></i></div>
-          <div><h3 id="expTitle" class="text-base font-extrabold">Nouvel envoi</h3><p class="text-xs" style="color:var(--text-muted)">Tous les colis rattachés à cette date</p></div>
-        </div>
-        <button onclick="closeModal('expeditionModal')" class="btn-icon" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="p-6 overflow-y-auto space-y-5 flex-1">
-        <input type="hidden" id="expId">
-        <div class="panel-soft p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div><label for="formDate" class="block text-xs font-bold mb-1.5">Date *</label><input type="date" id="formDate" class="inp" required></div>
-          <div><label for="formBL" class="block text-xs font-bold mb-1.5">N° d'envoi <i id="blLock" class="fa-solid fa-lock text-[10px] text-amber-500 hidden" title="Verrouillé : seul l'administrateur peut le modifier"></i></label><input type="text" id="formBL" class="inp font-mono-code input-uppercase" placeholder="ENVAAAAnnn"></div>
-          <div>
-            <label for="formCarrier" class="block text-xs font-bold mb-1.5">Transporteur *</label>
-            <input type="text" id="formCarrier" list="carriersList" class="inp input-uppercase" placeholder="Ex: YAZID">
-          </div>
-          <div class="sm:col-span-3"><label for="formObs" class="block text-xs font-bold mb-1.5">Observations</label><input type="text" id="formObs" class="inp" placeholder="Consignes…"></div>
-        </div>
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2"><h4 class="text-sm font-extrabold">Articles</h4><span id="itemsCount" class="badge" style="background:rgba(99,102,241,.15);color:#a5b4fc;border-color:rgba(99,102,241,.3)">0</span></div>
-            <div class="flex flex-wrap items-center gap-2">
-              <button type="button" onclick="openProdPicker()" class="btn btn-secondary" title="Choisir des lots dans la production"><i class="fa-solid fa-industry text-amber-500 text-xs"></i>Importer depuis la production</button>
-              <button type="button" onclick="openAPShipmentPicker()" class="btn btn-secondary">Importer Algérie Poste</button>
-              <button type="button" onclick="addItemRow()" class="btn btn-secondary"><i class="fa-solid fa-plus text-xs"></i>Ajouter une ligne</button>
-            </div>
-          </div>
-          <div id="apOrderPicker" class="panel-soft p-3 space-y-2" hidden></div><div id="apCartonSummary" class="space-y-2"></div>
-<div class="panel-soft overflow-x-auto">
-            <table class="w-full text-left text-xs" style="min-width:900px"> <!-- Elargi -->
-              <thead style="background:var(--bg-input)">
-                <tr class="text-[10px] font-bold uppercase tracking-wider" style="color:var(--text-muted)">
-                  <th class="p-2.5 w-28">Référence</th>
-                  <th class="p-2.5 w-32">Catégorie</th> <!-- NOUVELLE COLONNE -->
-                  <th class="p-2.5">Désignation</th>
-                  <th class="p-2.5 w-32">Destinataire</th>
-                  <th class="p-2.5 w-20 text-center">Unité</th>
-                  <th class="p-2.5 w-24 text-right">Quantité</th>
-                  <th class="p-2.5 w-20 text-center">Cartons</th>
-                  <th class="p-2.5 w-10"></th>
-                </tr>
-              </thead>
-              <tbody id="itemsBody" class="divide-y" style="border-color:var(--border)"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      <div class="px-6 py-4 flex items-center justify-between border-t" style="border-color:var(--border);background:var(--bg-input)">
-        <span class="text-xs font-bold text-amber-400"><i class="fa-solid fa-boxes-stacked mr-1"></i><span id="modalTotal">Total : 0 carton(s)</span></span>
-        <div class="flex gap-2">
-          <button onclick="closeModal('expeditionModal')" class="btn btn-secondary">Annuler</button>
-          <button onclick="saveExpedition()" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- Modal : Importer depuis la production -->
   <div id="prodPickerModal" class="modal-backdrop" role="dialog" aria-modal="true">
@@ -285,7 +358,7 @@
         <form onsubmit="addOperator(event)" class="flex flex-wrap gap-2">
           <input type="text" id="opUsername" required placeholder="Pseudo" class="inp flex-1 min-w-[130px]">
           <input type="password" id="opPassword" required placeholder="Mot de passe" class="inp flex-1 min-w-[130px]">
-          <select id="opRole" class="inp w-auto"><option value="operateur">Opérateur</option><option value="admin">Admin</option><option value="visionnaire">Visionnaire · lecture seule</option></select>
+          <select id="opRole" class="inp w-auto"><option value="operateur">Opérateur</option><option value="admin">Admin</option></select>
           <button type="submit" class="btn btn-primary">Créer</button>
         </form>
         <div id="opsList" class="divide-y text-xs" style="border-color:var(--border)"></div>
@@ -431,10 +504,10 @@
   <script src="js/colisage-calc.js"></script>
   <script src="js/data-pages.js"></script>
   <script src="js/ap-calc.js"></script>
-  <script src="js/ap-products.js?v=4.0.21"></script>
-  <script src="js/app.js?v=4.0.25-stock2"></script>
+  <script src="js/ap-products.js?v=5.0.0"></script>
+  <script src="js/ap-grouping.js?v=5.2.0-fractions-1"></script>
+  <script src="js/app.js?v=5.2.0-fractions-1"></script>
   <script src="js/scanner.js"></script>
-  <script src="js/nav.js?v=4.0.23"></script>
-  <script src="js/pwa.js"></script>
-</body>
+  <script src="js/nav.js?v=5.2.0"></script>
+  </body>
 </html>

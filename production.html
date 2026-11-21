@@ -3,20 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#14395f">
+  <meta name="theme-color" content="#f8fafc">
   <meta name="application-name" content="LogiTrak">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="apple-touch-icon" href="assets/app-icon-192.png">
+  <link rel="apple-touch-icon" href="assets/logitrak-favicon-192.png">
   <meta name="description" content="LogiTrak — Saisie de la production Eurequat Algérie">
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <title>Production • LogiTrak Eurequat Algérie</title>
 
   <script>
-    try {
-      if (localStorage.getItem('logitrak_theme') !== 'dark')
-        document.documentElement.classList.add('light');
-    } catch(e) {}
+    (function () {
+      try {
+        var a = false;
+        for (var i = 0; i < localStorage.length; i++) {
+          if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+            var v = JSON.parse(localStorage.getItem(localStorage.key(i)));
+            if ((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email)) {
+              a = true; break;
+            }
+          }
+        }
+        if (!a) {
+          var cur = encodeURIComponent(location.pathname.split('/').pop() || 'production.html');
+          location.replace('login.html?from=' + cur + (location.search ? encodeURIComponent(location.search) : ''));
+        }
+      } catch (e) {
+        location.replace('login.html');
+      }
+    })();
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -24,37 +39,75 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=5.2.0-install-nexa-1">
 
   <style>
-    .kpi{padding:14px 16px}
-    .kpi small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim)}
-    .kpi b{display:block;font-size:22px;font-weight:900;margin-top:2px}
-    .seg{padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text-muted);transition:all .15s}
-    .seg.active{background:var(--accent-wash);color:var(--accent)}
+    .kpi{padding:16px 18px;border-radius:var(--radius);border-top:3px solid var(--accent);box-shadow:var(--shadow-card);transition:all .22s cubic-bezier(0.16,1,0.3,1)}
+    .kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow-raised)}
+    .kpi small{display:block;font-size:10.5px;font-weight:750;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted)}
+    .kpi b{display:block;font-size:24px;font-weight:850;margin-top:3px;letter-spacing:-.03em}
+    .seg{padding:7px 16px;transform:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;color:var(--text-muted);border:1px solid var(--border-strong);background:var(--bg-card);transition:all .2s cubic-bezier(0.16,1,0.3,1);display:inline-flex;align-items:center}
+    .seg > *{transform:none;display:inline-flex;align-items:center}
+    .seg:hover{color:var(--accent);background:var(--bg-hover);border-color:var(--accent);transform:translateY(-2px);box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 25%,transparent)}
+    .seg:hover i{transform:scale(1.15)}
+    .seg.active{background-size:220% 220% !important;animation:btnGradShift 5s ease-in-out infinite !important;color:#fff !important;border-color:transparent !important}
+    .seg.active > *{color:#fff !important}
+    #tabBtn_fab.active{background:linear-gradient(135deg,#10b981 0%,#059669 50%,#34d399 75%,#10b981 100%) !important;box-shadow:0 4px 16px rgba(16,185,129,.45) !important}
+    #tabBtn_stock.active{background:linear-gradient(135deg,#00d2ff 0%,#0284c7 50%,#38bdf8 75%,#00d2ff 100%) !important;box-shadow:0 4px 16px rgba(2,132,199,.45) !important}
+    #tabBtn_recept.active{background:linear-gradient(135deg,#ff6b00 0%,#f59e0b 50%,#fbbf24 75%,#ff6b00 100%) !important;box-shadow:0 4px 16px rgba(255,107,0,.45) !important}
+    #tabBtn_cartons.active{background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a855f7 75%,#6366f1 100%) !important;box-shadow:0 4px 16px rgba(99,102,241,.45) !important}
     .lbl{display:block;font-size:11px;font-weight:700;margin-bottom:6px}
-    .bar{height:6px;border-radius:99px;background:var(--bg-input);overflow:hidden;min-width:70px}
-    .bar > i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+    .bar{height:7px;border-radius:99px;background:var(--bg-input);overflow:hidden;min-width:70px;border:1px solid var(--border)}
+    .bar > i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .3s cubic-bezier(0.16,1,0.3,1)}
     .st-done{background:var(--success-bg);color:var(--success);border-color:var(--success)}
     .st-part{background:var(--warning-bg);color:var(--warning);border-color:var(--warning)}
     .st-new{background:var(--accent-wash);color:var(--accent);border-color:var(--accent)}
-    .type-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:12px;font-size:12px;font-weight:800;cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-input);color:var(--text-muted);transition:all .15s}
-    .type-pill.active{background:linear-gradient(135deg,#10b981,#059669);color:#fff;border-color:transparent;box-shadow:0 6px 16px -6px rgba(16,185,129,.55)}
+    .type-pill{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;transform:none;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-muted);transition:all .2s cubic-bezier(0.16,1,0.3,1)}
+    .type-pill > *{transform:none;display:inline-flex;align-items:center}
+    .type-pill:hover{color:var(--accent);border-color:var(--accent);background:var(--bg-hover);transform:translateY(-2px);box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 25%,transparent)}
+    .type-pill.active{background:linear-gradient(135deg,#10b981 0%,#059669 50%,#34d399 75%,#10b981 100%) !important;background-size:220% 220% !important;animation:btnGradShift 5s ease-in-out infinite !important;color:#fff !important;border-color:transparent !important;box-shadow:0 4px 16px rgba(16,185,129,.5) !important;transform:translateY(-2px) !important}
+    .type-pill.active > *{color:#fff !important}
   </style>
+<style>
+body[data-production-section]:not([data-production-section="fab"]) #view_fab,
+body[data-production-section]:not([data-production-section="fab"]) [data-fabrication-form]{display:none!important}
+body[data-production-section]:not([data-production-section="recept"]) #btnNewReceptQuick,
+body[data-production-section]:not([data-production-section="plaques"]) #btnNewPlaqueQuick,
+body[data-production-section]:not([data-production-section="bobines"]) #btnNewBobineQuick,
+body[data-production-section]:not([data-production-section="stock"]) #btnPrintStock,
+body[data-production-section]:not([data-production-section="stock"]) #btnExportStock{display:none!important}
+</style>
+<script>
+(function(){
+  const allowed=['fab','stock','recept','cartons','plaques','bobines'];
+  const initial=new URLSearchParams(location.search).get('tab');
+  document.documentElement.dataset.productionView=allowed.includes(initial)?initial:'fab';
+})();
+</script>
+<style>
+html[data-production-view]:not([data-production-view="fab"]) #view_fab{display:none!important}
+html[data-production-view]:not([data-production-view="stock"]) #view_stock{display:none!important}
+html[data-production-view]:not([data-production-view="recept"]) #view_recept{display:none!important}
+html[data-production-view="stock"] .page-heading h2,
+html[data-production-view="recept"] .page-heading h2{font-size:0}
+html[data-production-view="stock"] .page-heading h2::after{content:"Stock";font-size:1.5rem}
+html[data-production-view="recept"] .page-heading h2::after{content:"Réceptions & Retours";font-size:1.5rem}
+html[data-production-view="stock"] .page-heading p,
+html[data-production-view="recept"] .page-heading p{display:none}
+</style>
+<script src="js/pwa.js?v=5.2.0-install-nexa-1"></script>
 </head>
-<body data-module="production" class="min-h-screen flex flex-col antialiased">
+<body data-production-section="fab" data-module="production" class="min-h-screen flex flex-col antialiased">
 
   <header class="app-header relative z-30 no-print">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.25rem] py-2 flex items-center justify-between gap-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[5.5rem] py-2.5 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
         <div class="app-brand"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536" decoding="async"></div>
         <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
-      <div id="headerActions" class="flex items-center gap-2">
-        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
-      </div>
+      <div id="headerActions" class="flex items-center gap-2"></div>
     </div>
   </header>
 
@@ -64,13 +117,9 @@
       <div class="flex items-center gap-3">
         <div class="heading-icon"><i class="fa-solid fa-industry"></i></div>
         <div>
-          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Production &amp; Conditionnement</h2>
-          <p class="text-xs" style="color:var(--text-muted)">1. Saisissez la production • 2. Le colisage de la référence se remplit tout seul (ou à saisir pour une nouvelle référence) • 3. Cochez les lots à expédier</p>
+          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Production, Stock &amp; Réceptions</h2>
+          <p class="text-xs" style="color:var(--text-muted)">Fabrication des lots OF • Suivi du stock disponible • Entrées externes et retours clients prêts à l'expédition</p>
         </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <a href="colisage.html" class="btn btn-secondary" title="Aller au Colisage"><i class="fa-solid fa-boxes-packing text-amber-500"></i><span>Colisage Production</span></a>
-        <a href="envois.html?new=1" class="btn btn-primary op-only"><i class="fa-solid fa-truck-fast"></i><span>Nouvel envoi</span></a>
       </div>
     </div>
 
@@ -80,106 +129,563 @@
     <!-- Application -->
     <div id="app" class="space-y-6 hidden">
 
-      <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="panel kpi"><small>Lots à expédier</small><b id="kLots">0</b></div>
-        <div class="panel kpi"><small>Total produit</small><b id="kProd">0</b></div>
-        <div class="panel kpi"><small>Total expédié</small><b id="kShip" class="text-emerald-500">0</b></div>
-        <div class="panel kpi"><small>Reste à expédier</small><b id="kRest" class="text-amber-500">0</b></div>
-      </section>
-
-      <!-- Formulaire Opérateur -->
-      <section class="panel p-4 sm:p-5 space-y-4 op-only" style="border:1px solid rgba(16,185,129,.45);box-shadow:0 0 0 3px rgba(16,185,129,.12)">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h3 id="formTitle" class="text-sm font-extrabold"><i class="fa-solid fa-plus text-emerald-400 mr-2"></i>Nouveau lot de production</h3>
-          <div class="flex flex-wrap items-center gap-2">
-            <button id="btnCancelEdit" type="button" onclick="resetForm()" class="btn btn-secondary hidden"><i class="fa-solid fa-xmark text-xs"></i>Annuler</button>
-          </div>
+      <!-- Barre d'onglets Production Hub (Front and Center) -->
+      <div class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-[var(--bg-soft)] border border-[var(--border)] no-print shadow-sm">
+        <div class="flex flex-wrap items-center gap-2" role="tablist">
+          <button type="button" id="tabBtn_fab" class="seg active" onclick="switchProdTab('fab')">
+            <i class="fa-solid fa-industry mr-1.5"></i>Fabrication (OF)
+          </button>
+          <button type="button" id="tabBtn_stock" class="seg" onclick="switchProdTab('stock')">
+            <i class="fa-solid fa-warehouse mr-1.5"></i>Stock de Production
+            <span id="badgeStockCount" class="badge ml-1.5" style="background:var(--accent-wash);color:var(--accent)">0</span>
+          </button>
+          <button type="button" id="tabBtn_recept" class="seg" onclick="switchProdTab('recept')">
+            <i class="fa-solid fa-truck-ramp-box mr-1.5"></i>Réceptions &amp; Retours
+            <span id="badgeReceptCount" class="badge ml-1.5" style="background:var(--warning-bg);color:var(--warning)">0</span>
+          </button>
+          <button type="button" id="tabBtn_cartons" class="seg op-only" onclick="switchProdTab('cartons')">
+            <i class="fa-solid fa-boxes-stacked mr-1.5"></i>Cartons en Stock <span id="badgeCartonsCount" class="badge ml-1.5">0</span>
+          </button>
+          <button type="button" id="tabBtn_plaques" class="seg" onclick="switchProdTab('plaques')">
+            <i class="fa-solid fa-shapes mr-1.5" style="color:#6366f1"></i>Plaques de Découpe
+            <span id="badgePlaquesCount" class="badge ml-1.5" style="background:rgba(99,102,241,.15);color:#6366f1">0</span>
+          </button>
+          <button type="button" id="tabBtn_bobines" class="seg" onclick="switchProdTab('bobines')">
+            <i class="fa-solid fa-scroll mr-1.5" style="color:#10b981"></i>Matière Première
+            <span id="badgeBobinesCount" class="badge ml-1.5" style="background:rgba(16,185,129,.15);color:#10b981">0</span>
+          </button>
         </div>
-
-        <input type="hidden" id="fType" value="ETIQUETTE">
-        <div id="productionFields" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div><label class="lbl" for="fOF">Ordre de fabrication (OF) * <span style="color:var(--text-dim);font-weight:500">MOyymm-xxxx</span></label><input id="fOF" class="inp font-mono-code input-uppercase" placeholder="MO2610-0000" maxlength="11" autocomplete="off" spellcheck="false" title="Format imposé : MOyymm-xxxx (ex. MO2610-0000)"></div>
-          <div><label class="lbl" for="fRef">Référence * <span style="color:var(--text-dim);font-weight:500">(toucher = scanner)</span></label><input id="fRef" data-field="reference" class="inp font-mono-code input-uppercase" list="refList" placeholder="📷 Réf" autocomplete="off"><div id="fInlayHint" class="flex flex-wrap gap-1 mt-1" aria-live="polite"></div></div>
-          <label id="fInlayField" hidden class="lbl">Inlay RFID<input id="fInlay" class="inp" maxlength="160"></label>
-          <div><label class="lbl" for="fCat">Catégorie * <button type="button" class="lst-btn adm-only" onclick="Listes.manage('categories')" title="Ajouter / retirer une catégorie"><i class="fa-solid fa-gear"></i></button></label><select id="fCat" class="inp font-bold"><option value="">— Choisir —</option><option value="ETIQUETTES">ETIQUETTES</option><option value="ETIQUETTES RFID">ETIQUETTES RFID</option><option value="RUBAN TTR">RUBAN TTR</option><option value="CARTE PVC">CARTE PVC</option><option value="TAG">TAG</option></select></div>
-          <div><label class="lbl" for="fDes">Désignation</label><input id="fDes" class="inp input-uppercase" placeholder="Ex : ETIQUETTE TT 100x150" autocomplete="off"></div>
-          <div><label class="lbl" for="fUni">Unité de comptage <button type="button" class="lst-btn adm-only" onclick="Listes.manage('unites')" title="Ajouter / retirer une unité"><i class="fa-solid fa-gear"></i></button></label><select id="fUni" class="inp font-bold"></select></div>
-          <div><label class="lbl" id="lblQty" for="fQty">Quantité produite *</label><input id="fQty" class="inp text-right font-mono-code font-bold" inputmode="numeric" pattern="[0-9]*" maxlength="9" placeholder="Ex : 100" autocomplete="off" title="Nombre entier uniquement"></div>
-          <label class="lbl">Objectif total de l’OF<input id="fTarget" class="inp" type="number" min="1" max="2147483647" step="1"></label>
-          <div><label class="lbl" for="fDate">Date de production</label><input id="fDate" type="date" class="inp"></div>
-          <div><label class="lbl" for="fClient">Client</label><input id="fClient" class="inp input-uppercase" list="prodClients" placeholder="STOCK" autocomplete="off"><datalist id="prodClients"></datalist></div>
-          <!-- Colisage de la référence : rempli automatiquement depuis la page Colisage -->
-          <div id="colisInfo" class="col-span-2 lg:col-span-4 px-4 py-3 rounded-xl text-xs" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--text-muted)"></div>
-        </div>
-        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <p class="text-[11px]" style="color:var(--text-dim)"><i class="fa-solid fa-circle-info mr-1 text-emerald-400"></i>Modification et suppression : opérateur pendant <b>24 h</b> après la création du lot, administrateur à tout moment. La fiche de colisage définit les paramètres de la référence. Les cartons sont calculés dans Nouvel envoi.</p>
-          <div class="flex items-center gap-2">
-            <button id="btnSave" type="button" onclick="saveLot()" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer le lot</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel p-4 sm:p-5 space-y-3 op-only" aria-labelledby="stockTitle">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h3 id="stockTitle" class="text-sm font-extrabold"><i class="fa-solid fa-boxes-stacked text-amber-400 mr-2"></i>Cartons en stock</h3>
-            <p class="text-xs" style="color:var(--text-muted)">Regroupez les références qui restent en vrac ou dans des cartons partiels. Vous pouvez rouvrir un carton tant qu’il est en stock.</p>
-          </div>
-          <button type="button" id="stockNew" class="btn btn-primary" onclick="editStockCarton()"><i class="fa-solid fa-plus"></i>Composer un carton</button>
-        </div>
-        <div id="stockList" class="space-y-2" aria-live="polite"></div>
-        <form id="stockEditor" class="hidden space-y-3 rounded-xl p-3" style="background:var(--bg-input)" onsubmit="saveStockCarton(event)">
-          <div class="flex flex-wrap gap-3 items-end">
-            <div>
-              <label class="lbl" for="stockType">Carton utilisé</label>
-              <select id="stockType" class="inp" onchange="updateStockWeight()">
-                <option value="">Choix automatique selon la sélection</option>
-                <option value="H1">H1</option>
-                <option value="H2">H2</option>
-              </select>
-            </div>
-            <span id="stockWeight" class="text-xs font-bold" aria-live="polite"></span>
-          </div>
-          <p class="text-xs" style="color:var(--text-muted)">Saisissez la quantité de chaque lot à placer dans le même carton. Laissez vide pour ignorer un lot.</p>
-          <div id="stockChoices" class="space-y-2 max-h-80 overflow-auto" oninput="updateStockWeight()"></div>
-          <div class="flex flex-wrap justify-end gap-2">
-            <button type="button" class="btn btn-secondary" onclick="closeStockEditor()">Annuler</button>
-            <button type="submit" id="stockSave" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer le carton</button>
-          </div>
-        </form>
-      </section>
-
-      <!-- Liste -->
-      <section class="space-y-3">
         <div class="flex flex-wrap items-center gap-2">
-          <div class="relative flex-1 min-w-[220px]">
-            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
-            <input id="search" oninput="render()" class="inp pl-9" placeholder="Rechercher un OF, une référence, une désignation, une matière…" aria-label="Rechercher">
+          <button type="button" id="btnPrintStock" class="btn btn-secondary text-xs hidden" onclick="printStockInventory()"><i class="fa-solid fa-print mr-1 text-slate-500"></i>Imprimer Inventaire</button>
+          <button type="button" id="btnExportStock" class="btn btn-secondary text-xs hidden" onclick="exportStockCSV()"><i class="fa-solid fa-file-csv mr-1 text-emerald-500"></i>Export CSV</button>
+        </div>
+      </div>
+
+      <!-- VUE 1 : FABRICATION & OF -->
+      <div id="view_fab" class="space-y-6">
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="panel kpi"><small>Lots à expédier</small><b id="kLots">0</b></div>
+          <div class="panel kpi"><small>Total produit</small><b id="kProd">0</b></div>
+          <div class="panel kpi"><small>Total expédié</small><b id="kShip" class="text-emerald-500">0</b></div>
+          <div class="panel kpi"><small>Reste à expédier</small><b id="kRest" class="text-amber-500">0</b></div>
+        </section>
+        <!-- Formulaire Opérateur -->
+        <section class="panel p-4 sm:p-5 space-y-4 op-only" style="border:1px solid rgba(16,185,129,.45);box-shadow:0 0 0 3px rgba(16,185,129,.12)">
+          <details id="productionCreateEditor"><summary class="cursor-pointer" style="padding:10px 12px;border-radius:10px;background:rgba(16,185,129,.12);color:var(--success)"><span id="formTitle" class="text-sm font-extrabold"><i class="fa-solid fa-plus text-emerald-400 mr-2"></i>Nouveau lot de production</span></summary><div class="space-y-4 mt-4"><div class="flex justify-end"><button id="btnCancelEdit" type="button" onclick="resetForm()" class="btn btn-secondary hidden"><i class="fa-solid fa-xmark text-xs"></i>Annuler</button></div><input type="hidden" id="fType" value="ETIQUETTE">
+          <div id="productionFields" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div><label class="lbl" for="fOF">Ordre de fabrication (OF) * <span style="color:var(--text-dim);font-weight:500">MOyymm-xxxx</span></label><input id="fOF" class="inp font-mono-code input-uppercase" placeholder="MO2610-0000" maxlength="11" autocomplete="off" spellcheck="false" title="Format imposé : MOyymm-xxxx (ex. MO2610-0000)"></div>
+            <div><label class="lbl" for="fRef">Référence * <span style="color:var(--text-dim);font-weight:500">(toucher = scanner)</span></label><input id="fRef" data-field="reference" class="inp font-mono-code input-uppercase" list="refList" placeholder="📷 Réf" autocomplete="off"><div id="fInlayHint" class="flex flex-wrap gap-1 mt-1" aria-live="polite"></div></div>
+            <label id="fInlayField" hidden class="lbl">Inlay RFID<input id="fInlay" class="inp" maxlength="160"></label>
+            <div><label class="lbl" for="fCat">Catégorie * <button type="button" class="lst-btn adm-only" onclick="Listes.manage('categories')" title="Ajouter / retirer une catégorie"><i class="fa-solid fa-gear"></i></button></label><select id="fCat" class="inp font-bold"><option value="">— Choisir —</option><option value="ETIQUETTES">ETIQUETTES</option><option value="ETIQUETTES RFID">ETIQUETTES RFID</option><option value="RUBAN TTR">RUBAN TTR</option><option value="CARTE PVC">CARTE PVC</option><option value="TAG">TAG</option></select></div>
+            <div><label class="lbl" for="fDes">Désignation</label><input id="fDes" class="inp input-uppercase" placeholder="Ex : ETIQUETTE TT 100x150" autocomplete="off"></div>
+            <div><label class="lbl" for="fCut">Découpe (largeur × hauteur, mm) *</label><input id="fCut" class="inp" placeholder="100X150" oninput="recalcDropsAndLinear()"></div>
+            <div><label class="lbl" for="fUni">Unité de comptage <button type="button" class="lst-btn adm-only" onclick="Listes.manage('unites')" title="Ajouter / retirer une unité"><i class="fa-solid fa-gear"></i></button></label><select id="fUni" class="inp font-bold"></select></div>
+            <div><label class="lbl" id="lblTarget" for="fTarget">Quantité de la commande *</label><input id="fTarget" class="inp text-right font-mono-code font-bold" type="number" min="1" max="2147483647" step="1" placeholder="Ex : 5000" autocomplete="off"></div>
+            <div><label class="lbl" id="lblQty" for="fQty">Quantité produite *</label><input id="fQty" class="inp text-right font-mono-code font-bold" inputmode="numeric" pattern="[0-9]*" maxlength="9" placeholder="Ex : 100" autocomplete="off" title="Nombre entier uniquement"></div>
+            <div><label class="lbl" for="fDate">Date de production</label><input id="fDate" type="date" class="inp"></div>
+            <div><label class="lbl" for="fClient">Client</label><input id="fClient" value="STOCK" class="inp input-uppercase" list="prodClients" placeholder="STOCK" autocomplete="off"><datalist id="prodClients"></datalist></div>
+            <div><label class="lbl" for="fLot">N° de Lot <span style="color:var(--text-dim);font-weight:500">(traçabilité)</span></label><input id="fLot" class="inp font-mono-code input-uppercase" placeholder="Ex : LOT2611-01" autocomplete="off"></div>
+            <!-- Colisage de la référence : rempli automatiquement depuis la page Colisage -->
+            <div id="colisInfo" class="col-span-2 lg:col-span-4 px-4 py-3 rounded-xl text-xs" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--text-muted)"></div>
+
+            <!-- Calculateur Découpe & Drops (Outillage & Bobine Mère) -->
+            <details id="cuttingBox" class="col-span-2 lg:col-span-4 p-4 rounded-xl border space-y-3" style="background:rgba(99,102,241,.03);border-color:rgba(99,102,241,.25)"><summary class="font-bold cursor-pointer">Calculateur de bobines mères — facultatif</summary>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white shadow-xs" style="background:#6366f1">
+                    <i class="fa-solid fa-shapes"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-xs font-extrabold uppercase tracking-wide" style="color:#4338ca">
+                      Calculateur de bobines mères — facultatif
+                    </h4>
+                    <p class="text-[11px]" style="color:var(--text-muted)">Déduction directe des levées (drops) et métrage linéaire consommé sur la bobine mère</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span id="plaqueDetectBadge" class="badge hidden font-mono-code" style="background:rgba(16,185,129,.15);color:#059669"><i class="fa-solid fa-link mr-1"></i>Plaque liée détectée</span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <label class="lbl" for="fPlaque">
+                    Plaque de Découpe (Outil)
+                    <button type="button" onclick="switchProdTab('plaques')" class="lst-btn" title="Gérer les plaques"><i class="fa-solid fa-up-right-from-square"></i></button>
+                  </label>
+                  <select id="fPlaque" class="inp font-bold" onchange="onPlaqueChange()">
+                    <option value="">— Sélectionner plaque ou détection auto —</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="lbl" for="fBobineMere">
+                    Bobine Mère (Jumbo)
+                    <button type="button" onclick="switchProdTab('bobines')" class="lst-btn" title="Gérer les jumbos"><i class="fa-solid fa-up-right-from-square"></i></button>
+                  </label>
+                  <select id="fBobineMere" class="inp font-bold" onchange="onBobineMereChange()">
+                    <option value="">— Sans déduction Jumbo / Choisir —</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="lbl" for="fEtqParBob">Étiquettes / bobine</label>
+                  <input id="fEtqParBob" type="number" min="1" class="inp text-right font-mono-code font-bold" placeholder="Auto (Colisage)" oninput="recalcDropsAndLinear()">
+                </div>
+                <div>
+                  <label class="lbl" for="fCalcPoses">Bobines filles par drop</label><input id="fCalcPoses" type="number" min="1" step="1" value="1" class="inp" oninput="recalcDropsAndLinear()">
+                  <label class="lbl" for="fCalcGap">Gap d’avancement (mm)</label><input id="fCalcGap" type="number" min="0" step="0.01" value="3" class="inp" oninput="recalcDropsAndLinear()">
+                  <label class="lbl" for="fGachePct">Gâche de calage &amp; arrêt (%)</label>
+                  <input id="fGachePct" type="number" min="0" max="30" step="0.5" value="3.0" class="inp text-right font-mono-code font-bold" oninput="recalcDropsAndLinear()">
+                </div>
+              </div>
+
+              <!-- Indicateurs visuels des calculs industriels -->
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-2 border-t" style="border-color:rgba(99,102,241,.15)">
+                <div class="p-2.5 rounded-lg border shadow-xs" style="background:var(--bg-card);border-color:var(--border)">
+                  <small class="block text-[10px] font-bold uppercase" style="color:var(--text-muted)">Bobines / Drop (Levée)</small>
+                  <b id="resCoilsPerDrop" class="text-base font-black font-mono-code" style="color:#4f46e5">1</b>
+                  <span id="resPosesDetail" class="block text-[10px]" style="color:var(--text-dim)">1 pose de front</span>
+                </div>
+                <div class="p-2.5 rounded-lg border shadow-xs" style="background:var(--bg-card);border-color:var(--border)">
+                  <small class="block text-[10px] font-bold uppercase" style="color:var(--text-muted)">Total Bobines Filles</small>
+                  <b id="resTotalCoils" class="text-base font-black font-mono-code" style="color:var(--text)">0</b>
+                  <span class="block text-[10px]" style="color:var(--text-dim)">bobines terminées</span>
+                </div>
+                <div class="p-2.5 rounded-lg border shadow-xs" style="background:var(--bg-card);border-color:var(--border)">
+                  <small class="block text-[10px] font-bold uppercase" style="color:var(--text-muted)">Nombre de Drops</small>
+                  <b id="resTotalDrops" class="text-base font-black font-mono-code text-amber-500">0</b>
+                  <span class="block text-[10px]" style="color:var(--text-dim)">levées / coupes</span>
+                </div>
+                <div class="p-2.5 rounded-lg border shadow-xs" style="background:var(--bg-card);border-color:var(--border)">
+                  <small class="block text-[10px] font-bold uppercase" style="color:var(--text-muted)">Métrage / Bobine</small>
+                  <b id="resLengthPerCoil" class="text-base font-black font-mono-code" style="color:var(--text)">0 m</b>
+                  <span id="resAdvanceDetail" class="block text-[10px]" style="color:var(--text-dim)">hauteur + gap</span>
+                </div>
+                <div class="col-span-2 sm:col-span-3 lg:col-span-1 p-2.5 rounded-lg border shadow-xs" style="background:rgba(99,102,241,.06);border-color:rgba(99,102,241,.3)">
+                  <small class="block text-[10px] font-bold uppercase" style="color:#4338ca">Linéaire Total Consommé</small>
+                  <b id="resTotalLinear" class="text-base font-black font-mono-code" style="color:#4f46e5">0 m</b>
+                  <span id="resJumboBalance" class="block text-[10px] font-medium" style="color:var(--text-dim)">Sans déduction Jumbo</span>
+                </div>
+              </div>
+            </details>
           </div>
-          <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
-            <button id="fltOpen" class="seg active" onclick="setFilter('open')">À expédier</button>
-            <button id="fltAll" class="seg" onclick="setFilter('all')">Tous les lots</button>
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <p class="text-[11px]" style="color:var(--text-dim)"><i class="fa-solid fa-circle-info mr-1 text-emerald-400"></i>Modification et suppression : opérateur pendant <b>24 h</b> après la création du lot, administrateur à tout moment. La fiche de colisage définit les paramètres de la référence. Les cartons sont calculés dans Nouvel envoi.</p>
+            <div class="flex items-center gap-2">
+              <button id="btnSave" type="button" onclick="saveLot()" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer le lot</button>
+            </div>
+          </div>
+        </div></details>
+</section>
+
+        <!-- Liste des lots -->
+        <section class="space-y-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="relative flex-1 min-w-[220px]">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
+              <input id="search" oninput="render()" class="inp pl-9" placeholder="Rechercher un OF, une référence, une désignation, une matière…" aria-label="Rechercher">
+            </div>
+            <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
+              <button id="fltOpen" class="seg active" onclick="setFilter('open')">À expédier</button>
+              <button id="fltAll" class="seg" onclick="setFilter('all')">Tous les lots</button>
+            </div>
+          </div>
+          <div class="panel overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs" style="min-width:1100px">
+                <thead style="background:var(--bg-input)"><tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
+                  <th class="p-3 pl-4 op-only w-8"><input type="checkbox" id="chkAll" class="w-4 h-4 accent-indigo-500" title="Tout cocher (lots expédiables)" onchange="toggleAllSel(this.checked)"></th>
+                  <th class="p-3 pl-5">OF / Date</th>
+                  <th class="p-3">Produit &amp; Spécifications</th>
+                  <th class="p-3 text-right">Produit</th>
+                  <th class="p-3 text-center">Colisage (Cartons)</th>
+                  <th class="p-3 text-right">Expédié</th>
+                  <th class="p-3 text-right">Reste</th>
+                  <th class="p-3">Statut</th>
+                  <th class="p-3 pr-5 text-right">Actions</th>
+                </tr></thead>
+                <tbody id="rows" class="divide-y" style="border-color:var(--border)"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- VUE 2 : GESTION DU STOCK DE PRODUCTION -->
+      <div id="view_stock" class="space-y-6 hidden">
+        <!-- KPIs Stock -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="panel kpi" style="border-top-color:var(--accent)"><small>Références Actives</small><b id="kStockRefs" class="text-indigo-400">0</b></div>
+          <div class="panel kpi" style="border-top-color:var(--success)"><small>Stock Disponible Réel</small><b id="kStockDispo" class="text-emerald-500">0</b></div>
+          <div class="panel kpi" style="border-top-color:var(--warning)"><small>Stock Réservé en cours</small><b id="kStockReserve" class="text-amber-500">0</b></div>
+          <div class="panel kpi" style="border-top-color:var(--info)"><small>Cartons Prêts (Estimés)</small><b id="kStockCartons">0</b></div>
+        </section>
+
+        <!-- Filtres et Actions du Stock -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+            <div class="relative flex-1 min-w-[200px]">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
+              <input id="searchStock" oninput="renderStockView()" class="inp pl-9" placeholder="Filtrer par référence, désignation, catégorie…" aria-label="Rechercher dans le stock">
+            </div>
+            <select id="fltStockCat" onchange="setStockCategory(this.value)" class="inp w-auto font-bold text-xs" aria-label="Catégorie">
+              <option value="">Toutes catégories</option>
+            </select>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
+              <button id="fltStock_all" class="seg" onclick="setStockFilter('all')"><i class="fa-solid fa-boxes-stacked mr-1"></i>Tout voir</button>
+              <button id="fltStock_dispo" class="seg active" onclick="setStockFilter('dispo')"><i class="fa-solid fa-check mr-1"></i>En stock (>0)</button>
+              <button id="fltStock_reserve" class="seg" onclick="setStockFilter('reserve')"><i class="fa-solid fa-clock mr-1"></i>Réservé</button>
+              <button id="fltStock_empty" class="seg" onclick="setStockFilter('empty')"><i class="fa-solid fa-box-open mr-1"></i>Épuisé (0)</button>
+            </div>
+            <button type="button" class="btn btn-secondary text-xs" onclick="printStockInventory()" title="Imprimer l'état du stock"><i class="fa-solid fa-print"></i><span class="hidden sm:inline">Imprimer</span></button>
+            <button type="button" class="btn btn-secondary text-xs" onclick="exportStockCSV()" title="Exporter en fichier CSV"><i class="fa-solid fa-file-csv text-emerald-400"></i><span class="hidden sm:inline">Export CSV</span></button>
           </div>
         </div>
+
+        <!-- Pilules de sélection directe des Catégories de Produits -->
+        <div id="stockCategoryPills" class="flex flex-wrap items-center gap-2 pt-1 pb-1">
+          <span class="text-xs font-bold" style="color:var(--text-muted)"><i class="fa-solid fa-filter text-sky-500 mr-1"></i>Catégorie :</span>
+          <button type="button" class="stock-cat-btn px-3 py-1.5 rounded-xl text-xs font-extrabold transition selected-view" data-cat="" onclick="setStockCategory('')">
+            <i class="fa-solid fa-layer-group mr-1.5 text-sky-500"></i>Tout le stock
+          </button>
+          <button type="button" class="stock-cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" data-cat="ETIQUETTES" onclick="setStockCategory('ETIQUETTES')" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text)">
+            <i class="fa-solid fa-tag mr-1.5 text-sky-500"></i>Étiquettes
+          </button>
+          <button type="button" class="stock-cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" data-cat="ETIQUETTES RFID" onclick="setStockCategory('ETIQUETTES RFID')" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text)">
+            <i class="fa-solid fa-wifi mr-1.5 text-rose-500"></i>RFID
+          </button>
+          <button type="button" class="stock-cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" data-cat="RUBAN TTR" onclick="setStockCategory('RUBAN TTR')" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text)">
+            <i class="fa-solid fa-tape mr-1.5 text-amber-500"></i>Rubans TTR
+          </button>
+          <button type="button" class="stock-cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" data-cat="CARTE PVC" onclick="setStockCategory('CARTE PVC')" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text)">
+            <i class="fa-solid fa-id-card mr-1.5 text-slate-600"></i>Cartes PVC
+          </button>
+          <button type="button" class="stock-cat-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition" data-cat="TAGS" onclick="setStockCategory('TAGS')" style="background:var(--bg-input);border:1px solid var(--border);color:var(--text)">
+            <i class="fa-solid fa-tags mr-1.5 text-emerald-500"></i>Tags
+          </button>
+        </div>
+
+        <!-- Tableau synthétique du Stock par Référence -->
         <div class="panel overflow-hidden">
           <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs" style="min-width:1100px">
-              <thead style="background:var(--bg-input)"><tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
-                <th class="p-3 pl-4 op-only w-8"><input type="checkbox" id="chkAll" class="w-4 h-4 accent-indigo-500" title="Tout cocher (lots expédiables)" onchange="toggleAllSel(this.checked)"></th>
-                <th class="p-3 pl-5">OF / Date</th>
-                <th class="p-3">Produit &amp; Spécifications</th>
-                <th class="p-3 text-right">Produit</th>
-                <th class="p-3 text-center">Colisage (Cartons)</th>
-                <th class="p-3 text-right">Expédié</th>
-                <th class="p-3 text-right">Reste</th>
-                <th class="p-3">Statut</th>
-                <th class="p-3 pr-5 text-right">Actions</th>
-              </tr></thead>
-              <tbody id="rows" class="divide-y" style="border-color:var(--border)"></tbody>
+            <table class="w-full text-left text-xs" style="min-width:1050px">
+              <thead style="background:var(--bg-input)">
+                <tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
+                  <th class="p-3 pl-5">Référence Produit (Cliquer pour dérouler)</th>
+                  <th class="p-3">Désignation &amp; Catégorie</th>
+                  <th class="p-3 text-center">Unité</th>
+                  <th class="p-3 text-right text-sky-600">Stock Disponible</th>
+                  <th class="p-3 text-center">Cartons Prêts</th>
+                  <th class="p-3 text-right text-amber-500">Réservé (BL)</th>
+                  <th class="p-3 text-right">Total Produit</th>
+                  <th class="p-3 text-center">Commandes / OFs</th>
+                  <th class="p-3">Disponibilité</th>
+                  <th class="p-3 pr-5 text-right">Détails &amp; Action</th>
+                </tr>
+              </thead>
+              <tbody id="stockRows" class="divide-y" style="border-color:var(--border)"></tbody>
             </table>
           </div>
         </div>
-      </section>
+      </div>
+
+      <!-- VUE 3 : RÉCEPTIONS EXTERNES & RETOURS PRODUITS -->
+      <div id="view_recept" class="space-y-6 hidden">
+        <!-- Alerte si la migration BDD v4.0.27 n'est pas encore exécutée dans Supabase -->
+        <div id="receptMigrationNotice" class="hidden panel p-4 space-y-2 rounded-2xl" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.4);color:#f59e0b">
+          <div class="flex items-center gap-2 font-bold text-sm">
+            <i class="fa-solid fa-triangle-exclamation text-base"></i>
+            <span>Activation de la base requise pour les Réceptions &amp; Retours</span>
+          </div>
+          <p class="text-xs" style="color:var(--text-muted)">
+            La table <code class="font-mono-code font-bold text-amber-400">receptions_externes</code> n'a pas encore été créée dans votre projet Supabase.
+            Pour enregistrer des réceptions et retours, ouvrez l'éditeur SQL de Supabase (SQL Editor), collez le contenu du fichier <b class="font-mono-code">sql/v4027-receptions-et-stock.sql</b> et cliquez sur <b>Run</b> (une seule fois).
+          </p>
+        </div>
+
+        <!-- KPIs Réceptions & Retours -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="panel kpi" style="border-top-color:var(--accent)"><small>Total Reçu d'ailleurs</small><b id="kRecTotal" class="text-indigo-400">0</b></div>
+          <div class="panel kpi" style="border-top-color:var(--success)"><small>Stock Réception Restant</small><b id="kRecDispo" class="text-emerald-500">0</b></div>
+          <div class="panel kpi" style="border-top-color:var(--info)"><small>Total Réexpédié</small><b id="kRecShip" class="text-emerald-400">0</b></div>
+          <div class="panel kpi" style="border-top-color:var(--warning)"><small>Retours Clients</small><b id="kRecReturns" class="text-amber-500">0</b></div>
+        </section>
+
+        <!-- Barre d'action supérieure -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-extrabold"><i class="fa-solid fa-truck-ramp-box text-cyan-400 mr-2"></i>Produits Reçus d'Ailleurs &amp; Retours Clients</h3>
+            <p class="text-xs" style="color:var(--text-muted)">Enregistrez les marchandises reçues de l'extérieur ou retournées pour constituer du stock prêt à l'expédition depuis l'usine.</p>
+          </div>
+          <button type="button" class="btn btn-primary op-only" onclick="toggleReceptEditor(true)"><i class="fa-solid fa-plus"></i><span>Nouvelle Réception / Retour</span></button>
+        </div>
+
+        <!-- Formulaire Opérateur : Réception Externe / Retour -->
+        <section id="receptEditorSection" class="panel p-4 sm:p-5 space-y-4 hidden" style="border:1px solid rgba(0,210,255,.45);box-shadow:0 0 0 3px rgba(0,210,255,.12)">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h4 id="receptFormTitle" class="text-sm font-extrabold"><i class="fa-solid fa-boxes-packing text-cyan-400 mr-2"></i>Enregistrer une entrée de produit</h4>
+            <button type="button" onclick="toggleReceptEditor(false)" class="btn btn-secondary text-xs"><i class="fa-solid fa-xmark mr-1"></i>Fermer</button>
+          </div>
+          <form id="receptForm" onsubmit="saveReception(event)" class="space-y-4">
+            <input type="hidden" id="fRecId" value="">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label class="lbl" for="fRecType">Type d'entrée *</label>
+                <select id="fRecType" class="inp font-bold" onchange="updateReceptTypeUI()">
+                  <option value="RECEPTION">🚚 Réception Externe (Produit d'ailleurs)</option>
+                  <option value="RETOUR">🔄 Retour Client / SAV</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl" for="fRecNum">N° Récépissé / Entrée *</label>
+                <input id="fRecNum" class="inp font-mono-code font-bold input-uppercase" placeholder="REC2602-0001" required autocomplete="off">
+              </div>
+              <div>
+                <label class="lbl" for="fRecDate">Date de réception *</label>
+                <input id="fRecDate" type="date" class="inp font-bold" required>
+              </div>
+              <div>
+                <label class="lbl" id="lblRecProv" for="fRecProv">Provenance (Fournisseur / Expéditeur) *</label>
+                <input id="fRecProv" class="inp input-uppercase" placeholder="Ex : EUREQUAT FRANCE ou CLIENT XYZ" required autocomplete="off">
+              </div>
+              <div>
+                <label class="lbl" for="fRecRef">Référence produit * <span style="color:var(--text-dim);font-weight:500">(toucher = scanner)</span></label>
+                <input id="fRecRef" data-field="reference" class="inp font-mono-code input-uppercase" list="refList" placeholder="📷 Réf" required autocomplete="off" oninput="autoFillReceptRef()">
+              </div>
+              <div>
+                <label class="lbl" for="fRecCat">Catégorie *</label>
+                <select id="fRecCat" class="inp font-bold" required>
+                  <option value="">— Choisir —</option>
+                  <option value="ETIQUETTES">ETIQUETTES</option>
+                  <option value="ETIQUETTES RFID">ETIQUETTES RFID</option>
+                  <option value="RUBAN TTR">RUBAN TTR</option>
+                  <option value="CARTE PVC">CARTE PVC</option>
+                  <option value="TAG">TAG</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl" for="fRecDes">Désignation produit</label>
+                <input id="fRecDes" class="inp input-uppercase" placeholder="Ex : RUBAN CIRE 110x300" autocomplete="off">
+              </div>
+              <div>
+                <label class="lbl" for="fRecUni">Unité de comptage *</label>
+                <select id="fRecUni" class="inp font-bold" required></select>
+              </div>
+              <div>
+                <label class="lbl" for="fRecQty">Quantité reçue *</label>
+                <input id="fRecQty" class="inp text-right font-mono-code font-bold" type="number" min="1" max="2147483647" step="1" placeholder="Ex : 50" required autocomplete="off">
+              </div>
+              <div>
+                <label class="lbl" for="fRecCartons">Conditionnement (Nb Cartons)</label>
+                <input id="fRecCartons" class="inp text-right font-mono-code" type="number" min="0" max="9999" value="1" placeholder="1">
+              </div>
+              <div>
+                <label class="lbl" for="fRecTypeCarton">Type Carton / Emballage</label>
+                <select id="fRecTypeCarton" class="inp font-bold">
+                  <option value="H2">H2 (Standard)</option>
+                  <option value="H1">H1 (Petit volume)</option>
+                  <option value="PALETTE">PALETTE</option>
+                  <option value="VRAC">VRAC / PAQUETS</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl" for="fRecDest">Client réservé (Optionnel)</label>
+                <input id="fRecDest" class="inp input-uppercase" list="prodClients" placeholder="STOCK (Tout client)" autocomplete="off">
+              </div>
+              <div class="col-span-2 lg:col-span-4">
+                <label class="lbl" for="fRecMotif">Motif &amp; Observations</label>
+                <input id="fRecMotif" class="inp" placeholder="Ex : Retour commande #104 pour réexpédition à Oran • Matériel conforme" autocomplete="off">
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--border)]">
+              <p class="text-[11px]" style="color:var(--text-dim)"><i class="fa-solid fa-circle-check text-cyan-400 mr-1"></i>Une fois enregistré, ce produit est immédiatement disponible en stock et sélectionnable dans <b>Nouvel envoi</b> pour édition de BL.</p>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="toggleReceptEditor(false)" class="btn btn-secondary">Annuler</button>
+                <button type="submit" id="btnSaveRecept" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer l'entrée</button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <!-- Filtres et Tableau des Réceptions & Retours -->
+        <div class="space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="relative flex-1 min-w-[240px]">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
+              <input id="searchRecept" oninput="renderReceptionsView()" class="inp pl-9" placeholder="Rechercher par N° récépissé, référence, provenance, client…" aria-label="Rechercher réceptions">
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
+                <button id="fltRecType_all" class="seg active" onclick="setReceptTypeFilter('all')">Tous</button>
+                <button id="fltRecType_rec" class="seg" onclick="setReceptTypeFilter('RECEPTION')">Réceptions</button>
+                <button id="fltRecType_ret" class="seg" onclick="setReceptTypeFilter('RETOUR')">Retours Clients</button>
+              </div>
+              <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
+                <button id="fltRecStat_dispo" class="seg active" onclick="setReceptStatFilter('dispo')">En stock (>0)</button>
+                <button id="fltRecStat_all" class="seg" onclick="setReceptStatFilter('all')">Tout</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs" style="min-width:1100px">
+                <thead style="background:var(--bg-input)">
+                  <tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
+                    <th class="p-3 pl-5">N° Entrée &amp; Date</th>
+                    <th class="p-3">Type &amp; Provenance</th>
+                    <th class="p-3">Référence &amp; Désignation</th>
+                    <th class="p-3 text-right">Qté Reçue</th>
+                    <th class="p-3 text-right text-emerald-500">Expédié</th>
+                    <th class="p-3 text-right text-base font-extrabold" style="color:var(--accent)">Reste Disponible</th>
+                    <th class="p-3 text-center">Colisage</th>
+                    <th class="p-3">Client Prévu</th>
+                    <th class="p-3">Statut</th>
+                    <th class="p-3 pr-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="receptRows" class="divide-y" style="border-color:var(--border)"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VUE 4 : CARTONS EN STOCK -->
+      <div id="view_cartons" class="space-y-6 hidden">
+        <section class="panel p-4 sm:p-5 space-y-3 op-only" aria-labelledby="stockTitle">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 id="stockTitle" class="text-sm font-extrabold"><i class="fa-solid fa-boxes-stacked text-amber-400 mr-2"></i>Cartons en stock (Reliquats &amp; Mixtes)</h3>
+              <p class="text-xs" style="color:var(--text-muted)">Regroupez les références qui restent en vrac ou dans des cartons partiels. Vous pouvez rouvrir un carton tant qu’il est en stock.</p>
+            </div>
+            <button type="button" id="stockNew" class="btn btn-primary" onclick="editStockCarton()"><i class="fa-solid fa-plus"></i>Composer un carton</button>
+          </div>
+          <div id="stockList" class="space-y-2" aria-live="polite"></div>
+          <form id="stockEditor" class="hidden space-y-3 rounded-xl p-3" style="background:var(--bg-input)" onsubmit="saveStockCarton(event)">
+            <button type="button" class="btn btn-secondary" onclick="closeStockEditor(); document.getElementById('stockList').scrollIntoView({block:'nearest'});"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Retour à la liste</button>
+            <div class="flex flex-wrap gap-3 items-end">
+              <div>
+                <label class="lbl" for="stockType">Carton utilisé</label>
+                <select id="stockType" class="inp" onchange="updateStockWeight()">
+                  <option value="">Choix automatique selon la sélection</option>
+                  <option value="H1">H1</option>
+                  <option value="H2">H2</option>
+                </select>
+              </div>
+              <span id="stockWeight" class="text-xs font-bold" aria-live="polite"></span>
+            </div>
+            <p class="text-xs" style="color:var(--text-muted)">Saisissez la quantité de chaque lot à placer dans le même carton. Laissez vide pour ignorer un lot.</p>
+            <div id="stockChoices" class="space-y-2 max-h-80 overflow-auto" oninput="updateStockWeight()"></div>
+            <div class="flex flex-wrap justify-end gap-2">
+              <button type="button" class="btn btn-secondary" onclick="closeStockEditor()">Annuler</button>
+              <button type="submit" id="stockSave" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer le carton</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <!-- VUE 5 : PLAQUES DE DÉCOUPE & OUTILLAGES -->
+      <div id="view_plaques" class="space-y-6 hidden">
+        <!-- Barre d'action supérieure -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-extrabold"><i class="fa-solid fa-shapes text-indigo-500 mr-2"></i>Registre des Plaques &amp; Outillages de Découpe</h3>
+            <p class="text-xs" style="color:var(--text-muted)">Cylindres magnétiques, clichés et poses de front • Liaison directe aux références pour calcul instantané des drops</p>
+          </div>
+          <button type="button" class="btn btn-primary op-only" onclick="openPlaqueModal()"><i class="fa-solid fa-plus"></i><span>Nouvelle Plaque de Découpe</span></button>
+        </div>
+
+        <!-- KPIs Plaques -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="panel kpi"><small>Total Outils</small><b id="kPlqTotal">0</b></div>
+          <div class="panel kpi"><small>En Service</small><b id="kPlqActives" class="text-emerald-500">0</b></div>
+          <div class="panel kpi"><small>En Affûtage / Usure</small><b id="kPlqMaint" class="text-amber-500">0</b></div>
+          <div class="panel kpi"><small>Références Liées</small><b id="kPlqRefsCount" class="text-indigo-600">0</b></div>
+        </section>
+
+        <!-- Filtres et Tableau -->
+        <div class="space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="relative flex-1 min-w-[240px]">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
+              <input id="searchPlaque" oninput="renderPlaquesView()" class="inp pl-9" placeholder="Rechercher par code plaque, nom outil, référence liée, dimension, machine…" aria-label="Rechercher plaques">
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
+                <button id="fltPlqStat_all" class="seg active" onclick="setPlaqueStatFilter('all')">Toutes</button>
+                <button id="fltPlqStat_service" class="seg" onclick="setPlaqueStatFilter('EN_SERVICE')">En Service</button>
+                <button id="fltPlqStat_maint" class="seg" onclick="setPlaqueStatFilter('AFFUTAGE')">Affûtage</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs" style="min-width:1100px">
+                <thead style="background:var(--bg-input)"><tr><th class="p-3 text-left">Numéro de plaque</th><th class="p-3 text-left">Matière ciblée</th><th class="p-3 text-left">Gabarit (mm)</th><th class="p-3 text-left">Nombre de rangées</th><th class="p-3 text-left">Gap d’avancement (mm)</th><th class="p-3 text-left">Cylindre</th><th class="p-3 text-left">Références liées</th><th class="p-3 text-left">Actions</th></tr></thead>
+                <tbody id="plaqueRows" class="divide-y" style="border-color:var(--border)"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VUE 6 : BOBINES MÈRES & MATIÈRES PREMIÈRES -->
+      <div id="view_bobines" class="space-y-6 hidden">
+        <!-- Barre d'action supérieure -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-extrabold"><i class="fa-solid fa-scroll text-emerald-500 mr-2"></i>Matière Première</h3>
+            <p class="text-xs" style="color:var(--text-muted)">Gestion des Jumbos en stock usine • Suivi du linéaire restant et déduction automatique lors des tirages OF</p>
+          </div>
+          <button type="button" class="btn btn-primary op-only" onclick="openBobineModal()"><i class="fa-solid fa-plus"></i><span>Nouvelle matière</span></button>
+        </div>
+
+        <!-- KPIs Matière Première -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="panel kpi"><small>Total Jumbos</small><b id="kBobTotal">0</b></div>
+          <div class="panel kpi"><small>Linéaire en Stock (m)</small><b id="kBobLineaireTotal" class="text-emerald-500">0 m</b></div>
+          <div class="panel kpi"><small>Bobines Entamées</small><b id="kBobEntamees" class="text-amber-500">0</b></div>
+          <div class="panel kpi"><small>Bobines Épuisées</small><b id="kBobEpuisees" class="text-rose-500">0</b></div>
+        </section>
+
+        <!-- Filtres et Tableau -->
+        <div class="space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="relative flex-1 min-w-[240px]">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs" style="color:var(--text-dim)"></i>
+              <input id="searchBobine" oninput="renderBobinesView()" class="inp pl-9" placeholder="Rechercher par N° bobine, fournisseur, matière, laize, emplacement…" aria-label="Rechercher bobines">
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="p-1 rounded-xl flex items-center gap-1" style="background:var(--bg-input);border:1px solid var(--border)">
+                <button id="fltBobStat_dispo" class="seg active" onclick="setBobineStatFilter('dispo')">Disponibles (>0)</button>
+                <button id="fltBobStat_all" class="seg" onclick="setBobineStatFilter('all')">Toutes</button>
+                <button id="fltBobStat_epuisee" class="seg" onclick="setBobineStatFilter('EPUISEE')">Épuisées</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs" style="min-width:1100px">
+                <thead style="background:var(--bg-input)">
+                  <tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
+                    <th class="p-3 pl-5">N° Bobine &amp; Statut</th>
+                    <th class="p-3">Fournisseur &amp; Matière</th>
+                    <th class="p-3">Laize &amp; Grammage</th>
+                    <th class="p-3 text-center" style="min-width:200px">Linéaire Restant / Initial</th>
+                    <th class="p-3">Emplacement &amp; Date</th>
+                    <th class="p-3 pr-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="bobineRows" class="divide-y" style="border-color:var(--border)"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -188,6 +694,118 @@
     <div class="modal-content w-full max-w-sm p-6 space-y-4">
       <p class="text-sm font-semibold" data-msg>Confirmer ?</p>
       <div class="flex justify-end gap-2"><button data-no class="btn btn-secondary">Annuler</button><button data-yes class="btn btn-primary">Confirmer</button></div>
+    </div>
+  </div>
+
+  <!-- Modal Plaque de Découpe -->
+  <div id="plaqueModal" class="panel p-5 sm:p-7 space-y-4 hidden">
+    <div class="w-full space-y-4">
+<button type="button" class="btn btn-secondary" onclick="closePlaqueModal()"><i class="fa-solid fa-arrow-left"></i> Retour à la liste</button>
+      <div class="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+        <h4 id="plqModalTitle" class="text-sm font-extrabold text-slate-900"><i class="fa-solid fa-shapes text-indigo-500 mr-2"></i>Fiche Plaque de Découpe</h4>
+        <button type="button" onclick="closePlaqueModal()" class="btn-icon"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="plqForm" onsubmit="savePlaque(event)" class="space-y-4">
+        <input type="hidden" id="fPlqId" value="">
+        <div class="grid grid-cols-2 gap-3">
+          <label class="lbl">Numéro de plaque<input id="fPlqCode" class="inp" required></label>
+          <label class="lbl">Matière ciblée<select id="fPlqMaterial" class="inp" required><option>TD</option><option>TT</option><option>PP</option><option>PET</option><option value="MULTI">Multi surfaces</option></select></label>
+          <label class="lbl">Gabarit — largeur × hauteur (mm)<input id="fPlqSize" class="inp" placeholder="100X150" required><small>Laize de la bobine fille = largeur.</small></label>
+          <label class="lbl">Nombre de rangées<input id="fPlqPoses" class="inp" type="number" min="1" max="30" required value="1"></label>
+          <label class="lbl">Gap d’avancement (mm)<input id="fPlqGapAvance" class="inp" type="number" min="0" max="50" step="0.01" required value="3"></label>
+          <label class="lbl">Cylindre<input id="fPlqZ" class="inp" placeholder="Z96" required pattern="[Zz]?[0-9]+"></label>
+        </div>
+        <div hidden>
+          <input id="fPlqNom"><input id="fPlqLarg"><input id="fPlqHaut"><input id="fPlqGapFront">
+          <select id="fPlqForme"><option>RECTANGLE</option><option>ROND</option><option>OVALE</option><option>SPECIAL</option></select>
+          <input id="fPlqMachine"><input id="fPlqRack">
+          <select id="fPlqStatut"><option>EN_SERVICE</option><option>AFFUTAGE</option><option>USURE</option><option>REFORME</option></select>
+          <input id="fPlqRefs"><div id="plqRefsSuggested"></div><input id="fPlqObs">
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
+          <button type="button" onclick="closePlaqueModal()" class="btn btn-secondary">Annuler</button>
+          <button type="submit" id="btnSavePlaque" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer la plaque</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Bobine Mère (Jumbo) -->
+  <div id="bobineModal" class="panel p-5 sm:p-7 space-y-4 hidden">
+    <div class="w-full space-y-4">
+<button type="button" class="btn btn-secondary" onclick="closeBobineModal()"><i class="fa-solid fa-arrow-left"></i> Retour à la liste</button>
+      <div class="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+        <h4 id="bobModalTitle" class="text-sm font-extrabold text-slate-900"><i class="fa-solid fa-scroll text-emerald-500 mr-2"></i>Fiche Matière Première</h4>
+        <button type="button" onclick="closeBobineModal()" class="btn-icon"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="bobForm" onsubmit="saveBobine(event)" class="space-y-4">
+        <input type="hidden" id="fBobId" value=""><input type="hidden" id="fBobGram" value=""><input type="hidden" id="fBobPoids" value=""><input type="hidden" id="fBobStatut" value="DISPONIBLE"><input type="hidden" id="fBobRefFourn" value=""><input type="hidden" id="fBobEmplacement" value=""><input type="hidden" id="fBobObs" value="">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-start gap-3">
+          <div>
+            <label class="lbl" for="fBobNum">N° Bobine / Jumbo *</label>
+            <input id="fBobNum" class="inp font-mono-code font-bold input-uppercase" placeholder="JMB2611-001" required autocomplete="off">
+          </div>
+          <div>
+            <label class="lbl" for="fBobFourn">Fournisseur *</label>
+            <input id="fBobFourn" class="inp input-uppercase" placeholder="HERMA ou TODAY TECH" required autocomplete="off">
+          </div>
+          <div><label class="lbl" for="fRawFamily">Famille *</label><select id="fRawFamily" class="inp" onchange="fillRawTypes()" required></select></div>
+          <div><label class="lbl" for="fRawType">Sous-type *</label><select id="fRawType" class="inp" onchange="syncRawType()" required></select></div>
+          <div><label class="lbl" for="fBobMat">Matière *</label><input id="fBobMat" class="inp input-uppercase" placeholder="Précisez la matière" required autocomplete="off"></div>
+          <div><label class="lbl" for="fRawQty">Quantité de matière</label><input id="fRawQty" type="number" min="0" step="0.001" class="inp"></div>
+          <div><label class="lbl" for="fRawUnit">Unité</label><select id="fRawUnit" class="inp"><option>m</option><option>m²</option><option>kg</option><option>feuille</option><option>pièce</option></select></div>
+          <div>
+            <label class="lbl" for="fBobLaize">Laize (mm) *</label>
+            <input id="fBobLaize" type="number" step="1" min="10" max="2500" class="inp text-right font-mono-code font-bold" placeholder="330" required>
+          </div>
+          <div>
+            <label class="lbl" for="fBobLinInit">Linéaire Initial (m) *</label>
+            <input id="fBobLinInit" type="number" step="1" min="1" max="500000" class="inp text-right font-mono-code font-bold" placeholder="4000" required oninput="syncBobineInitToRest()">
+          </div>
+          <div>
+            <label class="lbl" for="fBobLinRest">Linéaire Restant (m) *</label>
+            <input id="fBobLinRest" type="number" step="1" min="0" max="500000" class="inp text-right font-mono-code font-bold text-emerald-600" placeholder="4000" required>
+          </div>
+          
+          
+          <div>
+            <label class="lbl" for="fBobDate">Date de réception</label>
+            <input id="fBobDate" type="date" class="inp font-bold">
+          </div>
+          
+          
+          
+          
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
+          <button type="button" onclick="closeBobineModal()" class="btn btn-secondary">Annuler</button>
+          <button type="submit" id="btnSaveBobine" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer le Jumbo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Ajustement Linéaire Bobine Mère -->
+  <div id="adjustBobineModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-content w-full max-w-sm p-5 space-y-4">
+      <div class="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+        <h4 class="text-sm font-extrabold text-slate-900"><i class="fa-solid fa-scissors text-indigo-500 mr-2"></i>Ajuster le Linéaire</h4>
+        <button type="button" onclick="closeAdjustBobineModal()" class="btn-icon"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="space-y-3">
+        <p class="text-xs text-slate-600">Ajustez manuellement le métrage restant sur la bobine <b id="adjBobNum" class="font-mono-code text-indigo-600"></b>.</p>
+        <div>
+          <label class="lbl" for="adjBobMetres">Nouveau Linéaire Restant (mètres) *</label>
+          <input id="adjBobMetres" type="number" step="1" min="0" max="500000" class="inp text-right font-mono-code font-bold text-lg" required>
+        </div>
+        <div class="flex justify-between items-center pt-2 border-t border-[var(--border)]">
+          <button type="button" onclick="markBobineExhausted()" class="btn btn-secondary text-xs text-rose-600" title="Mettre le solde à 0">Marquer épuisée</button>
+          <div class="flex gap-2">
+            <button type="button" onclick="closeAdjustBobineModal()" class="btn btn-secondary">Annuler</button>
+            <button type="button" onclick="saveAdjustBobine()" class="btn btn-primary">Valider</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -206,13 +824,16 @@
   <script src="js/colisage-calc.js"></script>
   <script src="js/product-reference.js?v=2"></script>
   <script src="js/reliquat.js"></script>
-  <script src="js/cartons-stock.js"></script>
+  <script src="js/cartons-stock.js?v=5.1.1-stock"></script>
   <script src="js/data-pages.js"></script>
   <script src="js/calendar.js"></script>
   <script>
-    const THEME_KEY = 'logitrak_theme';
+
     const state = { sb: null, session: null, isOperator: false, isAdmin: false, username: '',
-                    lots: [], fiches: {}, shippedN: {}, shippedM: {}, pending: {}, editId: null, filter: 'open', sel: new Set() };
+                    lots: [], fiches: {}, shippedN: {}, shippedM: {}, pending: {}, editId: null, filter: 'open', sel: new Set(),
+                    receptions: [], receptionsShippedN: {}, receptionsPending: {},
+                    plaques: [], bobines: [], plaqueStatFilter: 'all', bobineStatFilter: 'dispo', adjustBobineId: null,
+                    stockFilter: 'dispo', stockCatFilter: '', receptTypeFilter: 'all', receptStatFilter: 'dispo', currentTab: 'fab' };
 
     const $ = s => document.querySelector(s);
     const $$ = s => [...document.querySelectorAll(s)];
@@ -253,12 +874,7 @@
       });
     }
 
-    function syncThemeIcon() { $('#themeIcon').className = 'fa-solid text-sm ' + (document.documentElement.classList.contains('light') ? 'fa-moon' : 'fa-sun'); }
-    function toggleTheme() {
-      const light = document.documentElement.classList.toggle('light');
-      lsSet(THEME_KEY, light ? 'light' : 'dark');
-      syncThemeIcon();
-    }
+
 
     /* ----- Règles de modification (identiques à la base de données) ----- */
     // Production (OF, référence, quantité…) : opérateur 24 h après la création du lot, admin à tout moment
@@ -285,6 +901,8 @@
     }
     function refreshLabels() {
       const u = $('#fUni').value || 'UN';
+      const lblTarget = $('#lblTarget');
+      if (lblTarget) lblTarget.textContent = `Quantité à Produire (${u}) *`;
       $('#lblQty').textContent = `Quantité produite (${u}) *`;
     }
     function applyCategoryUI(resetUnit) {
@@ -329,66 +947,158 @@
       const { data, error } = await state.sb.auth.signInWithPassword({ email, password: $('#loginPassword').value });
       if (error || !data?.session) { msg.textContent = 'Pseudo ou mot de passe incorrect.'; msg.classList.remove('hidden'); return; }
       $('#loginPassword').value = '';
-      window.location.assign('index.html');
+      location.reload();
     }
     async function loadRole(session) {
       state.isViewer = false; state.isOperator = false; state.isAdmin = false; state.username = '';
       try {
-        state.session = session === undefined ? (await state.sb.auth.getSession()).data.session : session;
+        if (!session) {
+          session = typeof getLogiTrakSession === 'function' ? getLogiTrakSession() : null;
+        }
+        if (!session && state.sb) {
+          const res = await Promise.race([
+            state.sb.auth.getSession().catch(() => ({ data: { session: null } })),
+            new Promise(r => setTimeout(() => r({ data: { session: null } }), 400))
+          ]);
+          session = res?.data?.session;
+        }
+        state.session = session;
         if (state.session?.user?.email) {
-          state.username = state.session.user.email.split('@')[0];
+          state.username = (state.session.user.email.split('@')[0] || '').toLowerCase();
           const r = await state.sb.from('operateurs').select('role').eq('username', state.username).maybeSingle();
           if (r.data) { state.isViewer = r.data.role === 'visionnaire'; state.isOperator = !state.isViewer; state.isAdmin = r.data.role === 'admin'; }
         }
-      } catch (e) {}
+      } catch (e) { console.warn('loadRole:', e); }
       document.body.classList.toggle('is-operator', state.isOperator);
       document.body.classList.toggle('is-admin', state.isAdmin);
     }
 
     /* ----- Données (aucune copie gardée dans le navigateur, aucune sauvegarde « silencieuse ») ----- */
     async function loadData() {
-      let [p, l, f] = await Promise.all([
-        state.sb.from('production').select('*').order('date_production', { ascending: false }).order('created_at', { ascending: false }),
-        state.sb.from('lignes_expedition').select('production_id,quantite,colisage_detail,expeditions(validation)').not('production_id', 'is', null),
-        state.sb.from('colisage_ref').select('*'),
-      ]);
-      // base sans la colonne « validation » (script v2.2 pas encore exécuté) : on relit sans elle
-      if (l.error && /validation/i.test(l.error.message || '')) l = await state.sb.from('lignes_expedition').select('production_id,quantite,colisage_detail').not('production_id', 'is', null);
-      const err = p.error || l.error || f.error;
-      if (err) {
-        console.error(err);
-        const schema = /column|relation|does not exist|colisage_ref|reliquat|colisage_detail/i.test(err.message || '');
-        showGate(`
-          <h3 class="text-base font-extrabold"><i class="fa-solid fa-database text-amber-500 mr-2"></i>${schema ? 'Base à mettre à jour' : 'Chargement impossible'}</h3>
-          <p class="text-xs" style="color:var(--text-muted)">${schema
-            ? 'Dans Supabase, ouvre <b>SQL Editor</b>, colle le contenu de <b>sql/v21-colisage-reference.sql</b> et clique sur <b>Run</b> (une seule fois, sans risque pour les données). Puis recharge cette page.'
-            : 'Vérifiez votre connexion internet puis rechargez la page.'}</p>
-          <p class="text-[11px]" style="color:var(--text-dim)">Détail : ${esc(err.message || err)}</p>`);
+      try {
+        // 1. Lots de production
+        const p = await state.sb.from('production').select('*').order('date_production', { ascending: false }).order('created_at', { ascending: false });
+        if (p.error) {
+          console.error('Erreur production :', p.error);
+          showGate(`
+            <h3 class="text-base font-extrabold"><i class="fa-solid fa-database text-amber-500 mr-2"></i>Chargement impossible</h3>
+            <p class="text-xs" style="color:var(--text-muted)">Vérifiez votre connexion internet puis rechargez la page.</p>
+            <p class="text-[11px]" style="color:var(--text-dim)">Détail : ${esc(p.error.message || p.error)}</p>`);
+          return false;
+        }
+        state.lots = (p.data || []).map(x => ({
+          ...x,
+          quantite_produite: +x.quantite_produite || 0,
+          qte_par_carton: +x.qte_par_carton || 1,
+          poids_carton: +x.poids_carton || 0,
+          poids_bobine: +x.poids_bobine || 0,
+          poids_carton_vide: +x.poids_carton_vide || 0,
+          etq_par_bobine: +x.etq_par_bobine || 0,
+          cartes_par_paquet: +x.cartes_par_paquet || 100,
+          qte_reliquat: +x.qte_reliquat || 0,
+        }));
+
+        // 2. Fiches de colisage de référence
+        state.fiches = {};
+        try {
+          const f = await state.sb.from('colisage_ref').select('*');
+          if (f.data) {
+            f.data.forEach(x => { state.fiches[String(x.reference || '').toUpperCase()] = x; });
+          }
+        } catch (e) { console.warn('colisage_ref :', e); }
+
+        // 3. Statuts de validation des expéditions
+        const expValidationMap = new Map();
+        try {
+          const expRes = await state.sb.from('expeditions').select('id,validation');
+          if (expRes.data) {
+            expRes.data.forEach(e => expValidationMap.set(e.id, e.validation));
+          }
+        } catch (e) { console.warn('expeditions validation :', e); }
+
+        // 4. Lignes d'expédition (chargement sans join risqué)
+        let lignes = [];
+        try {
+          let lRes = await state.sb.from('lignes_expedition').select('*');
+          if (lRes.error) {
+            lRes = await state.sb.from('lignes_expedition').select('production_id,quantite,colisage_detail,expedition_id');
+          }
+          if (lRes.data) lignes = lRes.data;
+        } catch (e) { console.warn('lignes_expedition :', e); }
+
+        state.shippedN = {}; state.shippedM = {}; state.pending = {};
+        state.receptionsShippedN = {}; state.receptionsPending = {};
+
+        lignes.forEach(x => {
+          const q = intOf(x.quantite);
+          const validation = expValidationMap.get(x.expedition_id);
+          const isPending = validation && validation !== 'VALIDE';
+
+          if (x.production_id) {
+            const mixte = x.colisage_detail && x.colisage_detail.mixte;
+            const bag = mixte ? state.shippedM : state.shippedN;
+            bag[x.production_id] = (bag[x.production_id] || 0) + q;
+            if (isPending) {
+              state.pending[x.production_id] = (state.pending[x.production_id] || 0) + q;
+            }
+          }
+
+          const recId = x.reception_id || (x.colisage_detail && x.colisage_detail.reception_id);
+          if (recId) {
+            state.receptionsShippedN[recId] = (state.receptionsShippedN[recId] || 0) + q;
+            if (isPending) {
+              state.receptionsPending[recId] = (state.receptionsPending[recId] || 0) + q;
+            }
+          }
+        });
+
+        // 5. Réceptions externes et retours clients (avec tolérance si migration v4027 non encore exécutée)
+        state.receptions = [];
+        state.receptionsTableMissing = false;
+        try {
+          const rRes = await state.sb.from('receptions_externes').select('*').order('date_reception', { ascending: false }).order('created_at', { ascending: false });
+          if (rRes.error) {
+            console.warn('receptions_externes (table non trouvée ou migration v4027 en attente) :', rRes.error.message);
+            state.receptionsTableMissing = true;
+          } else if (rRes.data) {
+            state.receptions = rRes.data.map(x => ({
+              ...x,
+              quantite_recue: +x.quantite_recue || 0,
+              cartons: +x.cartons || 1,
+            }));
+          }
+        } catch (e) {
+          state.receptionsTableMissing = true;
+        }
+
+        const notice = $('#receptMigrationNotice');
+        if (notice) notice.classList.toggle('hidden', !state.receptionsTableMissing);
+
+        // 6. Cartons en stock
+        try {
+          await loadStockCartons();
+        } catch (e) { console.warn('loadStockCartons :', e); }
+
+        // 7. Plaques de découpe & Outillages (v5.1.0)
+        state.plaques = [];
+        try {
+          const pRes = await state.sb.from('plaques_decoupe').select('*').order('code_plaque', { ascending: true });
+          if (pRes.data) state.plaques = pRes.data;
+        } catch (e) { console.warn('plaques_decoupe :', e); }
+
+        // 8. Bobines mères & Jumbos (v5.1.0)
+        state.bobines = [];
+        try {
+          const bRes = await state.sb.from('bobines_meres').select('*').order('numero_bobine', { ascending: true });
+          if (bRes.data) state.bobines = bRes.data;
+        } catch (e) { console.warn('bobines_meres :', e); }
+
+        updateTabBadges();
+        return true;
+      } catch (globalErr) {
+        console.error('Erreur globale loadData :', globalErr);
         return false;
       }
-      state.lots = (p.data || []).map(x => ({
-        ...x,
-        quantite_produite: +x.quantite_produite,
-        qte_par_carton: +x.qte_par_carton || 1,
-        poids_carton: +x.poids_carton || 0,
-        poids_bobine: +x.poids_bobine || 0,
-        poids_carton_vide: +x.poids_carton_vide || 0,
-        etq_par_bobine: +x.etq_par_bobine || 0,
-        cartes_par_paquet: +x.cartes_par_paquet || 100,
-        qte_reliquat: +x.qte_reliquat || 0,
-      }));
-      state.fiches = {};
-      (f.data || []).forEach(x => { state.fiches[String(x.reference || '').toUpperCase()] = x; });
-      state.shippedN = {}; state.shippedM = {}; state.pending = {};
-      (l.data || []).forEach(x => {
-        const q = intOf(x.quantite), mixte = x.colisage_detail && x.colisage_detail.mixte;
-        const bag = mixte ? state.shippedM : state.shippedN;
-        bag[x.production_id] = (bag[x.production_id] || 0) + q;                                // quantité réservée (validée ou non)
-        if (x.expeditions && x.expeditions.validation && x.expeditions.validation !== 'VALIDE')
-          state.pending[x.production_id] = (state.pending[x.production_id] || 0) + q;           // dont envois en attente de validation
-      });
-      await loadStockCartons();
-      return true;
     }
     const shippedOf = lot => (state.shippedN[lot.id] || 0) + (state.shippedM[lot.id] || 0);
     const pendingOf = lot => Math.min(shippedOf(lot), state.pending[lot.id] || 0);
@@ -397,69 +1107,174 @@
     const ficheOf = ref => state.fiches[String(ref || '').toUpperCase()];
     const availOf = lot => LTColis.availability(lot, state.shippedN[lot.id] || 0, state.shippedM[lot.id] || 0, stockReserved(lot.id));
 
+    // Réceptions externes & retours : helpers de calcul
+    const shippedOfRec = rec => (state.receptionsShippedN[rec.id] || 0);
+    const pendingOfRec = rec => Math.min(shippedOfRec(rec), state.receptionsPending[rec.id] || 0);
+    const validatedOfRec = rec => shippedOfRec(rec) - pendingOfRec(rec);
+    const restOfRec = rec => Math.max(0, (+rec.quantite_recue || 0) - shippedOfRec(rec));
+    function canModifyReception(rec) {
+      if (!state.isOperator) return false;
+      if (state.isAdmin) return true;
+      return (Date.now() - new Date(rec.created_at).getTime()) < AGE_24H;
+    }
+
     function fillLists() {
-      $('#prodClients').innerHTML = [...new Set(state.lots.map(l => l.client).filter(Boolean))].sort().map(c => '<option value="' + esc(c) + '"></option>').join('');
+      const clients = new Set(state.lots.map(l => l.client).filter(Boolean));
+      state.receptions.forEach(r => {
+        if (r.client_destinataire) clients.add(r.client_destinataire);
+        if (r.provenance) clients.add(r.provenance);
+      });
+      $('#prodClients').innerHTML = [...clients].sort().map(c => '<option value="' + esc(c) + '"></option>').join('');
       const refs = new Map();
       Object.values(state.fiches).forEach(f => refs.set(f.reference, f.designation));
       state.lots.forEach(l => { if (l.reference && !refs.has(l.reference)) refs.set(l.reference, l.designation); });
+      state.receptions.forEach(r => { if (r.reference && !refs.has(r.reference)) refs.set(r.reference, r.designation); });
       $('#refList').innerHTML = [...refs.entries()].map(([r, d]) => `<option value="${esc(r)}" label="${esc(d || '')}">`).join('');
+
+      // Sélecteur Plaques de Découpe
+      const fPlq = $('#fPlaque');
+      if (fPlq) {
+        const curVal = fPlq.value;
+        fPlq.innerHTML = '<option value="">— Sélectionner plaque ou détection auto —</option>' +
+          state.plaques.map(p => {
+            const poses = p.nb_poses_front || 1;
+            const dim = `${p.largeur_etiquette}x${p.hauteur_etiquette} mm`;
+            return `<option value="${esc(p.id)}">${esc(p.code_plaque)} • ${esc(dim)} • ${poses} pose(s) (${poses} bob/drop)</option>`;
+          }).join('');
+        if (curVal) fPlq.value = curVal;
+      }
+
+      // Sélecteur Matière Première
+      const fBob = $('#fBobineMere');
+      if (fBob) {
+        const curVal = fBob.value;
+        fBob.innerHTML = '<option value="">— Sans déduction Jumbo / Choisir —</option>' +
+          state.bobines.map(b => {
+            const restM = +b.lineaire_restant_m || 0;
+            const initM = +b.lineaire_initial_m || 0;
+            const lz = b.laize_mm ? `L${b.laize_mm}mm` : '';
+            return `<option value="${esc(b.id)}" ${restM <= 0 ? 'disabled' : ''}>${esc(b.numero_bobine)} • ${esc(b.fournisseur || '')} ${esc(b.matiere || '')} ${esc(lz)} • Solde: ${fmtNum(restM)} m / ${fmtNum(initM)} m</option>`;
+          }).join('');
+        if (curVal) fBob.value = curVal;
+      }
     }
 
-    /* ----- Formulaire ----- */
-    const flash = i => { i.classList.add('inp-error'); setTimeout(() => i.classList.remove('inp-error'), 700); };
-    function cleanInt(i) {
-      const d = String(i.value).replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
-      if (d !== i.value) { i.value = d; flash(i); }
-    }
-    function bad(sel, msg) { const i = $(sel); i.classList.add('inp-error'); i.focus(); toast(msg, 'error'); }
+    function onPlaqueChange() {
+      const plqId = $('#fPlaque')?.value;
+      const plaque = state.plaques.find(p => p.id === plqId);
+      const badge = $('#plaqueDetectBadge');
+      if (badge && !plaque) badge.classList.add('hidden');
 
-    // Lot « virtuel » construit à partir de la fiche de colisage de la référence et de la quantité saisie
-    function lotFromFiche(f, qty, extra = {}) {
+      if(plaque){
+        $('#fCut').value=plaque.largeur_etiquette+'X'+plaque.hauteur_etiquette;
+        $('#fCalcPoses').value=plaque.nb_poses_front||1;
+        $('#fCalcGap').value=plaque.entre_pose_avance??3;
+      }
+      recalcDropsAndLinear();
+    }
+
+    function onBobineMereChange() {
+      recalcDropsAndLinear();
+    }
+
+    function parseCut(value) {
+      const match=String(value||'').trim().match(/^(\d+(?:[.,]\d+)?)\s*[xX×*]\s*(\d+(?:[.,]\d+)?)$/);
+      if(!match) return null;
+      const width=Number(match[1].replace(',','.')),height=Number(match[2].replace(',','.'));
+      return width>0&&height>0?{width,height}:null;
+    }
+    function recalcDropsAndLinear() {
+      const plqId = $('#fPlaque')?.value;
+      const bobId = $('#fBobineMere')?.value;
+      const plaque = state.plaques.find(p => p.id === plqId);
+      const bobine = state.bobines.find(b => b.id === bobId);
+
+      const qty = intOf($('#fTarget')?.value) || 0;
+      const ref = up('#fRef');
+      const fiche = ficheOf(ref);
+
+      // 1. Bobines par drop = poses de front de la plaque
+      const poses = Math.max(1,intOf($('#fCalcPoses').value)||1);
+      const resCoilsPerDrop = $('#resCoilsPerDrop');
+      if (resCoilsPerDrop) resCoilsPerDrop.textContent = fmtNum(poses);
+      const resPosesDetail = $('#resPosesDetail');
+      if (resPosesDetail) {
+        resPosesDetail.textContent = plaque
+          ? `${poses} pose(s) de front • ${plaque.largeur_etiquette}x${plaque.hauteur_etiquette} mm`
+          : '1 pose par défaut (standard)';
+      }
+
+      // 2. Étiquettes par bobine fille
+      let etqPerCoil = intOf($('#fEtqParBob')?.value);
+      if (!etqPerCoil && fiche && fiche.etq_par_bobine > 0) {
+        etqPerCoil = fiche.etq_par_bobine;
+        if ($('#fEtqParBob')) $('#fEtqParBob').placeholder = `${fmtNum(etqPerCoil)} (Colisage)`;
+      }
+      if (!etqPerCoil) etqPerCoil = 1000;
+
+      // 3. Total bobines finies
+      const unit=String($('#fUni').value||'').toUpperCase();
+      const totalCoils = qty>0 ? (/^(ID|ETQ|ETIQUETTES?)$/.test(unit)?Math.ceil(qty/etqPerCoil):qty) : 0;
+      const resTotalCoils = $('#resTotalCoils');
+      if (resTotalCoils) resTotalCoils.textContent = fmtNum(totalCoils);
+
+      // 4. Nombre de drops (coupes / levées d'enrouleur)
+      const totalDrops = totalCoils > 0 ? Math.ceil(totalCoils / poses) : 0;
+      const resTotalDrops = $('#resTotalDrops');
+      if (resTotalDrops) resTotalDrops.textContent = fmtNum(totalDrops);
+
+      // 5. Linéaire par bobine fille
+      const cut=parseCut($('#fCut').value);
+      const hautEtq=cut?.height||0;
+      const gapAvance=Math.max(0,Number($('#fCalcGap').value)||0);
+      const pasM = (hautEtq + gapAvance) / 1000;
+      const lenPerCoil = Math.round(etqPerCoil * pasM * 10) / 10;
+      const resLengthPerCoil = $('#resLengthPerCoil');
+      if (resLengthPerCoil) resLengthPerCoil.textContent = fmtNum(lenPerCoil) + ' m';
+      const resAdvanceDetail = $('#resAdvanceDetail');
+      if (resAdvanceDetail) resAdvanceDetail.textContent = `Pas: ${(hautEtq + gapAvance).toFixed(1)} mm (H${hautEtq}+G${gapAvance})`;
+
+      // 6. Linéaire brut consommé sur la bobine mère
+      const gachePct = Math.max(0,Number($('#fGachePct').value)||0);
+      const usefulLinear = totalDrops * lenPerCoil;
+      const totalLinear = Math.round(usefulLinear * (1 + gachePct / 100));
+      const resTotalLinear = $('#resTotalLinear');
+      if (resTotalLinear) resTotalLinear.textContent = fmtNum(totalLinear) + ' m';
+
+      // 7. Solde restant sur la bobine mère
+      const resJumboBalance = $('#resJumboBalance');
+      if (resJumboBalance) {
+        if (bobine) {
+          const restBefore = +bobine.lineaire_restant_m || 0;
+          const restAfter = restBefore - totalLinear;
+          if (restAfter < 0) {
+            resJumboBalance.innerHTML = `<span class="text-rose-600 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Stock insuffisant ! Déficit: ${fmtNum(Math.abs(restAfter))} m</span>`;
+          } else {
+            resJumboBalance.innerHTML = `<span class="text-emerald-700 font-medium"><i class="fa-solid fa-circle-check mr-1"></i>Solde après OF : <b>${fmtNum(restAfter)} m</b> / ${fmtNum(bobine.lineaire_initial_m)} m</span>`;
+          }
+        } else {
+          resJumboBalance.textContent = 'Sans déduction Jumbo';
+          resJumboBalance.style.color = 'var(--text-dim)';
+        }
+      }
+
       return {
-        quantite_produite: qty, qte_par_carton: f.qte_par_carton, type_carton: f.type_carton,
-        poids_bobine: +f.poids_bobine || 0, poids_carton_vide: +f.poids_carton_vide || 0, poids_carton: 0,
-        reliquat_carton: '', ...extra,
+        plaque_id: plqId || null,
+        bobine_mere_id: bobId || null,
+        nb_poses_front: poses,
+        bobines_par_drop: poses,
+        nb_drops: totalDrops,
+        lineaire_par_bobine_m: lenPerCoil,
+        lineaire_total_consomme_m: totalLinear,
+        gache_pourcent: gachePct
       };
     }
 
-    // Panneau « Colisage de la référence » : rempli automatiquement, ou invitation à le saisir
-    function renderColisInfo() {
-      const box = $('#colisInfo'), ref = up('#fRef'), qty = intOf($('#fQty').value);
-      const f = ficheOf(ref);
-      if (!ref) {
-        box.style.cssText = 'background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);color:var(--text-muted)';
-        box.innerHTML = '<i class="fa-solid fa-boxes-packing text-amber-500 mr-1.5"></i>Saisissez une référence : si son colisage existe, ses détails (matière, mandrin, carton…) se remplissent automatiquement.';
-        return;
-      }
-      if (!f) {
-        box.style.cssText = 'background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.4);color:#fb7185';
-        const q = new URLSearchParams({ ref, cat: $('#fCat').value || '', des: $('#fDes').value || '' });
-        box.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-3"><span><i class="fa-solid fa-triangle-exclamation mr-1.5"></i><b>Nouvelle référence ${esc(ref)}</b> : son colisage n'existe pas encore. Il faut le remplir (catégorie, matière, gabarit, mandrin, poids d'une bobine, carton…) avant de pouvoir l'expédier.</span>
-          <a href="colisage.html?${q.toString()}" class="btn btn-primary"><i class="fa-solid fa-boxes-packing"></i>Remplir le colisage</a></div>`;
-        return;
-      }
-      box.style.cssText = 'background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.35);color:var(--text-muted)';
-      const specs = [];
-      if (f.matiere) specs.push('Matière : ' + f.matiere);
-      if (f.gabarit) specs.push('Gabarit : ' + f.gabarit);
-      if (f.etq_par_bobine > 0) specs.push(fmtNum(f.etq_par_bobine) + ' étiq./bobine');
-      if (f.type_produit === 'CARTE_PVC') specs.push('Paquet de ' + f.cartes_par_paquet + ' cartes');
-      if (f.mandrin) specs.push('Mandrin ' + f.mandrin);
-      if (+f.poids_bobine > 0) specs.push('Bobine ' + fmtKg(f.poids_bobine) + ' kg');
-      specs.push(`Carton ${f.type_carton} : ${f.qte_par_carton} par carton`);
-      let line = '';
-      if (qty > 0) {
-        const lot = lotFromFiche(f, qty);
-        const R = LTColis.remainderOf(lot);
-        const pk = LTColis.packing({ ...lot, reliquat_carton: f.type_carton }, qty);
-        line = `<div class="mt-1.5 font-bold" style="color:var(--text)"><i class="fa-solid fa-boxes-stacked text-amber-400 mr-1"></i>${fmtNum(qty)} → ${esc(String(Math.floor(qty / f.qte_par_carton)))} carton(s) plein(s) de ${f.qte_par_carton}${R ? ` + <span class="text-amber-500">reliquat de ${R}</span> (vous choisirez : carton ou stock)` : ''}</div>`;
-        if (pk && pk.heavy) line += `<div class="text-amber-500 font-bold mt-1"><i class="fa-solid fa-weight-hanging mr-1"></i>Attention : un carton dépasse ${LTColis.MAX_CARTON_KG} kg.</div>`;
-      }
-      box.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 mr-1.5"></i><b style="color:var(--text)">Colisage de la référence ${esc(f.reference)}</b> — ${esc(specs.join(' • '))}${line}`;
-    }
-
     function onRefChange() {
-      if (state.editId) { renderColisInfo(); return; }
+      const known=ficheOf(up('#fRef'))||state.lots.find(lot=>String(lot.reference||'').toUpperCase()===up('#fRef'));
+      if(known) $('#fCut').value=known.gabarit||known.dim_produit||'';
+
+      if (state.editId) { renderColisInfo(); recalcDropsAndLinear(); return; }
       const ref = up('#fRef');
       const previous = state.lots.find(l => ref && l.reference?.toUpperCase() === ref);
       if (!$('#fClient').dataset.manual) $('#fClient').value = previous?.client || '';
@@ -467,30 +1282,87 @@
       if (f) {
         if (f.categorie) Listes.setValue('#fCat', f.categorie);
         if (!$('#fDes').value.trim() && f.designation) $('#fDes').value = f.designation;
+        if (f.etq_par_bobine > 0 && $('#fEtqParBob')) $('#fEtqParBob').value = f.etq_par_bobine;
         applyCategoryUI(true);
       } else {
         const lot = state.lots.find(l => (l.reference || '').toUpperCase() === up('#fRef'));
         if (lot) {
           if (lot.categorie) Listes.setValue('#fCat', lot.categorie);
           if (!$('#fDes').value.trim()) $('#fDes').value = lot.designation || '';
+          if (lot.etq_par_bobine > 0 && $('#fEtqParBob')) $('#fEtqParBob').value = lot.etq_par_bobine;
           applyCategoryUI(false);
         }
       }
+
+      const dimension=parseCut($('#fCut').value);
+      const candidates=dimension?state.plaques.filter(plaque=>plaque.statut==='EN_SERVICE'&&Number(plaque.largeur_etiquette)===dimension.width&&Number(plaque.hauteur_etiquette)===dimension.height):[];
+      $('#fPlaque').replaceChildren(new Option('— Plaque facultative —',''),...candidates.map(plaque=>new Option(plaque.code_plaque+' · '+(plaque.matiere_cible||'MULTI'),plaque.id)));
+      // Détection automatique de la plaque de découpe liée
+      if (ref && state.plaques && state.plaques.length) {
+        let matched = state.plaques.find(p => Array.isArray(p.references_liees) && p.references_liees.some(r => String(r || '').toUpperCase() === ref));
+        if (!matched) {
+          const dimMatch = ref.match(/(\d{2,3})[Xx](\d{2,3})/);
+          if (dimMatch) {
+            const w = parseInt(dimMatch[1], 10), h = parseInt(dimMatch[2], 10);
+            matched = state.plaques.find(p => (+p.largeur_etiquette === w && +p.hauteur_etiquette === h) || (+p.largeur_etiquette === h && +p.hauteur_etiquette === w));
+          }
+        }
+        const fPlq = $('#fPlaque');
+        const badge = $('#plaqueDetectBadge');
+        if (matched && fPlq) {
+          fPlq.value = matched.id;
+          if (badge) {
+            badge.innerHTML = `<i class="fa-solid fa-link mr-1"></i>Plaque liée : <b>${esc(matched.code_plaque)}</b> (${matched.nb_poses_front} pos/drop)`;
+            badge.classList.remove('hidden');
+          }
+        } else if (badge) {
+          badge.classList.add('hidden');
+        }
+      }
+
+      // Détection automatique Bobine Mère si matière connue
+      const matiereRef = (f?.matiere || '').trim().toUpperCase();
+      if (matiereRef && state.bobines && state.bobines.length && !$('#fBobineMere').value) {
+        const matchingBob = state.bobines.find(b => (+b.lineaire_restant_m > 0) && (b.matiere || '').toUpperCase().includes(matiereRef));
+        if (matchingBob) {
+          $('#fBobineMere').value = matchingBob.id;
+        }
+      }
+
       renderColisInfo();
+      recalcDropsAndLinear();
     }
 
+    function renderColisInfo() {
+      const info = $('#colisInfo');
+      if (!info) return;
+      info.textContent = 'Les quantités produites sont ajoutées au stock par référence. Le choix des cartons se fait lors de la préparation de l’envoi.';
+    }
     function resetForm() {
+      if ($('#productionCreateEditor')) $('#productionCreateEditor').open=false;
       document.getElementById("fInlay").value="";
       $('#fTarget').value='';
+      $('#fCut').value='';
+      $('#cuttingBox').open=false;
+      $('#fCalcPoses').value=1;
+      $('#fCalcGap').value=3;
       state.editId = null;
       state.resumeId = null;
       delete $('#fClient').dataset.manual;
-      ['#fRef', '#fDes', '#fQty', '#fClient'].forEach(s => { $(s).value = ''; });
+      ['#fRef', '#fDes', '#fQty', '#fClient', '#fLot'].forEach(s => { if ($(s)) $(s).value = ''; });
+      $('#fClient').value='STOCK';
       $('#fDate').value = new Date().toISOString().slice(0, 10);
       $('#fOF').readOnly=false;
       $('#fOF').value = ofPrefix($('#fDate').value);
       $('#fCat').value = '';
+      if ($('#fPlaque')) $('#fPlaque').value = '';
+      if ($('#fBobineMere')) $('#fBobineMere').value = '';
+      if ($('#fEtqParBob')) { $('#fEtqParBob').value = ''; $('#fEtqParBob').placeholder = 'Auto (Colisage)'; }
+      if ($('#fGachePct')) $('#fGachePct').value = '3.0';
+      const plqBadge = $('#plaqueDetectBadge');
+      if (plqBadge) plqBadge.classList.add('hidden');
       applyCategoryUI(true);
+      recalcDropsAndLinear();
       $('#formTitle').innerHTML = '<i class="fa-solid fa-plus text-emerald-400 mr-2"></i>Nouveau lot de production';
       $('#btnSave').innerHTML = '<i class="fa-solid fa-floppy-disk"></i>Enregistrer le lot';
       $('#btnCancelEdit').classList.add('hidden');
@@ -499,20 +1371,28 @@
     function editLot(id, resume = false) {
       const l = state.lots.find(x => x.id === id); if (!l) return;
       if (resume ? !state.isOperator : !canModifyLot(l)) return toast(LOCK_MSG, 'warning');
+      if ($('#productionCreateEditor')) $('#productionCreateEditor').open=true;
       state.editId = resume ? null : id;
       state.resumeId = resume ? id : null;
       $('#fOF').readOnly=!state.isAdmin&&(resume||!l.of_numero.endsWith('-0000'));
       $('#fOF').value = l.of_numero || '';
       $('#fTarget').value=l.objectif_of||'';
       document.getElementById("fInlay").value=l.inlay||"";
+      $('#fCut').value=l.gabarit||l.dim_produit||'';
       $('#fRef').value = l.reference || '';
       Listes.setValue('#fCat', l.categorie || '');
       $('#fDes').value = l.designation || '';
       $('#fClient').value = l.client || '';
+      if ($('#fLot')) $('#fLot').value = l.numero_lot || '';
       Listes.setValue('#fUni', l.unite || 'UN');
       $('#fQty').value = l.quantite_produite;
       $('#fDate').value = l.date_production || '';
+      if ($('#fPlaque')) $('#fPlaque').value = l.plaque_id || '';
+      if ($('#fBobineMere')) $('#fBobineMere').value = l.bobine_mere_id || '';
+      if ($('#fEtqParBob')) $('#fEtqParBob').value = l.etq_par_bobine || '';
+      if ($('#fGachePct')) $('#fGachePct').value = l.gache_pourcent || '3.0';
       applyCategoryUI(false);
+      recalcDropsAndLinear();
       $('#formTitle').innerHTML = '<i class="fa-solid fa-pen text-amber-500 mr-2"></i>Modifier le lot ' + esc(l.of_numero);
       $('#btnSave').innerHTML = '<i class="fa-solid fa-floppy-disk"></i>Enregistrer les modifications';
       $('#btnCancelEdit').classList.remove('hidden');
@@ -542,25 +1422,40 @@
       if (!of) return bad('#fOF', "L'ordre de fabrication est obligatoire.");
       if (!state.isAdmin && !OF_RE.test(of) && !(state.editId && of === ofBefore)) return bad('#fOF', 'Format OF imposé : MOyymm-xxxx (ex. MO2610-0000).');
       if (!$('#fCat').value) return bad('#fCat', 'Choisissez une catégorie.');
-      if (!ref && !des) return bad('#fRef', 'Renseignez une référence ou une désignation.');
+      if (!ref) return bad('#fRef','La référence est obligatoire.');
+      if (!des) return bad('#fDes','La désignation est obligatoire.');
+      if (!parseCut($('#fCut').value)) return bad('#fCut','Saisissez la découpe largeur X hauteur, par exemple 100X150.');
+      if (!$('#fDate').value) return bad('#fDate','La date est obligatoire.');
       if (!$('#fUni').value) return bad('#fUni', "L'unité de comptage est obligatoire.");
-      if (qty < 1) return bad('#fQty', 'Quantité produite : nombre entier supérieur à 0.');
-
       const original=state.lots.find(l=>l.id===state.resumeId);
       const target=Number($('#fTarget').value);
-      if(!Number.isSafeInteger(target)||target<1||target>2147483647) return bad('#fTarget','Saisissez la quantité totale à produire.');
-      if(original&&(of!==original.of_numero||ref!==original.reference||up('#fClient')!==original.client)) return bad('#fOF','La reprise doit garder le MO, la référence et le client.');
+      if(!Number.isSafeInteger(target)||target<1||target>2147483647) return bad('#fTarget','Quantité à Produire : saisissez la quantité totale à produire.');
+      if (qty < 1) return bad('#fQty', 'Quantité produite : nombre entier supérieur à 0.');
+      if(original&&(of!==original.of_numero||ref!==original.reference||up('#fClient')!==(original.client||'STOCK'))) return bad('#fOF','La reprise doit garder le MO, la référence et le client.');
       if(!of.endsWith('-0000')&&of!==ofBefore&&!original&&state.lots.some(l=>l.of_numero===of)) return bad('#fOF','Cet OF existe déjà. Utilisez Reprendre sur le lot concerné.');
       const fiche = ref ? ficheOf(ref) : null;
       const traits=productReference(ref,document.getElementById('fCat').value);
       const inlay=document.getElementById('fInlay').value.trim();
       if(traits.rfid&&!inlay) return bad('#fInlay','Renseignez l’inlay RFID utilisé.');
+      
+      const calculated=recalcDropsAndLinear();
+      const dropsData={...calculated,bobine_mere_id:null,lineaire_total_consomme_m:0};
       const core = {
         inlay:traits.rfid?inlay:'',
-        of_numero: of, reference: ref, categorie: up('#fCat'), designation: des, client: up('#fClient'),
+        of_numero: of, reference: ref, categorie: up('#fCat'), designation: des, client: up('#fClient')||'STOCK', gabarit:$('#fCut').value.trim().toUpperCase(), dim_produit:$('#fCut').value.trim().toUpperCase(),
+        numero_lot: up('#fLot'),
         type_produit: $('#fType').value || 'ETIQUETTE', unite: $('#fUni').value,
         objectif_of: Number($('#fTarget').value)||null,
         quantite_produite: qty, date_production: $('#fDate').value || new Date().toISOString().slice(0, 10),
+        // Outillage découpe, drops & matière
+        plaque_id: dropsData.plaque_id,
+        bobine_mere_id: dropsData.bobine_mere_id,
+        nb_poses_front: dropsData.nb_poses_front,
+        bobines_par_drop: dropsData.bobines_par_drop,
+        nb_drops: dropsData.nb_drops,
+        lineaire_par_bobine_m: dropsData.lineaire_par_bobine_m,
+        lineaire_total_consomme_m: dropsData.lineaire_total_consomme_m,
+        gache_pourcent: dropsData.gache_pourcent
       };
 
       let savedId = state.editId, lot = null;
@@ -582,6 +1477,7 @@
             upd.qte_carton_partiel = R;
             if (R !== (lot.qte_reliquat || 0)) { upd.reliquat_mode = ''; upd.reliquat_carton = ''; upd.qte_reliquat = R; }
           }
+          upd.gabarit=core.gabarit;upd.dim_produit=core.dim_produit;
           if(traits.packet) upd.cartes_par_paquet=traits.packet;
           const { error } = await state.sb.from('production').update(upd).eq('id', state.editId);
           if (error) throw error;
@@ -594,16 +1490,41 @@
             const remainder=qty%original.qte_par_carton;
             Object.assign(row,{nb_cartons_total:Math.ceil(qty/original.qte_par_carton),qte_carton_partiel:remainder,qte_reliquat:remainder,reliquat_mode:'',reliquat_carton:''});
           }
+          row.gabarit=core.gabarit;row.dim_produit=core.dim_produit;
           if(traits.packet) row.cartes_par_paquet=traits.packet;
           const { data, error } = await state.sb.from('production').insert(row).select('id').single();
           if (error) throw error;
           savedId = data?.id;
           toast('Lot de production enregistré.', 'success');
+
+          // Déduction linéaire automatique si jumbo sélectionné lors de la création
+          if (dropsData.bobine_mere_id && dropsData.lineaire_total_consomme_m > 0) {
+            try {
+              const rpcRes = await state.sb.rpc('deduire_lineaire_bobine_mere', {
+                p_bobine_id: dropsData.bobine_mere_id,
+                p_metres: dropsData.lineaire_total_consomme_m
+              });
+              if (rpcRes.error) {
+                const curBob = state.bobines.find(b => b.id === dropsData.bobine_mere_id);
+                if (curBob) {
+                  const newRem = Math.max(0, (+curBob.lineaire_restant_m || 0) - dropsData.lineaire_total_consomme_m);
+                  await state.sb.from('bobines_meres').update({
+                    lineaire_restant_m: newRem,
+                    statut: newRem <= 0 ? 'EPUISEE' : 'EN_COURS',
+                    updated_at: new Date().toISOString()
+                  }).eq('id', dropsData.bobine_mere_id);
+                }
+              }
+              toast(`Matière : ${fmtNum(dropsData.lineaire_total_consomme_m)} m déduits de la bobine mère.`, 'info');
+            } catch (eDeduct) {
+              console.warn('deduire_lineaire_bobine_mere :', eDeduct);
+            }
+          }
         }
       } catch (e) { return toast('Échec : ' + (e.message || e), 'error'); }
 
       resetForm();
-      await loadData();
+      if (!(await loadData())) return toast('Enregistrement effectué, mais le rechargement des données a échoué. Réessayez.', 'warning');
       fillLists();
       render();
 
@@ -697,7 +1618,7 @@
       $('#rows').innerHTML = list.length ? list.map(l => {
         const sh = Math.min(validatedOf(l), l.quantite_produite), rest = restOf(l), pend = pendingOf(l);
         const pct = Math.round((sh + pend) / l.quantite_produite * 100);
-        const st = rest === 0 ? '<span class="badge st-done">Soldé</span>' : sh > 0 ? '<span class="badge st-part">Partiel</span>' : '<span class="badge st-new">À expédier</span>';
+        const st = rest === 0 ? '<span class="badge st-done">Épuisé</span>' : sh > 0 ? '<span class="badge st-part">Partiel</span>' : '<span class="badge st-new">À expédier</span>';
         const R = LTColis.remainderOf(l), mode = String(l.reliquat_mode || '');
         const av = availOf(l);
         const enCarton = stockReserved(l.id);
@@ -739,7 +1660,7 @@
 
         // case de sélection : seulement si le lot peut partir (colisage validé, reliquat décidé, reste > 0)
         const canShip = (l.colisage_valide || state.isAdmin) && (!av.blocked || state.isAdmin) && rest > stockReserved(l.id);
-        const why = canShip ? 'Cocher pour expédier' : rest <= 0 ? 'Lot soldé' : rest <= enCarton ? 'Quantité affectée à un carton en stock' : !l.colisage_valide ? 'Colisage à remplir' : 'Reliquat à décider';
+        const why = canShip ? 'Cocher pour expédier' : rest <= 0 ? 'Lot épuisé' : rest <= enCarton ? 'Quantité affectée à un carton en stock' : !l.colisage_valide ? 'Colisage à remplir' : 'Reliquat à décider';
         const chk = `<input type="checkbox" class="chk-ship w-4 h-4 accent-indigo-500" data-id="${esc(l.id)}" ${canShip ? '' : 'disabled'} ${state.sel.has(l.id) && canShip ? 'checked' : ''} title="${esc(why)}" onchange="toggleSel('${esc(l.id)}', this.checked)">`;
 
         return `<tr class="hover:bg-[var(--bg-hover)] transition">
@@ -757,6 +1678,10 @@
             <div class="font-semibold">${esc(l.designation || '')}</div>
             ${l.client ? '<div class="text-xs" style="color:var(--text-muted)">Client · ' + esc(l.client) + '</div>' : ''}
             ${specs.length ? `<div class="text-[11px]" style="color:var(--text-dim)">${esc(specs.join(' • '))}</div>` : ''}
+            ${l.bobines_par_drop || l.lineaire_total_consomme_m ? `<div class="mt-1 flex flex-wrap gap-1 text-[10px]">
+              <span class="badge" style="background:rgba(99,102,241,.12);color:#4338ca" title="Prévision OF : ${l.nb_drops || 0} drops de ${l.bobines_par_drop || 1} bobine(s), calculés sur la quantité à produire"><i class="fa-solid fa-shapes mr-1"></i>${l.bobines_par_drop || 1} b/drop (${l.nb_drops || 0} drops prévus / OF)</span>
+              ${l.lineaire_total_consomme_m ? `<span class="badge" style="background:rgba(16,185,129,.12);color:#047857" title="Linéaire brut consommé"><i class="fa-solid fa-scroll mr-1"></i>${fmtNum(l.lineaire_total_consomme_m)} m</span>` : ''}
+            </div>` : ''}
           </td>
           <td class="p-3 text-right font-bold">${fmtNum(l.quantite_produite)} <span style="color:var(--text-dim);font-weight:600">${esc(l.unite)}</span></td>
           <td class="p-3 text-center">${colis}</td>
@@ -772,6 +1697,1488 @@
           </td></tr>`;
       }).join('') : `<tr><td colspan="9" class="p-10 text-center" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-3xl mb-2 block" style="color:var(--text-dim)"></i>${state.lots.length ? 'Aucun lot ne correspond.' : 'Aucun lot de production pour le moment. Saisissez le premier ci-dessus.'}</td></tr>`;
       updateShipBar();
+      updateTabBadges();
+    }
+
+    /* ==========================================================================
+       GESTION DES ONGLETS & SECTIONS (Fabrication, Stock, Réceptions, Cartons)
+       ========================================================================== */
+    function switchProdTab(tab) {
+      closeProductionEditor();
+      document.documentElement.dataset.productionView=tab;
+      state.currentTab = tab;
+      if (tab === 'stock') {
+        state.stockFilter = 'dispo';
+        state.stockCatFilter = '';
+        const categorySelect = document.getElementById('fltStockCat');
+        if (categorySelect) categorySelect.value = '';
+        const stockSearch = document.getElementById('searchStock');
+        if (stockSearch) stockSearch.value = '';
+        document.querySelectorAll('.stock-cat-btn').forEach(button => {
+          const selected = !button.dataset.cat;
+          button.classList.toggle('selected-view', selected);
+          button.style.background = selected ? '' : 'var(--bg-input)';
+          button.style.color = selected ? '' : 'var(--text)';
+        });
+        ['all', 'dispo', 'reserve', 'empty'].forEach(key => {
+          const button = document.getElementById('fltStock_' + key);
+          if (button) button.classList.toggle('active', key === 'dispo');
+        });
+      }
+      document.body.dataset.productionSection=tab;
+      const names={fab:'Fabrication',stock:'Stock',recept:'Réceptions & Retours',cartons:'Cartons en stock',plaques:'Plaques de découpe',bobines:'Matière Première'};
+      const descriptions={
+        fab:'Saisie et suivi des lots par ordre de fabrication.',
+        stock:'Disponibilités par référence et détail des lots.',
+        recept:'Entrées externes et retours clients.',
+        cartons:'Composition et suivi des cartons disponibles.',
+        plaques:'Registre des plaques de découpe.',
+        bobines:'Suivi des matières premières disponibles.'
+      };
+      const heading=document.querySelector('main .page-heading');
+      if(heading){
+        heading.querySelector('h2').textContent=names[tab]||'Fabrication';
+        const description=heading.querySelector('p');
+        if(description) description.textContent=descriptions[tab]||'';
+      }
+      document.getElementById('formTitle')?.closest('section')?.setAttribute('data-fabrication-form','');
+      document.title=(names[tab]||'Fabrication')+' • LogiTrak';
+      const formSection=document.getElementById('formTitle')?.closest('section');
+      if(formSection) formSection.hidden=tab!=='fab';
+      document.getElementById('view_fab').hidden=tab!=='fab';
+      window.dispatchEvent(new CustomEvent('logitrak-production-tab',{detail:tab}));
+      ['fab', 'stock', 'recept', 'cartons', 'plaques', 'bobines'].forEach(t => {
+        const btn = $('#tabBtn_' + t);
+        const view = $('#view_' + t);
+        if (btn) btn.classList.toggle('active', t === tab);
+        if (view) {view.hidden=t!==tab;view.classList.toggle('hidden',t!==tab);view.style.display=t===tab?'block':'none';}
+      });
+      // Boutons rapides du bandeau d'onglets
+      const btnNewRecept = $('#btnNewReceptQuick');
+      const btnNewPlq = $('#btnNewPlaqueQuick');
+      const btnNewBob = $('#btnNewBobineQuick');
+      const btnPrintStock = $('#btnPrintStock');
+      const btnExportStock = $('#btnExportStock');
+      if (btnNewRecept) btnNewRecept.classList.toggle('hidden', tab !== 'recept' || !state.isOperator);
+      if (btnNewPlq) btnNewPlq.classList.toggle('hidden', tab !== 'plaques' || !state.isOperator);
+      if (btnNewBob) btnNewBob.classList.toggle('hidden', tab !== 'bobines' || !state.isOperator);
+      if (btnPrintStock) btnPrintStock.classList.toggle('hidden', tab !== 'stock');
+      if (btnExportStock) btnExportStock.classList.toggle('hidden', tab !== 'stock');
+
+      try {
+        const url = new URL(location);
+        url.searchParams.set('tab', tab);
+        history.replaceState(null, '', url);
+      } catch (e) {}
+
+      if (tab === 'stock') renderStockView();
+      else if (tab === 'recept') renderReceptionsView();
+      else if (tab === 'cartons') loadStockCartons();
+      else if (tab === 'plaques') renderPlaquesView();
+      else if (tab === 'bobines') renderBobinesView();
+      else render();
+    }
+
+    function updateTabBadges() {
+      const stockRefsWithStock = computeConsolidatedStock().filter(s => s.stock_dispo > 0).length;
+      const receptsWithStock = state.receptions.filter(r => restOfRec(r) > 0).length;
+      const bCartons=$('#badgeCartonsCount');
+      if(bCartons) bCartons.textContent=fmtNum(stockCartons.length);
+      const bStock = $('#badgeStockCount');
+      if (bStock) bStock.textContent = fmtNum(stockRefsWithStock);
+      const bRec = $('#badgeReceptCount');
+      if (bRec) bRec.textContent = fmtNum(receptsWithStock);
+      const bPlq = $('#badgePlaquesCount');
+      if (bPlq) bPlq.textContent = fmtNum(state.plaques ? state.plaques.length : 0);
+      const bBob = $('#badgeBobinesCount');
+      if (bBob) bBob.textContent = fmtNum(state.bobines ? state.bobines.filter(b => rawQuantity(b)>0).length : 0);
+    }
+
+    /* ==========================================================================
+       VUE 2 : GESTION DU STOCK DE PRODUCTION SYNTHÉTIQUE
+       ========================================================================== */
+    /* ==========================================================================
+       VUE 2 : GESTION DU STOCK DE PRODUCTION SYNTHÉTIQUE
+       ========================================================================== */
+    function computeConsolidatedStock() {
+      const map = new Map();
+
+      // 1. Lots de fabrication
+      state.lots.forEach(lot => {
+        const ref = (lot.reference || '').trim().toUpperCase() || '(SANS RÉFÉRENCE)';
+        if (!map.has(ref)) {
+          map.set(ref, {
+            reference: ref,
+            designation: lot.designation || '',
+            categorie: lot.categorie || '',
+            unite: lot.unite || 'UN',
+            type_carton: lot.type_carton || 'H2',
+            qte_par_carton: lot.qte_par_carton || 1,
+            total_produit: 0,
+            expedie_valide: 0,
+            reserve_bl: 0,
+            ofs: new Set(),
+            lots_count: 0,
+            recept_count: 0,
+            lot_ids: [],
+            items_details: []
+          });
+        }
+        const item = map.get(ref);
+        if (!item.designation && lot.designation) item.designation = lot.designation;
+        if (!item.categorie && lot.categorie) item.categorie = lot.categorie;
+        if (lot.of_numero) item.ofs.add(lot.of_numero);
+        item.lot_ids.push(lot.id);
+        item.lots_count++;
+        item.total_produit += lot.quantite_produite;
+        const expV = validatedOf(lot);
+        const pendB = pendingOf(lot);
+        const restD = restOf(lot);
+        item.expedie_valide += expV;
+        item.reserve_bl += pendB;
+
+        item.items_details.push({
+          type: 'OF',
+          id: lot.id,
+          numero: lot.of_numero || '(Sans N° OF)',
+          numero_lot: lot.numero_lot || (lot.id ? lot.id.slice(0, 8) : '—'),
+          client: lot.client || 'STOCK',
+          date: lot.date_production || (lot.created_at ? lot.created_at.slice(0, 10) : ''),
+          quantite_produite: lot.quantite_produite,
+          expedie_valide: expV,
+          reserve_bl: pendB,
+          stock_dispo: restD,
+          unite: lot.unite || 'UN',
+          type_carton: lot.type_carton || 'H2',
+          qte_par_carton: lot.qte_par_carton || 1,
+          reliquat_mode: lot.reliquat_mode || '',
+          qte_reliquat: lot.qte_reliquat || 0,
+          colisage_valide: !!lot.colisage_valide
+        });
+      });
+
+      // 2. Réceptions externes et retours clients
+      state.receptions.forEach(rec => {
+        const ref = (rec.reference || '').trim().toUpperCase() || '(SANS RÉFÉRENCE)';
+        if (!map.has(ref)) {
+          map.set(ref, {
+            reference: ref,
+            designation: rec.designation || '',
+            categorie: rec.categorie || '',
+            unite: rec.unite || 'UN',
+            type_carton: rec.type_carton || 'H2',
+            qte_par_carton: 1,
+            total_produit: 0,
+            expedie_valide: 0,
+            reserve_bl: 0,
+            ofs: new Set(),
+            lots_count: 0,
+            recept_count: 0,
+            lot_ids: [],
+            items_details: []
+          });
+        }
+        const item = map.get(ref);
+        if (!item.designation && rec.designation) item.designation = rec.designation;
+        if (!item.categorie && rec.categorie) item.categorie = rec.categorie;
+        item.recept_count++;
+        const qRec = (+rec.quantite_recue || 0);
+        const expV = validatedOfRec(rec);
+        const pendB = pendingOfRec(rec);
+        const restD = restOfRec(rec);
+        item.total_produit += qRec;
+        item.expedie_valide += expV;
+        item.reserve_bl += pendB;
+
+        item.items_details.push({
+          type: 'RECEPTION',
+          id: rec.id,
+          numero: rec.numero_reception || '(Entrée externe)',
+          numero_lot: rec.numero_reception || (rec.id ? rec.id.slice(0, 8) : '—'),
+          client: rec.client_destinataire || rec.provenance || 'STOCK',
+          date: rec.date_reception || (rec.created_at ? rec.created_at.slice(0, 10) : ''),
+          quantite_produite: qRec,
+          expedie_valide: expV,
+          reserve_bl: pendB,
+          stock_dispo: restD,
+          unite: rec.unite || 'UN',
+          type_carton: rec.type_carton || 'H2',
+          qte_par_carton: 1,
+          reliquat_mode: '',
+          qte_reliquat: 0,
+          colisage_valide: true
+        });
+      });
+
+      // 3. Calculs dérivés
+      const list = [...map.values()].map(item => {
+        const stock_dispo = Math.max(0, item.total_produit - item.expedie_valide - item.reserve_bl);
+        const f = ficheOf(item.reference);
+        const qpc = f?.qte_par_carton || item.qte_par_carton || 1;
+        const cartons_estimes = qpc > 1 ? Math.floor(stock_dispo / qpc) : 0;
+        item.items_details.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+        return {
+          ...item,
+          stock_dispo,
+          qte_par_carton: qpc,
+          cartons_estimes,
+          ofs_list: [...item.ofs]
+        };
+      });
+
+      return list.sort((a, b) => a.reference.localeCompare(b.reference));
+    }
+
+    function toggleStockDetail(idx) {
+      const row = document.getElementById('stockSubRow_' + idx);
+      const icon = document.getElementById('stockChevron_' + idx);
+      const mainRow = document.getElementById('stockMainRow_' + idx);
+      if (!row) return;
+      const isHidden = row.classList.contains('hidden');
+      row.classList.toggle('hidden', !isHidden);
+      if (icon) {
+        icon.classList.toggle('fa-chevron-down', isHidden);
+        icon.classList.toggle('fa-chevron-right', !isHidden);
+      }
+      if (mainRow) {
+        mainRow.classList.toggle('bg-sky-50/60', isHidden);
+      }
+    }
+
+    function setStockFilter(f) {
+      state.stockFilter = f;
+      ['dispo', 'all', 'reserve', 'empty'].forEach(k => {
+        const btn = $('#fltStock_' + k);
+        if (btn) btn.classList.toggle('active', k === f);
+      });
+      renderStockView();
+    }
+
+    function setStockCategory(cat) {
+      state.stockCatFilter = (cat || '').toUpperCase().trim();
+      const sel = $('#fltStockCat');
+      if (sel) sel.value = cat;
+      $$('.stock-cat-btn').forEach(btn => {
+        const bCat = (btn.dataset.cat || '').toUpperCase().trim();
+        const isAct = bCat === state.stockCatFilter;
+        btn.classList.toggle('selected-view', isAct);
+        if (isAct) {
+          btn.style.background = '';
+          btn.style.color = '';
+        } else {
+          btn.style.background = 'var(--bg-input)';
+          btn.style.color = 'var(--text)';
+        }
+      });
+      renderStockView();
+    }
+
+    function renderStockView() {
+      const stockList = computeConsolidatedStock();
+      const q = ($('#searchStock')?.value || '').trim().toLowerCase();
+      const catFilter = (state.stockCatFilter || '').trim().toUpperCase();
+
+      const refsWithDispo = stockList.filter(s => s.stock_dispo > 0);
+      const totalDispo = refsWithDispo.reduce((sum, s) => sum + s.stock_dispo, 0);
+      const totalReserve = stockList.reduce((sum, s) => sum + s.reserve_bl, 0);
+      const totalCartons = refsWithDispo.reduce((sum, s) => sum + s.cartons_estimes, 0);
+
+      if ($('#kStockRefs')) $('#kStockRefs').textContent = fmtNum(refsWithDispo.length);
+      if ($('#kStockDispo')) $('#kStockDispo').textContent = fmtNum(totalDispo);
+      if ($('#kStockReserve')) $('#kStockReserve').textContent = fmtNum(totalReserve);
+      if ($('#kStockCartons')) $('#kStockCartons').textContent = fmtNum(totalCartons);
+
+      let filtered = stockList.filter(item => {
+        if (state.stockFilter === 'dispo' && item.stock_dispo <= 0) return false;
+        if (state.stockFilter === 'reserve' && item.reserve_bl <= 0) return false;
+        if (state.stockFilter === 'empty' && item.stock_dispo > 0) return false;
+        if (catFilter) {
+          const itemCat = (item.categorie || '').toUpperCase();
+          if (catFilter === 'ETIQUETTES' && (itemCat.includes('RFID') || !itemCat.includes('ETIQUET'))) return false;
+          else if (catFilter === 'ETIQUETTES RFID' && !itemCat.includes('RFID')) return false;
+          else if (catFilter === 'RUBAN TTR' && !itemCat.includes('RUBAN') && !itemCat.includes('TTR')) return false;
+          else if (catFilter === 'CARTE PVC' && !itemCat.includes('PVC') && !itemCat.includes('CARTE')) return false;
+          else if (catFilter === 'TAGS' && !itemCat.includes('TAG')) return false;
+          else if (!['ETIQUETTES', 'ETIQUETTES RFID', 'RUBAN TTR', 'CARTE PVC', 'TAGS'].includes(catFilter) && itemCat !== catFilter) return false;
+        }
+        if (q) {
+          const match = [
+            item.reference,
+            item.designation,
+            item.categorie,
+            ...item.ofs_list
+          ].join(' ').toLowerCase();
+          if (!match.includes(q)) return false;
+        }
+        return true;
+      });
+
+      filtered.sort((a,b)=>Number(b.stock_dispo>0)-Number(a.stock_dispo>0)||a.reference.localeCompare(b.reference));
+      const tbody = $('#stockRows');
+      if (!tbody) return;
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="10" class="p-10 text-center" style="color:var(--text-muted)">
+          <i class="fa-solid fa-boxes-stacked text-3xl mb-2 block" style="color:var(--text-dim)"></i>
+          ${stockList.length ? 'Aucune référence ne correspond aux critères de filtre.' : 'Aucun produit en stock actuellement.'}
+        </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map((item, idx) => {
+        const pct = item.total_produit > 0 ? Math.round(((item.expedie_valide + item.reserve_bl) / item.total_produit) * 100) : 0;
+        let statusBadge = '';
+        if (item.stock_dispo <= 0) {
+          statusBadge = '<span class="badge st-done"><i class="fa-solid fa-check"></i>Épuisé</span>';
+        } else if (item.expedie_valide > 0 || item.reserve_bl > 0) {
+          statusBadge = '<span class="badge st-part"><i class="fa-solid fa-circle-half-stroke"></i>Partiel (' + (100 - pct) + '%)</span>';
+        } else {
+          statusBadge = '<span class="badge st-new"><i class="fa-solid fa-warehouse"></i>En Stock</span>';
+        }
+
+        const ofBadges = item.ofs_list.length
+          ? item.ofs_list.slice(0, 3).map(of => `<span class="badge st-new font-mono-code">${esc(of)}</span>`).join(' ') + (item.ofs_list.length > 3 ? ` <span class="text-[10px]" style="color:var(--text-dim)">+${item.ofs_list.length - 3}</span>` : '')
+          : (item.recept_count ? '<span class="badge st-part"><i class="fa-solid fa-truck-ramp-box mr-1"></i>Réception</span>' : '—');
+
+        const cartonsHtml = item.cartons_estimes > 0
+          ? `<b class="text-amber-500 font-bold">${fmtNum(item.cartons_estimes)}</b> <span class="text-[10px]" style="color:var(--text-dim)">ctn(s) (${item.qte_par_carton}/${esc(item.type_carton)})</span>`
+          : `<span style="color:var(--text-dim)">—</span>`;
+
+        const canShip = item.stock_dispo > 0;
+        const shipBtn = canShip
+          ? `<button type="button" class="btn btn-primary text-xs op-only py-1 px-2.5 font-bold" onclick="event.stopPropagation();shipReferenceStock('${esc(item.reference)}')">
+              <i class="fa-solid fa-truck-fast"></i>Expédier
+             </button>`
+          : `<button type="button" class="btn btn-secondary text-xs py-1 px-2.5" onclick="event.stopPropagation();filterByRefFab('${esc(item.reference)}')">
+              <i class="fa-solid fa-eye"></i>Voir
+             </button>`;
+
+        // Détail déroulant des commandes et lots
+        const subRows = (item.items_details || []).map(d => {
+          const lotShipBtn = d.stock_dispo > 0
+            ? (d.type === 'OF'
+                ? `<button type="button" class="btn btn-primary text-xs py-1 px-2.5 font-bold shadow-sm" onclick="event.stopPropagation();location.href='envois.html?new=1&lots=${encodeURIComponent(d.id)}'" title="Créer un envoi avec ce lot spécifique">
+                     <i class="fa-solid fa-truck-fast mr-1"></i>Expédier
+                   </button>`
+                : `<button type="button" class="btn btn-primary text-xs py-1 px-2.5 font-bold shadow-sm" onclick="event.stopPropagation();shipReception('${encodeURIComponent(d.id)}')" title="Créer un envoi avec cette entrée">
+                     <i class="fa-solid fa-truck-fast mr-1"></i>Expédier
+                   </button>`)
+            : `<span class="badge st-done text-[10px]"><i class="fa-solid fa-check mr-1"></i>Épuisé</span>`;
+
+          const colisDetail = d.type === 'OF'
+            ? `<span class="font-semibold text-slate-700">${d.qte_par_carton > 1 ? `${d.qte_par_carton}/${esc(d.type_carton)}` : esc(d.type_carton)}</span>` +
+              (d.reliquat_mode ? ` • <span class="badge ${d.reliquat_mode === 'STOCK' ? 'st-part' : 'st-new'} text-[9px] py-0">${d.reliquat_mode === 'STOCK' ? 'Mixte' : 'Ctn'}</span>` : '')
+            : '<span class="text-slate-400">—</span>';
+
+          return `<tr class="hover:bg-slate-50 transition">
+            <td class="p-2.5 pl-3 whitespace-nowrap">
+              ${d.type === 'OF' 
+                ? `<span class="font-mono-code font-bold text-sky-700"><i class="fa-solid fa-industry text-[10px] mr-1 text-emerald-500"></i>${esc(d.numero)}</span>` 
+                : `<span class="font-mono-code font-bold text-amber-700"><i class="fa-solid fa-truck-ramp-box text-[10px] mr-1 text-amber-500"></i>${esc(d.numero)}</span>`}
+              <span class="text-[10px] block text-slate-500 font-semibold">${d.type === 'OF' ? 'Ordre de Fabrication' : 'Réception / Retour'}</span>
+            </td>
+            <td class="p-2.5 whitespace-nowrap">
+              <span class="font-mono-code font-bold px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-800 border border-slate-200">
+                <i class="fa-solid fa-fingerprint text-[10px] mr-1 text-indigo-400"></i>${esc(d.numero_lot)}
+              </span>
+            </td>
+            <td class="p-2.5 whitespace-nowrap font-mono text-slate-700">
+              <i class="fa-regular fa-calendar text-[10px] mr-1 text-slate-400"></i>${fmtDate(d.date)}
+            </td>
+            <td class="p-2.5 whitespace-nowrap font-bold text-slate-800">
+              ${esc(d.client)}
+            </td>
+            <td class="p-2.5 text-right font-semibold text-slate-700 whitespace-nowrap">
+              ${fmtNum(d.quantite_produite)} <span class="text-[10px] text-slate-400">${esc(d.unite)}</span>
+            </td>
+            <td class="p-2.5 text-right font-bold text-emerald-600 whitespace-nowrap">
+              ${fmtNum(d.expedie_valide)}
+            </td>
+            <td class="p-2.5 text-right font-bold text-amber-600 whitespace-nowrap">
+              ${d.reserve_bl > 0 ? fmtNum(d.reserve_bl) : '0'}
+            </td>
+            <td class="p-2.5 text-right font-black text-sm ${d.stock_dispo > 0 ? 'text-sky-600' : 'text-slate-400'} whitespace-nowrap">
+              ${fmtNum(d.stock_dispo)}
+            </td>
+            <td class="p-2.5 text-center text-[11px] whitespace-nowrap">
+              ${colisDetail}
+            </td>
+            <td class="p-2.5 pr-3 text-right whitespace-nowrap">
+              ${lotShipBtn}
+            </td>
+          </tr>`;
+        }).join('');
+
+        return `<tr id="stockMainRow_${idx}" class="hover:bg-[var(--bg-hover)] transition cursor-pointer select-none" onclick="toggleStockDetail(${idx})" title="Cliquer pour afficher / masquer les commandes et lots">
+          <td class="p-3 pl-5">
+            <div class="flex items-center gap-2.5">
+              <i id="stockChevron_${idx}" class="fa-solid fa-chevron-right text-sky-500 text-xs w-3 transition-transform duration-200"></i>
+              <span class="font-mono-code font-black text-sm text-indigo-500 hover:text-sky-600">${esc(item.reference)}</span>
+            </div>
+            <div class="text-[10px] mt-0.5 ml-5 text-slate-500">
+              ${item.lots_count ? `${item.lots_count} lot(s) OF` : ''}
+              ${item.lots_count && item.recept_count ? ' • ' : ''}
+              ${item.recept_count ? `${item.recept_count} entrée(s) externe` : ''}
+            </div>
+          </td>
+          <td class="p-3">
+            <div class="font-bold">${esc(item.designation || '—')}</div>
+            <div class="text-xs" style="color:var(--text-muted)">${esc(item.categorie || '—')}</div>
+          </td>
+          <td class="p-3 text-center font-semibold" style="color:var(--text-dim)">${esc(item.unite)}</td>
+          <td class="p-3 text-right font-black text-base text-sky-600">${fmtNum(item.stock_dispo)}</td>
+          <td class="p-3 text-center text-xs">${cartonsHtml}</td>
+          <td class="p-3 text-right text-amber-500 font-bold">${item.reserve_bl > 0 ? fmtNum(item.reserve_bl) : '0'}</td>
+          <td class="p-3 text-right font-bold text-slate-700">${fmtNum(item.total_produit)}</td>
+          <td class="p-3 text-center">${ofBadges}</td>
+          <td class="p-3">${statusBadge}</td>
+          <td class="p-3 pr-5 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-end gap-1.5">
+              <button type="button" class="btn btn-secondary text-xs py-1 px-2.5" onclick="toggleStockDetail(${idx})" title="Afficher ou masquer les commandes et lots">
+                <i class="fa-solid fa-list-ul text-sky-500 mr-1"></i><span class="hidden sm:inline">Détails</span>
+              </button>
+              ${shipBtn}
+            </div>
+          </td>
+        </tr>
+        <tr id="stockSubRow_${idx}" class="hidden" style="background:var(--bg-soft)">
+          <td colspan="10" class="p-3 sm:p-5 border-t border-b" style="border-color:var(--border)">
+            <div class="rounded-xl border p-4 shadow-sm space-y-3" style="background:var(--bg-card);border-color:var(--border-strong)">
+              <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b" style="border-color:var(--border)">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-lg bg-sky-500/15 text-sky-600 flex items-center justify-center text-sm font-bold">
+                    <i class="fa-solid fa-layer-group"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wide">
+                      Commandes, lots et mouvements de la référence : <span class="font-mono-code text-sky-600 font-bold">${esc(item.reference)}</span>
+                    </h4>
+                    <p class="text-[11px] text-slate-500">Détail des fabrications OF, réceptions de stock et solde unitaire par lot</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="badge text-xs font-bold" style="background:var(--accent-wash);color:var(--accent)">
+                    <i class="fa-solid fa-warehouse mr-1"></i>${fmtNum(item.stock_dispo)} ${esc(item.unite)} disponibles
+                  </span>
+                  <span class="badge" style="background:var(--bg-input);color:var(--text-muted)">
+                    ${item.items_details.length} mouvement(s)
+                  </span>
+                </div>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs bg-white rounded-lg border overflow-hidden" style="border-color:var(--border)">
+                  <thead style="background:var(--bg-input)">
+                    <tr class="font-bold text-[10px] uppercase tracking-wider" style="color:var(--text-muted)">
+                      <th class="p-2.5 pl-3">Type &amp; N° Commande</th>
+                      <th class="p-2.5">N° de Lot (Traçabilité)</th>
+                      <th class="p-2.5">Date</th>
+                      <th class="p-2.5">Client / Destinataire</th>
+                      <th class="p-2.5 text-right">Qté Initiale</th>
+                      <th class="p-2.5 text-right text-emerald-600">Expédié</th>
+                      <th class="p-2.5 text-right text-amber-600">Réservé</th>
+                      <th class="p-2.5 text-right font-black text-sky-600">Reste en Stock</th>
+                      <th class="p-2.5 text-center">Colisage / Reliquat</th>
+                      <th class="p-2.5 pr-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y" style="border-color:var(--border)">
+                    ${subRows}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function shipReferenceStock(ref) {
+      const matchingLots = state.lots.filter(l => (l.reference || '').toUpperCase() === ref.toUpperCase() && restOf(l) > 0);
+      if (matchingLots.length) {
+        location.href = 'envois.html?new=1&lots=' + matchingLots.map(l => encodeURIComponent(l.id)).join(',');
+        return;
+      }
+      const matchingRec = state.receptions.find(r => (r.reference || '').toUpperCase() === ref.toUpperCase() && restOfRec(r) > 0);
+      if (matchingRec) {
+        shipReception(matchingRec.id);
+        return;
+      }
+      toast('Aucun lot disponible avec du stock à expédier pour cette référence.', 'warning');
+    }
+
+    function filterByRefFab(ref) {
+      switchProdTab('fab');
+      const search = $('#search');
+      if (search) {
+        search.value = ref;
+        render();
+      }
+    }
+
+    function exportStockCSV() {
+      const stock = computeConsolidatedStock();
+      if (!stock.length) return toast('Aucune donnée de stock à exporter.', 'warning');
+      const headers = ['Référence', 'Désignation', 'Catégorie', 'Unité', 'Total Produit', 'Expédié Validé', 'Réservé BL', 'Stock Disponible', 'Cartons Prêts (Est.)', 'OFs / Entrées Liées'];
+      const rows = stock.map(s => [
+        `"${(s.reference || '').replace(/"/g, '""')}"`,
+        `"${(s.designation || '').replace(/"/g, '""')}"`,
+        `"${(s.categorie || '').replace(/"/g, '""')}"`,
+        `"${(s.unite || 'UN').replace(/"/g, '""')}"`,
+        s.total_produit,
+        s.expedie_valide,
+        s.reserve_bl,
+        s.stock_dispo,
+        s.cartons_estimes,
+        `"${(s.ofs_list.join(', ') || (s.recept_count ? 'Réceptions externes' : '')).replace(/"/g, '""')}"`
+      ]);
+      const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Stock-Production-LogiTrak-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast('Export CSV du stock téléchargé.', 'success');
+    }
+
+    function printStockInventory() {
+      const stock = computeConsolidatedStock().filter(s => state.stockFilter === 'all' || s.stock_dispo > 0);
+      const win = window.open('', '_blank');
+      if (!win) return toast('Autorisez les popups pour imprimer.', 'warning');
+      const now = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const totalDispo = stock.reduce((sum, s) => sum + s.stock_dispo, 0);
+      const totalCartons = stock.reduce((sum, s) => sum + s.cartons_estimes, 0);
+
+      win.document.write(`<!DOCTYPE html><html><head><title>Inventaire Stock Production — LogiTrak</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 11px; color: #111; margin: 20px; }
+          h1 { font-size: 16px; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+          p { margin: 0 0 12px; color: #555; }
+          .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #14395f; padding-bottom: 8px; margin-bottom: 12px; }
+          .kpis { display: flex; gap: 20px; margin-bottom: 12px; font-size: 12px; }
+          .kpi-box { border: 1px solid #ccc; padding: 6px 12px; border-radius: 4px; }
+          .kpi-box b { display: block; font-size: 14px; color: #14395f; }
+          table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+          th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+          th { background-color: #f1f5f9; font-weight: bold; font-size: 10px; text-transform: uppercase; color: #334155; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .font-mono { font-family: monospace; font-weight: bold; }
+          @media print { body { margin: 0; } @page { margin: 1cm; size: landscape; } }
+        </style></head><body>
+        <div class="header">
+          <div>
+            <h1>Eurequat Algérie — Usine de Tlemcen</h1>
+            <p>LogiTrak • État d'inventaire du stock de production</p>
+          </div>
+          <div style="text-align:right">
+            <div>Date d'arrêt : <b>${now}</b></div>
+            <div style="color:#666">Édité par : ${esc(state.username || 'Opérateur')}</div>
+          </div>
+        </div>
+        <div class="kpis">
+          <div class="kpi-box"><small>Références en stock</small><b>${stock.length}</b></div>
+          <div class="kpi-box"><small>Total disponible</small><b>${fmtNum(totalDispo)}</b></div>
+          <div class="kpi-box"><small>Cartons pleins estimés</small><b>${fmtNum(totalCartons)}</b></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Référence</th><th>Désignation &amp; Catégorie</th><th class="text-center">Unité</th>
+              <th class="text-right">Total Produit</th><th class="text-right">Expédié</th><th class="text-right">Réservé BL</th>
+              <th class="text-right">Stock Disponible</th><th class="text-center">Cartons Prêts</th><th>OFs / Lots Liés</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${stock.map(s => `<tr>
+              <td class="font-mono">${esc(s.reference)}</td>
+              <td><b>${esc(s.designation || '—')}</b><br><small style="color:#666">${esc(s.categorie || '—')}</small></td>
+              <td class="text-center">${esc(s.unite)}</td>
+              <td class="text-right">${fmtNum(s.total_produit)}</td>
+              <td class="text-right">${fmtNum(s.expedie_valide)}</td>
+              <td class="text-right">${fmtNum(s.reserve_bl)}</td>
+              <td class="text-right font-mono" style="font-size:12px;font-weight:bold">${fmtNum(s.stock_dispo)}</td>
+              <td class="text-center">${s.cartons_estimes > 0 ? `${fmtNum(s.cartons_estimes)} × ${esc(s.type_carton)}` : '—'}</td>
+              <td style="font-size:10px">${esc(s.ofs_list.join(', ') || (s.recept_count ? 'Réceptions externes' : '—'))}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        <script>window.onload = function() { window.print(); };<\/script>
+      </body></html>`);
+      win.document.close();
+    }
+
+    /* ==========================================================================
+       VUE 3 : RÉCEPTIONS EXTERNES & RETOURS CLIENTS
+       ========================================================================== */
+    function setReceptTypeFilter(t) {
+      state.receptTypeFilter = t;
+      $('#fltRecType_all').classList.toggle('active', t === 'all');
+      $('#fltRecType_rec').classList.toggle('active', t === 'RECEPTION');
+      $('#fltRecType_ret').classList.toggle('active', t === 'RETOUR');
+      renderReceptionsView();
+    }
+
+    function setReceptStatFilter(s) {
+      state.receptStatFilter = s;
+      $('#fltRecStat_dispo').classList.toggle('active', s === 'dispo');
+      $('#fltRecStat_all').classList.toggle('active', s === 'all');
+      renderReceptionsView();
+    }
+
+    function renderReceptionsView() {
+      const all = state.receptions;
+      const q = ($('#searchRecept')?.value || '').trim().toLowerCase();
+
+      const totalRec = all.reduce((sum, r) => sum + (+r.quantite_recue || 0), 0);
+      const dispoRec = all.reduce((sum, r) => sum + restOfRec(r), 0);
+      const shipRec = all.reduce((sum, r) => sum + validatedOfRec(r), 0);
+      const countRet = all.filter(r => r.type_entree === 'RETOUR').length;
+
+      if ($('#kRecTotal')) $('#kRecTotal').textContent = fmtNum(totalRec);
+      if ($('#kRecDispo')) $('#kRecDispo').textContent = fmtNum(dispoRec);
+      if ($('#kRecShip')) $('#kRecShip').textContent = fmtNum(shipRec);
+      if ($('#kRecReturns')) $('#kRecReturns').textContent = fmtNum(countRet);
+
+      const notice = $('#receptMigrationNotice');
+      if (notice) notice.classList.toggle('hidden', !state.receptionsTableMissing);
+
+      const filtered = all.filter(r => {
+        if (state.receptTypeFilter !== 'all' && r.type_entree !== state.receptTypeFilter) return false;
+        if (state.receptStatFilter === 'dispo' && restOfRec(r) <= 0) return false;
+        if (q) {
+          const match = [
+            r.numero_reception,
+            r.provenance,
+            r.reference,
+            r.designation,
+            r.categorie,
+            r.client_destinataire,
+            r.motif,
+            r.observations
+          ].join(' ').toLowerCase();
+          if (!match.includes(q)) return false;
+        }
+        return true;
+      });
+
+      const tbody = $('#receptRows');
+      if (!tbody) return;
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="10" class="p-10 text-center" style="color:var(--text-muted)">
+          <i class="fa-solid fa-truck-ramp-box text-3xl mb-2 block" style="color:var(--text-dim)"></i>
+          ${all.length ? 'Aucune entrée ne correspond aux filtres.' : 'Aucune réception ni retour enregistré pour le moment.'}
+        </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(r => {
+        const rest = restOfRec(r);
+        const sh = validatedOfRec(r);
+        const pend = pendingOfRec(r);
+        const isRet = r.type_entree === 'RETOUR';
+        const typeBadge = isRet
+          ? '<span class="badge st-part"><i class="fa-solid fa-rotate-left mr-1"></i>Retour SAV</span>'
+          : '<span class="badge st-new"><i class="fa-solid fa-truck mr-1"></i>Réception</span>';
+
+        const statusBadge = rest <= 0
+          ? '<span class="badge st-done">Épuisé</span>'
+          : sh > 0
+            ? '<span class="badge st-part">Partiel</span>'
+            : '<span class="badge st-new">En Stock</span>';
+
+        const canEdit = canModifyReception(r);
+        const editBtn = canEdit
+          ? `<button class="btn-icon op-only" onclick="editReception('${esc(r.id)}')" title="Modifier"><i class="fa-solid fa-pen-to-square text-amber-400 text-xs"></i></button>
+             <button class="btn-icon op-only" onclick="deleteReception('${esc(r.id)}')" title="Supprimer"><i class="fa-regular fa-trash-can text-rose-400 text-xs"></i></button>`
+          : `<button class="btn-icon op-only" onclick="toast(LOCK_MSG,'warning')" title="Délai de 24h dépassé"><i class="fa-solid fa-lock text-slate-500 text-xs"></i></button>`;
+
+        const shipBtn = rest > 0
+          ? `<button type="button" class="btn btn-primary text-xs op-only" onclick="shipReception('${esc(r.id)}')">
+              <i class="fa-solid fa-truck-fast"></i>Expédier
+             </button>`
+          : '';
+
+        return `<tr class="hover:bg-[var(--bg-hover)] transition">
+          <td class="p-3 pl-5">
+            <div class="font-mono-code font-bold text-amber-500">${esc(r.numero_reception)}</div>
+            <div class="text-[11px]" style="color:var(--text-muted)">${esc(fmtDate(r.date_reception))}</div>
+          </td>
+          <td class="p-3">
+            <div class="mb-1">${typeBadge}</div>
+            <div class="text-xs font-semibold">${esc(r.provenance || '—')}</div>
+          </td>
+          <td class="p-3">
+            <div class="font-mono-code font-bold text-indigo-400">${esc(r.reference || '—')}</div>
+            <div class="font-semibold">${esc(r.designation || '')}</div>
+            <div class="text-[11px]" style="color:var(--text-dim)">${esc(r.categorie || '')}</div>
+          </td>
+          <td class="p-3 text-right font-bold">${fmtNum(r.quantite_recue)} <span style="color:var(--text-dim);font-weight:600">${esc(r.unite)}</span></td>
+          <td class="p-3 text-right">
+            <div class="text-emerald-500 font-bold">${fmtNum(sh)}</div>
+            ${pend ? `<div class="text-[11px] text-amber-500">+ ${fmtNum(pend)} à valider</div>` : ''}
+          </td>
+          <td class="p-3 text-right font-black text-base" style="color:var(--accent)">${fmtNum(rest)} <span class="text-xs font-normal" style="color:var(--text-dim)">${esc(r.unite)}</span></td>
+          <td class="p-3 text-center text-xs">
+            <b>${fmtNum(r.cartons || 1)}</b> × ${esc(r.type_carton || 'H2')}
+          </td>
+          <td class="p-3 text-xs">
+            <span class="font-semibold">${esc(r.client_destinataire || 'STOCK (Libre)')}</span>
+            ${r.motif ? `<div class="text-[10px]" style="color:var(--text-dim)">${esc(r.motif)}</div>` : ''}
+          </td>
+          <td class="p-3">${statusBadge}</td>
+          <td class="p-3 pr-5 text-right whitespace-nowrap">
+            <div class="inline-flex items-center gap-1.5">
+              ${shipBtn}
+              ${editBtn}
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function toggleReceptEditor(show) {
+      if (show && !state.isOperator) return toast('Connexion opérateur requise.', 'warning');
+      const section = $('#receptEditorSection');
+      if (!section) return;
+      if (show) {
+        if (!$('#fRecId').value) {
+          $('#fRecId').value = '';
+          $('#fRecType').value = 'RECEPTION';
+          $('#fRecDate').value = logitrakToday();
+          $('#fRecNum').value = generateNextReceptNum('RECEPTION');
+          $('#fRecProv').value = '';
+          $('#fRecRef').value = '';
+          $('#fRecCat').value = '';
+          $('#fRecDes').value = '';
+          Listes.setValue('#fRecUni', 'UN');
+          $('#fRecQty').value = '';
+          $('#fRecCartons').value = '1';
+          $('#fRecTypeCarton').value = 'H2';
+          $('#fRecDest').value = '';
+          $('#fRecMotif').value = '';
+          $('#receptFormTitle').innerHTML = '<i class="fa-solid fa-boxes-packing text-cyan-400 mr-2"></i>Nouvelle Réception Externe';
+          $('#btnSaveRecept').innerHTML = '<i class="fa-solid fa-floppy-disk"></i>Enregistrer l\'entrée';
+          updateReceptTypeUI();
+        }
+        section.classList.remove('hidden');
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('#fRecProv').focus();
+      } else {
+        section.classList.add('hidden');
+        $('#fRecId').value = '';
+      }
+    }
+
+    function generateNextReceptNum(type) {
+      const d = new Date();
+      const ym = String(d.getFullYear()).slice(-2) + String(d.getMonth() + 1).padStart(2, '0');
+      const prefix = (type === 'RETOUR' ? 'RET' : 'REC') + ym + '-';
+      const existing = state.receptions
+        .map(r => r.numero_reception || '')
+        .filter(n => n.startsWith(prefix));
+      let maxSeq = 0;
+      existing.forEach(n => {
+        const seq = parseInt(n.split('-')[1] || '0', 10);
+        if (seq > maxSeq) maxSeq = seq;
+      });
+      return prefix + String(maxSeq + 1).padStart(4, '0');
+    }
+
+    function updateReceptTypeUI() {
+      const type = $('#fRecType').value;
+      const lblProv = $('#lblRecProv');
+      const provInp = $('#fRecProv');
+      const curNum = $('#fRecNum').value;
+      if (type === 'RETOUR') {
+        if (lblProv) lblProv.textContent = 'Client expéditeur (Retour) *';
+        if (provInp) provInp.placeholder = 'Ex : ALGERIE POSTE ou PHARMALLIANCE';
+        if (/^REC\d{4}-/.test(curNum)) $('#fRecNum').value = curNum.replace(/^REC/, 'RET');
+      } else {
+        if (lblProv) lblProv.textContent = 'Provenance (Fournisseur / Expéditeur) *';
+        if (provInp) provInp.placeholder = 'Ex : EUREQUAT FRANCE ou USINE BLIDA';
+        if (/^RET\d{4}-/.test(curNum)) $('#fRecNum').value = curNum.replace(/^RET/, 'REC');
+      }
+    }
+
+    function autoFillReceptRef() {
+      const ref = up('#fRecRef');
+      if (!ref) return;
+      const f = ficheOf(ref);
+      if (f) {
+        if (f.categorie) Listes.setValue('#fRecCat', f.categorie);
+        if (f.designation && !$('#fRecDes').value.trim()) $('#fRecDes').value = f.designation;
+        if (f.type_carton) $('#fRecTypeCarton').value = f.type_carton;
+      } else {
+        const lot = state.lots.find(l => (l.reference || '').toUpperCase() === ref);
+        if (lot) {
+          if (lot.categorie) Listes.setValue('#fRecCat', lot.categorie);
+          if (lot.designation && !$('#fRecDes').value.trim()) $('#fRecDes').value = lot.designation;
+          if (lot.unite) Listes.setValue('#fRecUni', lot.unite);
+          if (lot.type_carton) $('#fRecTypeCarton').value = lot.type_carton;
+        }
+      }
+    }
+
+    async function saveReception(e) {
+      e.preventDefault();
+      if (!state.isOperator) return toast('Connexion opérateur requise.', 'warning');
+      const id = $('#fRecId').value || null;
+      const type_entree = $('#fRecType').value;
+      const numero_reception = up('#fRecNum');
+      const date_reception = $('#fRecDate').value;
+      const provenance = up('#fRecProv');
+      const reference = up('#fRecRef');
+      const categorie = up('#fRecCat');
+      const designation = up('#fRecDes');
+      const unite = $('#fRecUni').value || 'UN';
+      const quantite_recue = intOf($('#fRecQty').value);
+      const cartons = intOf($('#fRecCartons').value) || 1;
+      const type_carton = $('#fRecTypeCarton').value || 'H2';
+      const client_destinataire = up('#fRecDest') || null;
+      const motif = $('#fRecMotif').value.trim();
+
+      if (!numero_reception) return bad('#fRecNum', 'N° d\'entrée obligatoire.');
+      if (!date_reception) return bad('#fRecDate', 'Date obligatoire.');
+      if (!provenance) return bad('#fRecProv', 'Provenance obligatoire.');
+      if (!reference && !designation) return bad('#fRecRef', 'Référence ou désignation obligatoire.');
+      if (quantite_recue < 1) return bad('#fRecQty', 'Quantité reçue supérieure à 0.');
+
+      const row = {
+        type_entree, numero_reception, date_reception, provenance,
+        reference, categorie, designation, unite,
+        quantite_recue, cartons, type_carton, client_destinataire,
+        motif, observations: motif
+      };
+
+      try {
+        if (id) {
+          const existing = state.receptions.find(r => r.id === id);
+          if (existing && !canModifyReception(existing)) return toast(LOCK_MSG, 'error');
+          const { error } = await state.sb.from('receptions_externes').update(row).eq('id', id);
+          if (error) throw error;
+          toast('Entrée modifiée avec succès.', 'success');
+        } else {
+          row.created_by = state.username;
+          const { error } = await state.sb.from('receptions_externes').insert(row);
+          if (error) throw error;
+          toast('Entrée enregistrée avec succès.', 'success');
+        }
+      } catch (err) {
+        return toast('Erreur d\'enregistrement : ' + (err.message || err), 'error');
+      }
+
+      toggleReceptEditor(false);
+      await loadData();
+      fillLists();
+      renderReceptionsView();
+      renderStockView();
+      render();
+      updateTabBadges();
+    }
+
+    function editReception(id) {
+      const r = state.receptions.find(x => x.id === id);
+      if (!r) return;
+      if (!canModifyReception(r)) return toast(LOCK_MSG, 'warning');
+
+      $('#fRecId').value = r.id;
+      $('#fRecType').value = r.type_entree || 'RECEPTION';
+      $('#fRecNum').value = r.numero_reception || '';
+      $('#fRecDate').value = r.date_reception || '';
+      $('#fRecProv').value = r.provenance || '';
+      $('#fRecRef').value = r.reference || '';
+      Listes.setValue('#fRecCat', r.categorie || '');
+      $('#fRecDes').value = r.designation || '';
+      Listes.setValue('#fRecUni', r.unite || 'UN');
+      $('#fRecQty').value = r.quantite_recue;
+      $('#fRecCartons').value = r.cartons || 1;
+      $('#fRecTypeCarton').value = r.type_carton || 'H2';
+      $('#fRecDest').value = r.client_destinataire || '';
+      $('#fRecMotif').value = r.motif || r.observations || '';
+
+      $('#receptFormTitle').innerHTML = '<i class="fa-solid fa-pen text-amber-500 mr-2"></i>Modifier l\'entrée ' + esc(r.numero_reception);
+      $('#btnSaveRecept').innerHTML = '<i class="fa-solid fa-floppy-disk"></i>Enregistrer les modifications';
+      updateReceptTypeUI();
+
+      $('#receptEditorSection').classList.remove('hidden');
+      $('#receptEditorSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function deleteReception(id) {
+      const r = state.receptions.find(x => x.id === id);
+      if (!r) return;
+      if (!canModifyReception(r)) return toast(LOCK_MSG, 'warning');
+      if (shippedOfRec(r) > 0 && !state.isAdmin) {
+        return toast('Cette réception a déjà été expédiée. Seul un administrateur peut la supprimer.', 'error');
+      }
+      if (!await confirmDialog(`Supprimer définitivement l'entrée ${r.numero_reception} (${r.reference || r.designation}) ?`)) return;
+
+      const { error } = await state.sb.from('receptions_externes').delete().eq('id', id);
+      if (error) return toast('Suppression impossible : ' + (error.message || error), 'error');
+      toast('Entrée supprimée.', 'success');
+      if (await loadData()) {
+        fillLists();
+        renderReceptionsView();
+        renderStockView();
+        render();
+        updateTabBadges();
+      }
+    }
+
+    function shipReception(id) {
+      location.href = 'envois.html?new=1&reception=' + encodeURIComponent(id);
+    }
+
+    /* ==========================================================================
+       VUE 5 : GESTION DES PLAQUES DE DÉCOUPE & OUTILLAGES
+       ========================================================================== */
+    function setPlaqueStatFilter(st) {
+      state.plaqueStatFilter = st;
+      $('#fltPlqStat_all').classList.toggle('active', st === 'all');
+      $('#fltPlqStat_service').classList.toggle('active', st === 'EN_SERVICE');
+      $('#fltPlqStat_maint').classList.toggle('active', st === 'AFFUTAGE');
+      renderPlaquesView();
+    }
+
+
+    function plaqueReferencesBySize(plaque) {
+      const references=new Set();
+      for(const product of [...Object.values(state.fiches),...state.lots]) {
+        if(!product.reference) continue;
+        const size=parseCut(product.gabarit||product.dim_produit||'');
+        if(size&&size.width===Number(plaque.largeur_etiquette)&&size.height===Number(plaque.hauteur_etiquette))
+          references.add(product.reference.trim().toUpperCase());
+      }
+      return [...references].sort();
+    }
+
+    function renderPlaquesView() {
+      const q = ($('#searchPlaque')?.value || '').trim().toLowerCase();
+      const stFilter = state.plaqueStatFilter || 'all';
+
+      const total = state.plaques.length;
+      const inService = state.plaques.filter(p => p.statut === 'EN_SERVICE').length;
+      const inMaint = state.plaques.filter(p => p.statut === 'AFFUTAGE' || p.statut === 'USURE').length;
+      const linkedRefs = new Set();
+      state.plaques.forEach(p => { (p.references_liees || []).forEach(r => linkedRefs.add(r)); });
+
+      if ($('#kPlqTotal')) $('#kPlqTotal').textContent = fmtNum(total);
+      if ($('#kPlqActives')) $('#kPlqActives').textContent = fmtNum(inService);
+      if ($('#kPlqMaint')) $('#kPlqMaint').textContent = fmtNum(inMaint);
+      if ($('#kPlqRefsCount')) $('#kPlqRefsCount').textContent = fmtNum(linkedRefs.size);
+      if ($('#badgePlaquesCount')) $('#badgePlaquesCount').textContent = fmtNum(total);
+
+      let filtered = state.plaques.filter(p => {
+        if (stFilter !== 'all' && p.statut !== stFilter) return false;
+        if (q) {
+          const match = [
+            p.code_plaque,
+            p.nom_outil,
+            p.machine_preferee,
+            p.emplacement_rack,
+            ...(p.references_liees || []),
+            `${p.largeur_etiquette}x${p.hauteur_etiquette}`
+          ].join(' ').toLowerCase();
+          if (!match.includes(q)) return false;
+        }
+        return true;
+      });
+
+      const tbody = $('#plaqueRows');
+      if (!tbody) return;
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-10 text-center" style="color:var(--text-muted)">
+          <i class="fa-solid fa-shapes text-3xl mb-2 block" style="color:var(--text-dim)"></i>
+          ${state.plaques.length ? 'Aucune plaque ne correspond aux critères de recherche.' : 'Aucun outillage enregistré pour le moment. Cliquez sur "Nouvelle Plaque de Découpe".'}
+        </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(p => {
+        const poses = p.nb_poses_front || 1;
+        return `<tr><td class="p-3 font-mono-code font-bold">${esc(p.code_plaque)}</td><td class="p-3">${esc(p.matiere_cible==='MULTI'?'Multi surfaces':p.matiere_cible||'Multi surfaces')}</td><td class="p-3 whitespace-nowrap">${p.largeur_etiquette} × ${p.hauteur_etiquette}</td><td class="p-3">${poses}</td><td class="p-3">${Number(p.entre_pose_avance??3).toLocaleString('fr-FR',{maximumFractionDigits:2})}</td><td class="p-3">${p.developpement_z?'Z'+p.developpement_z:'—'}</td>
+<td class="p-3"><div class="flex flex-wrap gap-1">${plaqueReferencesBySize(p).map(ref=>'<span class="badge font-mono-code">'+esc(ref)+'</span>').join('')||'—'}</div></td>
+          <td class="p-3 pr-5 text-right whitespace-nowrap">
+            <div class="inline-flex items-center gap-1.5">
+              <button class="btn-icon op-only" onclick="openPlaqueModal('${esc(p.id)}')" title="Modifier cette plaque"><i class="fa-solid fa-pen-to-square text-amber-500 text-xs"></i></button>
+              <button class="btn-icon adm-only" onclick="deletePlaque('${esc(p.id)}')" title="Supprimer (Admin)"><i class="fa-regular fa-trash-can text-rose-500 text-xs"></i></button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+
+    function openProductionEditor(id) {
+      const editor=document.getElementById(id);
+      const main=document.querySelector('main');
+      if(editor.parentElement!==main) main.append(editor);
+      for(const other of ['plaqueModal','bobineModal']) {
+        const element=document.getElementById(other);
+        element.classList.toggle('hidden',other!==id);
+      }
+      document.getElementById('app').classList.add('hidden');
+      window.scrollTo({top:0,behavior:'smooth'});
+    }
+    function closeProductionEditor() {
+      const active=['plaqueModal','bobineModal'].some(id=>!document.getElementById(id).classList.contains('hidden'));
+      if(!active) return;
+      for(const id of ['plaqueModal','bobineModal']) document.getElementById(id).classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+    }
+
+    function openPlaqueModal(id = null) {
+      if (!state.isOperator) return toast('Connexion opérateur requise.', 'warning');
+      const m = $('#plaqueModal');
+      if (!m) return;
+      const title = $('#plqModalTitle');
+      const p = id ? state.plaques.find(x => x.id === id) : null;
+
+      $('#fPlqId').value = p ? p.id : '';
+      $('#fPlqCode').value = p ? p.code_plaque : '';
+      $('#fPlqMaterial').value=p?.matiere_cible||'MULTI';
+      $('#fPlqSize').value=p?p.largeur_etiquette+'X'+p.hauteur_etiquette:'';
+      $('#fPlqNom').value = p ? p.nom_outil : '';
+      $('#fPlqLarg').value = p ? p.largeur_etiquette : '';
+      $('#fPlqHaut').value = p ? p.hauteur_etiquette : '';
+      $('#fPlqPoses').value = p ? (p.nb_poses_front || 1) : 1;
+      $('#fPlqGapFront').value = p ? (p.entre_pose_frontale || 3.0) : 3.0;
+      $('#fPlqGapAvance').value = p ? (p.entre_pose_avance ?? 3.0) : 3.0;
+      $('#fPlqZ').value = p?.developpement_z ? 'Z'+p.developpement_z : '';
+      $('#fPlqForme').value = p ? (p.forme || 'RECTANGLE') : 'RECTANGLE';
+      $('#fPlqMachine').value = p ? (p.machine_preferee || '') : '';
+      $('#fPlqRack').value = p ? (p.emplacement_rack || '') : '';
+      $('#fPlqStatut').value = p ? (p.statut || 'EN_SERVICE') : 'EN_SERVICE';
+      $('#fPlqRefs').value = p && Array.isArray(p.references_liees) ? p.references_liees.join(', ') : '';
+      $('#fPlqObs').value = p ? (p.observations || '') : '';
+
+      const sugBox = $('#plqRefsSuggested');
+      if (sugBox) {
+        const existingRefs = Object.keys(state.fiches).slice(0, 10);
+        sugBox.innerHTML = '<span class="text-slate-400 mr-1">Exemples rapides :</span>' +
+          existingRefs.map(r => `<button type="button" class="badge hover:bg-indigo-100 font-mono-code" onclick="addRefToPlaque('${esc(r)}')">+ ${esc(r)}</button>`).join(' ');
+      }
+
+      if (title) title.innerHTML = p ? `<i class="fa-solid fa-pen text-amber-500 mr-2"></i>Modifier la plaque ${esc(p.code_plaque)}` : '<i class="fa-solid fa-shapes text-indigo-500 mr-2"></i>Nouvelle Plaque de Découpe';
+      openProductionEditor('plaqueModal');
+      $('#fPlqCode').focus();
+    }
+
+    function addRefToPlaque(ref) {
+      const inp = $('#fPlqRefs');
+      if (!inp) return;
+      const current = inp.value.split(/[,\s]+/).filter(Boolean);
+      if (!current.includes(ref.toUpperCase())) {
+        current.push(ref.toUpperCase());
+        inp.value = current.join(', ');
+      }
+    }
+
+    function closePlaqueModal() {
+      closeProductionEditor();
+    }
+
+    async function savePlaque(e) {
+      e.preventDefault();
+      if (!state.isOperator) return toast('Connexion opérateur requise.', 'warning');
+      const id = $('#fPlqId').value || null;
+      const code_plaque = up('#fPlqCode');
+      const size=parseCut($('#fPlqSize').value);
+      if(!size) return toast('Gabarit invalide, exemple 100X150.','error');
+      $('#fPlqLarg').value=size.width;
+      $('#fPlqHaut').value=size.height;
+      const nom_outil=code_plaque+' · '+$('#fPlqSize').value+' · '+$('#fPlqMaterial').value;
+      const largeur_etiquette = parseFloat($('#fPlqLarg').value);
+      const hauteur_etiquette = parseFloat($('#fPlqHaut').value);
+      const nb_poses_front = Number($('#fPlqPoses').value);
+      const entre_pose_frontale = parseFloat($('#fPlqGapFront').value) || 3.0;
+      const entre_pose_avance = Number($('#fPlqGapAvance').value);
+      const developpement_z = parseInt($('#fPlqZ').value.replace(/^z/i,''),10)||0;
+      const forme = $('#fPlqForme').value || 'RECTANGLE';
+      const machine_preferee = up('#fPlqMachine');
+      const emplacement_rack = up('#fPlqRack');
+      const statut = $('#fPlqStatut').value || 'EN_SERVICE';
+      const observations = $('#fPlqObs').value.trim();
+      const rawRefs = ($('#fPlqRefs').value || '').split(/[,\s]+/).map(r => r.trim().toUpperCase()).filter(Boolean);
+      const references_liees = [...new Set(rawRefs)];
+
+      if (!code_plaque) return toast('Code plaque obligatoire.', 'error');
+      if (!largeur_etiquette || largeur_etiquette <= 0) return toast('Largeur étiquette invalide.', 'error');
+      if (!hauteur_etiquette || hauteur_etiquette <= 0) return toast('Hauteur étiquette invalide.', 'error');
+      if (!Number.isInteger(nb_poses_front)||nb_poses_front<1||nb_poses_front>30) return toast('Saisissez un nombre de rangées entier entre 1 et 30.', 'error');
+      if(!Number.isFinite(entre_pose_avance)||entre_pose_avance<0||entre_pose_avance>50) return toast('Gap invalide.','error');
+      if(!/^[Zz]?[0-9]+$/.test($('#fPlqZ').value)||developpement_z<1) return toast('Saisissez le cylindre, exemple Z96.','error');
+
+      const payload = {
+        code_plaque,
+        matiere_cible:$('#fPlqMaterial').value,
+        nom_outil,
+        largeur_etiquette,
+        hauteur_etiquette,
+        nb_poses_front,
+        entre_pose_frontale,
+        entre_pose_avance,
+        developpement_z,
+        forme,
+        machine_preferee,
+        emplacement_rack,
+        statut,
+        observations,
+        references_liees,
+        updated_at: new Date().toISOString()
+      };
+
+      try {
+        if (id) {
+          const { error } = await state.sb.from('plaques_decoupe').update(payload).eq('id', id);
+          if (error) throw error;
+          toast('Plaque de découpe mise à jour.', 'success');
+        } else {
+          payload.created_by = state.username;
+          const { error } = await state.sb.from('plaques_decoupe').insert(payload);
+          if (error) throw error;
+          toast('Nouvelle plaque enregistrée.', 'success');
+        }
+        closePlaqueModal();
+        await loadData();
+        fillLists();
+        renderPlaquesView();
+      } catch (err) {
+        toast('Erreur enregistrement plaque : ' + (err.message || err), 'error');
+      }
+    }
+
+    async function deletePlaque(id) {
+      if (!state.isAdmin) return toast('Suppression réservée à l\'administrateur.', 'warning');
+      const p = state.plaques.find(x => x.id === id);
+      if (!p) return;
+      if (!await confirmDialog(`Supprimer définitivement la plaque ${p.code_plaque} (${p.nom_outil}) ?`)) return;
+
+      try {
+        const { error } = await state.sb.from('plaques_decoupe').delete().eq('id', id);
+        if (error) throw error;
+        toast('Plaque supprimée.', 'success');
+        await loadData();
+        fillLists();
+        renderPlaquesView();
+      } catch (err) {
+        toast('Erreur suppression : ' + (err.message || err), 'error');
+      }
+    }
+
+    /* ==========================================================================
+       VUE 6 : GESTION DES BOBINES MÈRES & JUMBOS
+       ========================================================================== */
+    function setBobineStatFilter(st) {
+      state.bobineStatFilter = st;
+      $('#fltBobStat_dispo').classList.toggle('active', st === 'dispo');
+      $('#fltBobStat_all').classList.toggle('active', st === 'all');
+      $('#fltBobStat_epuisee').classList.toggle('active', st === 'EPUISEE');
+      renderBobinesView();
+    }
+
+    function rawQuantity(record){return record.lineaire_restant_m===null?Number(record.quantite_matiere)||0:Number(record.lineaire_restant_m)||0;}
+    function renderBobinesView() {
+      const q = ($('#searchBobine')?.value || '').trim().toLowerCase();
+      const stFilter = state.bobineStatFilter || 'dispo';
+
+      const total = state.bobines.length;
+      const totalLinear = state.bobines.reduce((sum, b) => sum + (+b.lineaire_restant_m || 0), 0);
+      const entamees = state.bobines.filter(b => b.statut === 'EN_COURS' || (+b.lineaire_restant_m < +b.lineaire_initial_m && +b.lineaire_restant_m > 0)).length;
+      const epuisees = state.bobines.filter(b => b.statut === 'EPUISEE' || rawQuantity(b)<=0).length;
+
+      if ($('#kBobTotal')) $('#kBobTotal').textContent = fmtNum(total);
+      if ($('#kBobLineaireTotal')) $('#kBobLineaireTotal').textContent = fmtNum(Math.round(totalLinear)) + ' m';
+      if ($('#kBobEntamees')) $('#kBobEntamees').textContent = fmtNum(entamees);
+      if ($('#kBobEpuisees')) $('#kBobEpuisees').textContent = fmtNum(epuisees);
+      if ($('#badgeBobinesCount')) $('#badgeBobinesCount').textContent = fmtNum(state.bobines.filter(b => rawQuantity(b)>0).length);
+
+      let filtered = state.bobines.filter(b => {
+        const dispo = rawQuantity(b);
+        if (stFilter === 'dispo' && dispo <= 0) return false;
+        if (stFilter === 'EPUISEE' && dispo > 0) return false;
+        if (q) {
+          const match = [
+            b.numero_bobine,
+            b.fournisseur,
+            b.matiere,b.famille,b.sous_type,
+            b.reference_fournisseur,
+            b.emplacement,
+            `L${b.laize_mm}`
+          ].join(' ').toLowerCase();
+          if (!match.includes(q)) return false;
+        }
+        return true;
+      });
+
+      const tbody = $('#bobineRows');
+      if (!tbody) return;
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-10 text-center" style="color:var(--text-muted)">
+          <i class="fa-solid fa-scroll text-3xl mb-2 block" style="color:var(--text-dim)"></i>
+          ${state.bobines.length ? 'Aucune bobine ne correspond aux critères de recherche.' : 'Aucun Jumbo en stock actuellement. Cliquez sur "Nouvelle matière".'}
+        </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(b => {
+        const init = b.lineaire_initial_m===null?Math.max(1,Number(b.quantite_matiere)||0):+b.lineaire_initial_m||1;
+        const rest = rawQuantity(b);
+        const pct = Math.max(0, Math.min(100, Math.round((rest / init) * 100)));
+
+        let barColor = 'bg-emerald-500';
+        if (pct < 20) barColor = 'bg-rose-500';
+        else if (pct < 50) barColor = 'bg-amber-500';
+
+        const stBadge = rest <= 0
+          ? '<span class="badge" style="background:#fee2e2;color:#b91c1c"><i class="fa-solid fa-ban"></i>Épuisée</span>'
+          : rest < init
+            ? '<span class="badge st-part"><i class="fa-solid fa-circle-half-stroke"></i>Entamée</span>'
+            : '<span class="badge st-done"><i class="fa-solid fa-circle-check"></i>Neuve</span>';
+
+        return `<tr class="hover:bg-[var(--bg-hover)] transition">
+          <td class="p-3 pl-5">
+            <div class="font-mono-code font-bold text-emerald-600 text-sm">${esc(b.numero_bobine)}</div>
+            <div class="mt-0.5">${stBadge}</div>
+          </td>
+          <td class="p-3">
+            <div class="font-bold text-slate-900">${esc(b.matiere)}</div>
+            <div class="text-[11px] text-slate-500">Fournisseur : <b>${esc(b.fournisseur || 'Standard')}</b> ${b.reference_fournisseur ? `(${esc(b.reference_fournisseur)})` : ''}</div>
+          </td>
+          <td class="p-3">
+            <div>Laize : <b class="font-mono-code">${b.laize_mm} mm</b></div>
+            ${b.grammage_g_m2 ? `<div class="text-[11px]" style="color:var(--text-dim)">Grammage : ${b.grammage_g_m2} g/m²</div>` : ''}
+          </td>
+          <td class="p-3 text-center">
+            <div class="space-y-1 max-w-[220px] mx-auto">
+              <div class="flex justify-between text-xs font-bold font-mono-code">
+                <span class="${pct < 20 ? 'text-rose-600' : 'text-emerald-700'}">${fmtNum(rest)} ${esc(b.lineaire_restant_m===null?b.unite_matiere:'m')}</span>
+                <span class="text-slate-400">/ ${fmtNum(init)} ${esc(b.lineaire_initial_m===null?b.unite_matiere:'m')} (${pct}%)</span>
+              </div>
+              <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div class="${barColor} h-full transition-all duration-300" style="width:${pct}%"></div>
+              </div>
+            </div>
+          </td>
+          <td class="p-3">
+            <div><i class="fa-solid fa-location-dot text-slate-400 mr-1"></i><b>${esc(b.emplacement || 'Allée Jumbos')}</b></div>
+            <div class="text-[11px]" style="color:var(--text-dim)">Reçue le ${fmtDate(b.date_reception)}</div>
+          </td>
+          <td class="p-3 pr-5 text-right whitespace-nowrap">
+            <div class="inline-flex items-center gap-1.5">
+              <button class="btn-icon op-only" onclick="openAdjustBobine('${esc(b.id)}')" title="Ajuster le solde restant manuellement"><i class="fa-solid fa-scissors text-indigo-500 text-xs"></i></button>
+              <button class="btn-icon op-only" onclick="openBobineModal('${esc(b.id)}')" title="Modifier la fiche"><i class="fa-solid fa-pen-to-square text-amber-500 text-xs"></i></button>
+              <button class="btn-icon adm-only" onclick="deleteBobine('${esc(b.id)}')" title="Supprimer (Admin)"><i class="fa-regular fa-trash-can text-rose-500 text-xs"></i></button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function openBobineModal(id = null) {
+      if (!state.isOperator) return toast('Connexion opérateur requise.', 'warning');
+      const m = $('#bobineModal');
+      if (!m) return;
+      const title = $('#bobModalTitle');
+      const b = id ? state.bobines.find(x => x.id === id) : null;
+
+      $('#fBobId').value = b ? b.id : '';
+      $('#fBobNum').value = b ? b.numero_bobine : '';
+      $('#fBobFourn').value = b ? b.fournisseur : '';
+      fillRawFamilies(b);
+      $('#fBobMat').value = b ? b.matiere : '';
+      $('#fBobLaize').value = b ? b.laize_mm : '0';
+      $('#fBobLinInit').value = b ? b.lineaire_initial_m : '0';
+      $('#fBobLinRest').value = b ? b.lineaire_restant_m : '0';
+      $('#fBobGram').value = b ? (b.grammage_g_m2 || '') : '75';
+      $('#fBobPoids').value = b ? (b.poids_kg || '') : '';
+      $('#fBobDate').value = b ? b.date_reception : logitrakToday();
+      $('#fBobEmplacement').value = b ? (b.emplacement || '') : '';
+      $('#fBobStatut').value = b ? (b.statut || 'DISPONIBLE') : 'DISPONIBLE';
+      $('#fBobRefFourn').value = b ? (b.reference_fournisseur || '') : '';
+      $('#fBobObs').value = b ? (b.observations || '') : '';
+
+      if (title) title.innerHTML = b ? `<i class="fa-solid fa-pen text-amber-500 mr-2"></i>Modifier le Jumbo ${esc(b.numero_bobine)}` : '<i class="fa-solid fa-scroll text-emerald-500 mr-2"></i>Nouvelle matière';
+      openProductionEditor('bobineModal');
+      $('#fBobNum').focus();
+    }
+
+    const rawFamilies={
+      'Étiquette adhésive':['TT','TD','PP','PET','PP InkJet','TT InkJet','Autre'],
+      'Étiquette non adhésive':['Matière non adhésive'],
+      'Ruban TTR':['Cire FH','Cire-Résine FH','Cire-Résine NE','Résine FH','Résine NE'],
+      'Tag':['Synthétique','Papier thermique','Papier à transfert thermique'],
+      'Inlay RFID':['HF','UHF'],
+      'Carte PVC':['Overlay 0.08 mm','Overlay 0.05 mm','Sheets 0.15 mm','Core 0.3 mm','Core RFID TK4100','Core RFID F08','Autre Core RFID']
+    };
+    function fillRawFamilies(record){
+      $('#fRawFamily').replaceChildren(...Object.keys(rawFamilies).map(value=>new Option(value,value)));
+      $('#fRawFamily').value=record?.famille||'Étiquette adhésive';
+      fillRawTypes(record?.sous_type);
+      $('#fRawQty').value=record?.quantite_matiere??'';
+      $('#fRawUnit').value=record?.unite_matiere||'m';
+    }
+    function fillRawTypes(selected){
+      const choices=rawFamilies[$('#fRawFamily').value]||[];
+      $('#fRawType').replaceChildren(...choices.map(value=>new Option(value,value)));
+      if(typeof selected==='string'&&choices.includes(selected)) $('#fRawType').value=selected;
+      syncRawType();
+    }
+    function syncRawType(){
+      $('#fBobMat').value=$('#fRawType').value;
+      const linear=['Étiquette adhésive','Étiquette non adhésive','Ruban TTR','Tag'].includes($('#fRawFamily').value);
+      for(const id of ['fBobLaize','fBobLinInit','fBobLinRest','fBobGram']){
+        const field=document.getElementById(id);
+        field.required=linear&&id!=='fBobGram';
+        if(field.type!=='hidden') field.parentElement.hidden=!linear;
+      }
+    }
+    function syncBobineInitToRest() {
+      if (!$('#fBobId').value) {
+        $('#fBobLinRest').value = $('#fBobLinInit').value;
+      }
+    }
+
+    function closeBobineModal() {
+      closeProductionEditor();
+    }
+
+    async function saveBobine(e) {
+      e.preventDefault();
+      if (!state.isOperator) return toast('Connexion opérateur requise.', 'warning');
+      const id = $('#fBobId').value || null;
+      const numero_bobine = up('#fBobNum');
+      const fournisseur = up('#fBobFourn');
+      const matiere = up('#fBobMat');
+      const family=$('#fRawFamily').value;
+      const linear=['Étiquette adhésive','Étiquette non adhésive','Ruban TTR','Tag'].includes(family);
+      const laize_mm = parseFloat($('#fBobLaize').value);
+      const lineaire_initial_m = parseFloat($('#fBobLinInit').value);
+      const lineaire_restant_m = parseFloat($('#fBobLinRest').value);
+      const grammage_g_m2 = parseFloat($('#fBobGram').value) || 0;
+      const poids_kg = parseFloat($('#fBobPoids').value) || 0;
+      const date_reception = $('#fBobDate').value || logitrakToday();
+      const emplacement = up('#fBobEmplacement');
+      const statut = $('#fBobStatut').value || 'DISPONIBLE';
+      const reference_fournisseur = up('#fBobRefFourn');
+      const observations = $('#fBobObs').value.trim();
+
+      if (!numero_bobine) return toast('N° de bobine obligatoire.', 'error');
+      if (!matiere) return toast('Matière obligatoire.', 'error');
+      if(!linear&&(!Number.isFinite(Number($('#fRawQty').value))||Number($('#fRawQty').value)<=0)) return toast('Saisissez la quantité de matière.','error');
+      if (linear && (!laize_mm || laize_mm <= 0)) return toast('Laize invalide.', 'error');
+      if (linear && (!lineaire_initial_m || lineaire_initial_m <= 0)) return toast('Linéaire initial invalide.', 'error');
+      if (linear && (isNaN(lineaire_restant_m) || lineaire_restant_m < 0)) return toast('Linéaire restant invalide.', 'error');
+
+      const payload = {
+        numero_bobine,
+        famille:family,sous_type:$('#fRawType').value,quantite_matiere:Number($('#fRawQty').value)||0,unite_matiere:$('#fRawUnit').value,
+        fournisseur,
+        matiere,
+        laize_mm:linear?laize_mm:null,
+        lineaire_initial_m:linear?lineaire_initial_m:null,
+        lineaire_restant_m:linear?lineaire_restant_m:null,
+        grammage_g_m2,
+        poids_kg,
+        date_reception,
+        emplacement,
+        statut,
+        reference_fournisseur,
+        observations,
+        updated_at: new Date().toISOString()
+      };
+
+      try {
+        if (id) {
+          const { error } = await state.sb.from('bobines_meres').update(payload).eq('id', id);
+          if (error) throw error;
+          toast('Bobine mère mise à jour.', 'success');
+        } else {
+          payload.created_by = state.username;
+          const { error } = await state.sb.from('bobines_meres').insert(payload);
+          if (error) throw error;
+          toast('Nouvelle bobine mère enregistrée.', 'success');
+        }
+        closeBobineModal();
+        await loadData();
+        fillLists();
+        renderBobinesView();
+      } catch (err) {
+        toast('Erreur enregistrement bobine : ' + (err.message || err), 'error');
+      }
+    }
+
+    async function deleteBobine(id) {
+      if (!state.isAdmin) return toast('Suppression réservée à l\'administrateur.', 'warning');
+      const b = state.bobines.find(x => x.id === id);
+      if (!b) return;
+      if (!await confirmDialog(`Supprimer définitivement la bobine mère ${b.numero_bobine} (${b.matiere}) ?`)) return;
+
+      try {
+        const { error } = await state.sb.from('bobines_meres').delete().eq('id', id);
+        if (error) throw error;
+        toast('Bobine mère supprimée.', 'success');
+        await loadData();
+        fillLists();
+        renderBobinesView();
+      } catch (err) {
+        toast('Erreur suppression : ' + (err.message || err), 'error');
+      }
+    }
+
+    function openAdjustBobine(id) {
+      if (!state.isOperator) return toast('Connexion opérateur requise.', 'warning');
+      const b = state.bobines.find(x => x.id === id);
+      if (!b) return;
+      state.adjustBobineId = id;
+      $('#adjBobNum').textContent = b.numero_bobine;
+      $('#adjBobMetres').value = b.lineaire_restant_m;
+      const m = $('#adjustBobineModal');
+      if (m) m.classList.add('open');
+      $('#adjBobMetres').focus();
+    }
+
+    function closeAdjustBobineModal() {
+      state.adjustBobineId = null;
+      const m = $('#adjustBobineModal');
+      if (m) m.classList.remove('open');
+    }
+
+    async function saveAdjustBobine() {
+      if (!state.adjustBobineId) return;
+      const val = parseFloat($('#adjBobMetres').value);
+      if (isNaN(val) || val < 0) return toast('Valeur de métrage invalide.', 'error');
+
+      const id = state.adjustBobineId;
+      try {
+        const { error } = await state.sb.from('bobines_meres').update({
+          lineaire_restant_m: val,
+          statut: val <= 0 ? 'EPUISEE' : 'EN_COURS',
+          updated_at: new Date().toISOString()
+        }).eq('id', id);
+        if (error) throw error;
+        toast('Linéaire restant mis à jour.', 'success');
+        closeAdjustBobineModal();
+        await loadData();
+        fillLists();
+        renderBobinesView();
+      } catch (err) {
+        toast('Erreur ajustement métrage : ' + (err.message || err), 'error');
+      }
+    }
+
+    async function markBobineExhausted() {
+      if (!state.adjustBobineId) return;
+      $('#adjBobMetres').value = 0;
+      await saveAdjustBobine();
     }
 
     /* ----- Démarrage ----- */
@@ -780,33 +3187,59 @@
       Listes.setAdmin(state.isAdmin);
       if (state.isAdmin) { $('#fOF').removeAttribute('maxlength'); $('#fOF').title = 'Ordre de fabrication'; }
       else { $('#fOF').maxLength = 11; $('#fOF').title = 'Format : MOyymm-xxxx'; }
-      if (!(state.isOperator || state.isViewer)) {
-        if (state.session) showGate('<h3 class="text-base font-extrabold">Accès refusé</h3><p class="text-xs" style="color:var(--text-muted)">Ce compte n\'est pas un compte opérateur.</p>');
-        else loginGate();
-        return;
-      }
+
+      const vBar = $('#visitorBar');
+      if (vBar) vBar.classList.toggle('hidden', state.isOperator || state.isViewer);
+
       await Listes.init(state.sb, state.isAdmin);
-      if (!(await loadData())) return;
+      if (!(await loadData())) { showGate('<h3>Chargement des données impossible</h3><p>Actualisez la page pour réessayer.</p>'); return; }
       $('#gate').classList.add('hidden');
       $('#app').classList.remove('hidden');
       fillLists();
-      resetForm();
-      render();
+      const requested=new URLSearchParams(location.search).get('tab')||'fab';
+      if(requested==='fab') resetForm();
+      switchProdTab(['fab','stock','recept','cartons','plaques','bobines'].includes(requested)?requested:'fab');
       const params = new URLSearchParams(location.search);
+      const tabParam = params.get('tab');
+      if (tabParam && ['fab', 'stock', 'recept', 'cartons', 'plaques', 'bobines'].includes(tabParam)) {
+        switchProdTab(tabParam);
+      }
       const editParam = params.get('edit');
-      if (editParam && state.lots.some(x => x.id === editParam)) editLot(editParam);
-      else if (params.get('ref')) { $('#fRef').value = params.get('ref').toUpperCase(); onRefChange(); }
+      if (editParam && state.lots.some(x => x.id === editParam)) {
+        switchProdTab('fab');
+        editLot(editParam);
+      } else if (params.get('reception')) {
+        switchProdTab('recept');
+        editReception(params.get('reception'));
+      } else if (params.get('ref')) {
+        if ($('#productionCreateEditor')) $('#productionCreateEditor').open=true;
+        $('#fRef').value = params.get('ref').toUpperCase();
+        onRefChange();
+      }
     }
 
     (function init() {
-      syncThemeIcon();
+      const isAuth = (() => {
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+              const v = JSON.parse(localStorage.getItem(localStorage.key(i)));
+              return !!((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email));
+            }
+          }
+        } catch (e) {}
+        return false;
+      })();
+      if (!isAuth) return;
+
       try {
         const url = lsGet('supabase_url') || SUPABASE_URL, key = lsGet('supabase_key') || SUPABASE_ANON;
-        state.sb = window.supabase.createClient(url, key);
+        state.sb = typeof getLogiTrakClient === 'function' ? getLogiTrakClient(url, key) : window.supabase.createClient(url, key);
       } catch (e) {
         return showGate('<h3 class="text-base font-extrabold">Base indisponible</h3><p class="text-xs" style="color:var(--text-muted)">Impossible de joindre Supabase. Vérifiez votre connexion internet.</p>');
       }
-      $('#fQty').addEventListener('input', e => { cleanInt(e.target); renderColisInfo(); });
+      $('#fQty').addEventListener('input', e => { cleanInt(e.target); renderColisInfo(); recalcDropsAndLinear(); });
+      $('#fTarget').addEventListener('input', () => recalcDropsAndLinear());
       $('#fCat').addEventListener('change', () => {
         applyCategoryUI(true);
       });
@@ -821,13 +3254,15 @@
       });
       Listes.bind('#fCat', 'categories', { placeholder: '— Choisir —' });
       Listes.bind('#fUni', 'unites');
+      Listes.bind('#fltStockCat', 'categories', { placeholder: 'Toutes catégories' });
+      Listes.bind('#fRecCat', 'categories', { placeholder: '— Choisir —' });
+      Listes.bind('#fRecUni', 'unites');
       start();
     })();
   </script>
   <script src="js/scanner.js"></script>
-  <script src="js/nav.js?v=4.0.23"></script>
-  <script src="js/pwa.js"></script>
-<script>
+  <script src="js/nav.js?v=5.2.0"></script>
+  <script>
 (() => {
  const ref=document.getElementById('fRef'), category=document.getElementById('fCat'), field=document.getElementById('fInlayField');
  const refresh=()=>{
@@ -842,5 +3277,24 @@
  document.addEventListener('click',()=>queueMicrotask(refresh));
  refresh();
 })();
+</script>
+<script>
+(function(){
+  const sync=()=>{
+    const tab=document.documentElement.dataset.productionView||'fab';
+    const names={fab:'Fabrication',stock:'Stock',recept:'Réceptions & Retours',cartons:'Cartons en stock',plaques:'Plaques de découpe',bobines:'Matière Première'};
+    const title=document.querySelector('main .page-heading h2');
+    if(title)title.textContent=names[tab];
+    const form=document.getElementById('formTitle')?.closest('section');
+    if(form){form.hidden=tab!=='fab';form.style.display=tab==='fab'?'':'none';}
+    const bar=document.getElementById('btnNewReceptQuick')?.parentElement;
+    if(bar){
+      const update=()=>{bar.style.display=[...bar.children].some(child=>!child.classList.contains('hidden')&&!child.hidden)?'':'none';};
+      update();
+      new MutationObserver(update).observe(bar,{subtree:true,attributes:true,attributeFilter:['class','hidden']});
+    }
+  };
+  sync();
+  window.addEventListener('logitrak-production-tab',sync);
+})();
 </script></body>
-</html>

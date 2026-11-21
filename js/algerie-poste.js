@@ -21,7 +21,7 @@ function message(text, error = false) {
   el.style.color = error ? 'var(--danger)' : 'var(--text-muted)';
 }
 function switchAPTab(tab) {
-  if(tab==='statistiques'&&!apState.admin) return;
+  if(tab==='statistiques'&&(apState.viewer||!apState.username)) return;
   apState.tab = tab;
   $$('[data-ap-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.apTab === tab));
   ['commandes', 'production', 'historique','statistiques','expedition'].forEach(name => {
@@ -69,7 +69,26 @@ function alreadyPlannedForOrder(orderId) {
     sum + Number(run.statut === 'EN_COURS' ? run.quantite_prevue : run.quantite_imprimee), 0);
 }
 
+
+function newOrderPrerequisites() {
+  if(apState.admin || apState.orderEdit) return [];
+  const ownOrders=apState.orders.filter(order=>order.created_by===apState.username);
+  const blocked=ownOrders.filter(order=>!order.autorise_nouvelle_commande && printed(order.id)<Number(order.quantite_demandee));
+  const reasons=blocked.map(order=>'Terminez '+(order.ap_numero||'la commande')+' · '+order.client+' : '+fmt(Math.max(0,Number(order.quantite_demandee)-printed(order.id)))+' ID restent à valider, ou demandez l’autorisation d’un administrateur.');
+  const active=apState.runs.filter(run=>run.created_by===apState.username&&run.statut==='EN_COURS');
+  if(blocked.length && active.length) reasons.push('Impressions en cours : '+active.map(run=>run.imprimante+' (De '+run.numero_debut+' à '+run.numero_fin+')').join(' ; ')+'. Validez uniquement les impressions réellement terminées dans Production.');
+  return reasons;
+}
+function renderOrderPrerequisites() {
+  const form=$('#apOrderForm');if(!form)return;
+  let notice=$('#apOrderPrerequisites');
+  if(!notice){notice=document.createElement('div');notice.id='apOrderPrerequisites';notice.setAttribute('role','status');notice.style.cssText='padding:12px 14px;border:1px solid #f59e0b;border-radius:10px;background:#fff7e6;color:#7c3a0a;font-size:13px;line-height:1.6;white-space:pre-line';form.prepend(notice);}
+  const reasons=newOrderPrerequisites();notice.hidden=!reasons.length;
+  notice.textContent=reasons.length?'Avant de créer une nouvelle commande :\n'+reasons.join('\n'):'';
+}
+
 function resetOrder() {
+  if ($('#apOrderEditor')) $('#apOrderEditor').open = false;
   apState.orderEdit = null;
   $('#apOrderForm').reset();
   $('#apNumberField').hidden=true;
@@ -77,6 +96,7 @@ function resetOrder() {
   $('#apOrderTitle').innerHTML = '<i class="fa-solid fa-plus text-amber-500 mr-1.5"></i>Nouvelle commande UPW';
   $('#apOrderCancel').classList.add('hidden');
   fillSubtypes();
+  renderOrderPrerequisites();
 }
 function fillSubtypes(selected = '') {
   const category = $('#apCategory').value;
@@ -106,6 +126,7 @@ async function loadAP() {
     }),
   ]);
   apState.shipments = shipments.filter(line => line.ap_production_id);
+  apState.packingGroups = await APGrouping.load(sb);
   apState.machines=machines;
   apState.orders = orders.sort((a, b) => b.date_commande.localeCompare(a.date_commande) || b.created_at.localeCompare(a.created_at));
   apState.runs = runs.sort((a, b) => a.date_production.localeCompare(b.date_production) || a.created_at.localeCompare(b.created_at));
@@ -122,6 +143,7 @@ async function loadAP() {
   updatePrintingWarning();
   await loadAPNotices().catch(console.warn);
   renderOrders();
+  renderOrderPrerequisites();
   renderProductionTab();
   renderSimpleHistory();
 }
@@ -206,14 +228,18 @@ async function loadAPNotices() {
     return '<p class="panel-soft p-2">Commande '+esc(order?.ap_numero||'Algérie Poste')+' démarrée par '+esc(note.auteur)+'.</p>';
   }).join('');
 }
+function statisticalRuns() {
+  if(apState.viewer || !apState.username) return [];
+  return apState.runs.filter(run=>APtrace.completed(run) && (apState.admin || run.created_by===apState.username));
+}
 function renderAPStats() {
-  if(!apState.admin) return;
+  if(apState.viewer || !apState.username) return;
   const labels=['Opérateurs','Imprimantes','Postes de travail','Clients UPW','Types d’identifiants'];
   const groups=labels.map(()=>new Map());
   const orders=new Map(apState.orders.map(order=>[order.id,order]));
   const days=new Map();
   const today=logitrakToday();
-  for(const run of apState.runs.filter(APtrace.completed)) {
+  for(const run of statisticalRuns()) {
     if(run.date_production<=today) days.set(run.date_production,(days.get(run.date_production)||0)+Number(run.quantite_imprimee));
     const order=orders.get(run.commande_id);
     [run.created_by,run.imprimante,run.poste_travail,order?.client,apProductSpec(order?.type_produit)?.label||order?.sous_categorie].forEach((name,index)=>{
@@ -224,13 +250,27 @@ function renderAPStats() {
   const series=[...days].sort(([a],[b])=>a.localeCompare(b)).slice(-30);
   const max=Math.max(1,...series.map(([,qty])=>qty));
   const points=series.map(([,qty],i)=>[10+580*i/Math.max(1,series.length-1),105-95*qty/max]);
-  const trend=series.length?'<svg class="ap-trend" viewBox="0 0 600 115" role="img" aria-label="Évolution des quantités produites par jour">'+
+  let trend=series.length?'<svg class="ap-trend" viewBox="0 0 600 115" role="img" aria-label="Évolution des quantités produites par jour">'+
     '<polyline fill="none" stroke="#0284c7" stroke-width="2.5" points="'+points.map(point=>point.join(',')).join(' ')+'"/>'+
     points.map(([x,y],i)=>'<circle cx="'+x+'" cy="'+y+'" r="4" fill="#0284c7"><title>'+esc(series[i][0])+' · '+fmt(series[i][1])+' ID</title></circle>').join('')+
     '</svg><p class="text-xs">'+esc(series[0][0])+' au '+esc(series.at(-1)[0])+' · Pic '+fmt(max)+' ID</p>':'<p>Aucune production.</p>';
+  if(!apState.admin && series.length) {
+    const vivid=['#008cff','#ff6b00','#9333ea','#00a96b','#e91e63','#e4b000'];
+    const barWidth=48,step=82,width=Math.max(620,series.length*step+65),height=265,base=215,plotHeight=170;
+    const grid=[0,.25,.5,.75,1].map(ratio=>{
+      const y=base-plotHeight*ratio;
+      return '<line x1="58" y1="'+y+'" x2="'+(width-8)+'" y2="'+y+'" stroke="currentColor" opacity=".13"/><text x="50" y="'+(y+4)+'" text-anchor="end" fill="currentColor" font-size="11">'+fmt(Math.round(max*ratio))+'</text>';
+    }).join('');
+    const bars=series.map(([date,qty],i)=>{
+      const x=70+i*step,h=plotHeight*qty/max,y=base-h,color=vivid[i%vivid.length];
+      return '<g><title>'+esc(date)+' : '+fmt(qty)+' ID</title><rect x="'+x+'" y="'+y+'" width="'+barWidth+'" height="'+h+'" rx="6" fill="'+color+'"/><text x="'+(x+barWidth/2)+'" y="'+(y-9)+'" text-anchor="middle" fill="currentColor" font-size="12" font-weight="800">'+fmt(qty)+'</text><text x="'+(x+barWidth/2)+'" y="'+(base+23)+'" text-anchor="middle" fill="currentColor" font-size="12">'+esc(date.slice(8,10)+'/'+date.slice(5,7))+'</text></g>';
+    }).join('');
+    trend='<div style="overflow-x:auto;color:var(--text);margin-top:12px"><svg role="img" aria-label="Histogramme de ma production quotidienne en identifiants" viewBox="0 0 '+width+' '+height+'" style="display:block;width:100%;min-width:'+width+'px;height:auto;min-height:265px">'+grid+bars+'</svg></div><p class="text-xs">'+esc(series[0][0])+' au '+esc(series.at(-1)[0])+' · Quantités en ID · Pic '+fmt(max)+' ID</p>';
+  }
   const colors=['#0284c7','#ea580c','#7c3aed','#059669','#db2777'];
-  $('#apTab_statistiques').innerHTML='<section class="panel-soft p-4"><h3 class="font-bold">Production par jour</h3>'+trend+'</section>'+
+  $('#apTab_statistiques').innerHTML='<p class="text-sm font-bold mb-3">'+(apState.admin?'Statistiques globales Algérie Poste':'Mes statistiques')+'</p><section class="panel-soft p-4"><h3 class="font-bold">Production par jour</h3>'+trend+'</section>'+
     '<div class="grid md:grid-cols-2 gap-3 mt-4">'+groups.map((group,index)=>{
+      if(!apState.admin && index===0) return ''; 
       const entries=[...group].filter(([,qty])=>qty>0).sort((a,b)=>b[1]-a[1]);
       const total=entries.reduce((sum,[,qty])=>sum+qty,0);
       let offset=0;
@@ -261,11 +301,12 @@ function renderOrders() {
   const list = apState.orders.filter(order => (!filter || filter === order.categorie) &&
     (!search || [order.ap_numero, order.client, order.sous_categorie, order.date_commande].join(' ').toLowerCase().includes(search)));
 
+  const opened = new Set([...$('#apOrdersList').querySelectorAll('details[open]')].map(node=>node.dataset.orderId));
   $('#apOrdersList').innerHTML = list.map(order => {
     const spec = apProductSpec(order.type_produit);
     const totalPrinted = printed(order.id);
     const rem = Math.max(0, order.quantite_demandee - totalPrinted);
-    return '<div class="panel p-4 flex flex-wrap items-center justify-between gap-3">' +
+    const card = '<div class="panel p-4 flex flex-wrap items-center justify-between gap-3">' +
       '<div class="space-y-1">' +
         '<div class="flex flex-wrap items-center gap-2">' +
           '<span class="font-mono-code font-bold text-amber-500">' + esc(order.ap_numero || 'APN') + '</span>' +
@@ -285,6 +326,20 @@ function renderOrders() {
         '<button type="button" class="btn btn-secondary" data-ap-action="delete-order" data-id="' + esc(order.id) + '">Supprimer</button>' : '') +
       '</div>' +
     '</div>';
+    // Une impression active garde la commande entièrement visible.
+    if(rem>0 || orderRuns(order.id).some(run=>run.statut==='EN_COURS')) return card;
+    const ranges=orderRuns(order.id).filter(APtrace.completed).map(run=>({
+      first:String(run.numero_debut||'').replace(/\s/g,''),last:String(run.numero_fin||'').replace(/\s/g,'')
+    })).filter(range=>/^\d+$/.test(range.first)&&/^\d+$/.test(range.last))
+      .sort((a,b)=>BigInt(a.first)<BigInt(b.first)?-1:BigInt(a.first)>BigInt(b.first)?1:0);
+    const segments=[];
+    for(const range of ranges){const previous=segments.at(-1);if(previous&&BigInt(previous.last)+1n===BigInt(range.first))previous.last=range.last;else segments.push({...range});}
+    const displayNumber=value=>value.padStart(8,'0').replace(/^(\d{2})(\d{3})(\d{3})$/,'$1 $2 $3');
+    const rangeText=segments.map(range=>'<span class="whitespace-nowrap"><span class="ap-range-word">De</span> '+esc(displayNumber(range.first))+' <span class="ap-range-word">à</span> '+esc(displayNumber(range.last))+'</span>').join(' · ');
+    return '<details class="panel" data-order-id="'+esc(order.id)+'"'+(opened.has(order.id)?' open':'')+'>'+
+      '<summary class="cursor-pointer p-4" style="font-size:13px;line-height:1.8">'+
+      '<span>'+esc(order.date_commande)+'</span> · <b class="text-amber-500">'+esc(order.ap_numero||'APN')+'</b> · <b>'+esc(order.client)+'</b>'+
+      (rangeText?' · '+rangeText:'')+' · <span class="badge" style="background:rgba(16,185,129,.15);color:var(--success)">Complète</span></summary>'+card+'</details>';
   }).join('') || '<p class="panel p-5 text-sm">Aucune commande à afficher.</p>';
 }
 
@@ -330,10 +385,17 @@ function renderProductionTab() {
   updatePrintCountdowns();
   // Stock des paquets produits & colisage par commande
   const stockHtml = [];
+  const displayedGroups = new Set();
   for (const order of apState.orders) {
+    let membership=APGrouping.groupFor(order.id,apState.packingGroups||[]);
+    if(membership){const reserved=new Map(apState.runs.map(run=>[run.id,shippedForRun(run.id)]));const live=membership.commande_ids.filter(id=>apState.runs.some(run=>run.commande_id===id&&APtrace.completed(run)&&Number(run.quantite_imprimee)>(reserved.get(run.id)||0)));if(live.length>1&&APGrouping.check(live,apState.orders,apState.runs,reserved))membership=null;}
+    if(membership&&displayedGroups.has(membership.id))continue;
+    if(membership)displayedGroups.add(membership.id);
+    const memberIds=membership?.commande_ids||[order.id];
+    const orderNumbers=apState.orders.filter(row=>memberIds.includes(row.id)).map(row=>row.ap_numero).join(' + ');
     const spec = apProductSpec(order.type_produit);
     if (!spec) continue;
-    const completed = orderRuns(order.id).filter(r => APtrace.completed(r));
+    const completed = apState.runs.filter(r => memberIds.includes(r.commande_id)&&APtrace.completed(r));
     if (!completed.length) continue;
     const totalProduced = completed.reduce((s, r) => s + Number(r.quantite_imprimee || 0), 0);
     const totalShipped = completed.reduce((s, r) => s + shippedForRun(r.id), 0);
@@ -348,7 +410,7 @@ function renderProductionTab() {
       if(!groups.has(key)) groups.set(key,{run,quantity:0});
       groups.get(key).quantity+=remaining;
     }
-    const cartons=[...groups.values()].flatMap(group=>apCartons(group.quantity,spec,{...group.run,regroupement_h2:order.regroupement_h2}));
+    const cartons=[...groups.values()].flatMap(group=>apCartons(group.quantity,spec,{...group.run,regroupement_h2:membership?false:order.regroupement_h2}));
     const totalCartons = cartons.reduce((s, c) => s + c.count, 0);
     const totalGrossKg = cartons.reduce((s, c) => s + (c.grossKg ? c.grossKg * c.count : 0), 0);
     const packetsCount = APcalc.packing(availableIds).packages;
@@ -356,7 +418,7 @@ function renderProductionTab() {
     stockHtml.push('<div class="panel-soft p-4 flex flex-wrap items-center justify-between gap-3">' +
       '<div class="space-y-1">' +
         '<div class="flex flex-wrap items-center gap-2">' +
-          '<span class="font-mono-code font-bold text-amber-500">' + esc(order.ap_numero || 'APN') + '</span>' +
+          '<span class="font-mono-code font-bold text-amber-500">' + esc(orderNumbers || 'APN') + '</span>' +
           '<b>' + esc(order.client) + '</b>' +
           '<span class="text-xs" style="color:var(--text-muted)">' + esc(spec.label) + ' · Réf. ' + esc(spec.reference) + '</span>' +
         '</div>' +
@@ -566,8 +628,22 @@ function renderSimpleHistory() {
   const clock=new Intl.DateTimeFormat('fr-FR',{timeZone:'Africa/Algiers',hour:'2-digit',minute:'2-digit',second:'2-digit'});
   $('#apTraceRows').innerHTML = [...groups.values()].map(packets=>{
     const first=packets[0];
-    return '<tr><th colspan="6" class="p-3 text-left" style="background:var(--bg-input)">'+
-      esc(first.date)+' · '+esc(first.ap_numero)+' · '+esc(first.client)+'</th></tr>'+
+    const segments=[];
+    for(const packet of [...packets].sort((a,b)=>a.ordinalStart-b.ordinalStart)) {
+      const from=packet.from.replace(/\s/g,''),to=packet.to.replace(/\s/g,'');
+      const previous=segments.at(-1);
+      if(previous&&/^\d+$/.test(from)&&/^\d+$/.test(previous.end)&&BigInt(previous.end)+1n===BigInt(from)) {
+        previous.end=to; previous.last=packet.to;
+      } else segments.push({start:from,end:to,first:packet.from,last:packet.to});
+    }
+    const range=segments.map(segment=>'<span class="whitespace-nowrap"><span class="ap-range-word">De</span> '+esc(segment.first)+' <span class="ap-range-word">à</span> '+esc(segment.last)+'</span>').join(' · ');
+    const key=first.date+'|'+first.orderId;
+    const expanded=[...$('#apTraceRows').querySelectorAll('details[open]')].some(detail=>detail.dataset.historyGroup===key);
+    return '<tr><td colspan="6" class="p-2"><details data-history-group="'+esc(key)+'"'+(expanded?' open':'')+'>'+
+      '<summary class="cursor-pointer p-3 font-semibold" style="background:var(--bg-input);border-radius:8px"><span>'+esc(first.date)+' · '+esc(first.ap_numero)+' · '+esc(first.client)+'</span> · '+range+'</summary>'+
+      '<div class="overflow-x-auto mt-2"><table class="w-full text-xs text-left"><thead><tr>'+
+      ['Plage','Nombre','Heure de fin','Statut','Machine','Opérateur'].map(label=>'<th class="p-3">'+label+'</th>').join('')+
+      '</tr></thead><tbody>'+
       packets.sort((a,b)=>a.ordinalStart-b.ordinalStart).map(pkt=>'<tr class="border-b" style="border-color:var(--border)">'+ 
       '<td class="p-3 whitespace-nowrap font-mono-code"><span class="ap-range-word">De</span> ' + esc(pkt.from) + ' <span class="ap-range-word">à</span> ' + esc(pkt.to) + '</td>' +
       '<td class="p-3 whitespace-nowrap font-mono-code"><span class="ap-range-word">De</span> ' + ordinal(pkt.ordinalStart) + ' <span class="ap-range-word">à</span> ' + ordinal(pkt.ordinalEnd) + '</td>' +
@@ -575,7 +651,7 @@ function renderSimpleHistory() {
       '<td class="p-3 font-bold ap-operator">OK</td><td class="p-3 font-semibold ap-machine">' + esc(pkt.machine) + '</td>' +
       '<td class="p-3 font-semibold ap-operator">' + esc(pkt.operator) + (apState.admin?' <button type="button" class="underline" data-delete-run="'+esc(pkt.runId)+'">Supprimer le tirage</button>':'') + '</td>' +
     '</tr>'
-    ).join('');
+    ).join('')+'</tbody></table></div></details></td></tr>';
   }).join('') || '<tr><td colspan="6" class="p-6 text-center" style="color:var(--text-muted)">Aucun paquet produit correspondant.</td></tr>';
 }
 
@@ -596,6 +672,13 @@ async function withButton(button, action) {
 async function saveOrder(event) {
   event.preventDefault();
   await withButton($('#apOrderSave'), async () => {
+    if(!apState.orderEdit&&!apState.admin){
+      const [orders,runs]=await Promise.all([readLogiTrakRows(sb,'ap_commandes'),readLogiTrakRows(sb,'ap_productions')]);
+      apState.orders=orders;apState.runs=runs;
+      renderOrderPrerequisites();
+      const reasons=newOrderPrerequisites();
+      if(reasons.length){$('#apOrderPrerequisites')?.scrollIntoView({behavior:'smooth',block:'center'});throw new Error(reasons.join('\n'));}
+    }
     const spec = apProductSpec($('#apSubtype').value);
     if (!spec) throw new Error('Choisissez un type de produit.');
     const payload = {
@@ -605,7 +688,7 @@ async function saveOrder(event) {
     };
     if (!payload.client || !payload.sous_categorie || !Number.isSafeInteger(payload.quantite_demandee) || payload.quantite_demandee < 1)
       throw new Error('Renseignez le client, le produit et une quantité entière positive.');
-    if(apState.admin&&apState.orderEdit) payload.ap_numero=$('#apNumber').value.trim();
+    // APN attribué par la base et immuable, y compris pour un administrateur.
     const creating=!apState.orderEdit;
     const id=await saveRecord('ap_commandes',payload,apState.orderEdit);
     resetOrder();
@@ -617,7 +700,9 @@ async function saveOrder(event) {
 function editOrder(order) {
   if (!canEdit(order)) return message('Modification réservée à l’administrateur après 24 h.', true);
   apState.orderEdit = order;
-  $('#apNumberField').hidden=!apState.admin;
+  if ($('#apOrderEditor')) $('#apOrderEditor').open = true;
+  renderOrderPrerequisites();
+  $('#apNumberField').hidden=true;
   $('#apNumber').value=order.ap_numero||'';
   for (const [id, key] of Object.entries({ apClient: 'client', apCategory: 'categorie', apQty: 'quantite_demandee', apOrderDate: 'date_commande', apOrderNotes: 'observations' }))
     $('#' + id).value = order[key];
@@ -756,9 +841,15 @@ async function doLogin(event) {
 }
 async function start() {
   try {
-    const session = await sb.auth.getSession();
-    if (session.error) throw session.error;
-    const username = session.data.session?.user?.email?.split('@')[0];
+    let session = typeof getLogiTrakSession === 'function' ? getLogiTrakSession() : null;
+    if (!session && sb) {
+      const res = await Promise.race([
+        sb.auth.getSession().catch(() => ({ data: { session: null } })),
+        new Promise(r => setTimeout(() => r({ data: { session: null } }), 400))
+      ]);
+      session = res?.data?.session;
+    }
+    const username = (session?.user?.email?.split('@')[0] || '').toLowerCase();
     apState.username = username || '';
     if (!username) { loginGate(); return; }
     const { data, error } = await sb.from('operateurs').select('role').eq('username', username).maybeSingle();
@@ -824,7 +915,21 @@ document.addEventListener('DOMContentLoaded', () => {
     await withButton(e.currentTarget, async () => { await loadAP(); message('Données actualisées.'); });
   });
 
+  const isAuth = (() => {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+          const v = JSON.parse(localStorage.getItem(localStorage.key(i)));
+          return !!((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email));
+        }
+      }
+    } catch (e) {}
+    return false;
+  })();
+  if (!isAuth) return;
+
   const get = key => { try { return localStorage.getItem(key); } catch { return null; } };
-  sb = window.supabase.createClient(get('supabase_url') || SUPABASE_URL, get('supabase_key') || SUPABASE_ANON);
+  const u = get('supabase_url') || SUPABASE_URL, k = get('supabase_key') || SUPABASE_ANON;
+  sb = typeof getLogiTrakClient === 'function' ? getLogiTrakClient(u, k) : window.supabase.createClient(u, k);
   start();
 });

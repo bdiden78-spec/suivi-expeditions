@@ -3,20 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#14395f">
+  <meta name="theme-color" content="#f8fafc">
   <meta name="application-name" content="LogiTrak">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="manifest" href="./manifest.webmanifest">
+  <script>if(location.protocol!=='file:'){const l=document.createElement('link');l.rel='manifest';l.href='./manifest.webmanifest';document.head.appendChild(l);}</script>
   <link rel="apple-touch-icon" href="assets/app-icon-192.png">
   <meta name="description" content="LogiTrak — Envoi & Traçabilité • Eurequat Algérie, usine de Tlemcen">
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <title>Accueil • LogiTrak Eurequat Algérie</title>
 
   <script>
-    try {
-      if (localStorage.getItem('logitrak_theme') !== 'dark')
-        document.documentElement.classList.add('light');
-    } catch(e) {}
+    (function () {
+      try {
+        var a = false;
+        for (var i = 0; i < localStorage.length; i++) {
+          if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+            var v = JSON.parse(localStorage.getItem(localStorage.key(i)));
+            if ((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email)) {
+              a = true; break;
+            }
+          }
+        }
+        if (!a) {
+          var cur = encodeURIComponent(location.pathname.split('/').pop() || 'index.html');
+          location.replace('login.html?from=' + cur + (location.search ? encodeURIComponent(location.search) : ''));
+        }
+      } catch (e) {
+        location.replace('login.html');
+      }
+    })();
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -24,45 +39,113 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=5.0.0">
 
   <style>
-    .kpi{padding:14px 18px}
-    .kpi small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim)}
-    .kpi b{display:block;font-size:26px;font-weight:900;margin-top:2px}
+    .kpi{padding:16px 20px;border-radius:var(--radius);border-top:3px solid var(--accent);box-shadow:var(--shadow-card);transition:all .25s cubic-bezier(0.16,1,0.3,1)}
+    .kpi:hover{transform:translateY(-3px);box-shadow:var(--shadow-raised),0 0 18px -2px color-mix(in srgb,var(--accent) 30%,transparent)}
+    .kpi small{display:block;font-size:10.5px;font-weight:750;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted)}
+    .kpi b{display:block;font-size:27px;font-weight:850;margin-top:4px;letter-spacing:-.03em}
 
-    .hub-card{position:relative;display:flex;flex-direction:column;gap:13px;padding:19px;border-radius:var(--radius);
+    .hub-card{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:14px;padding:22px;border-radius:var(--radius);
       background:var(--bg-card);border:1px solid var(--border);box-shadow:var(--shadow-card);text-decoration:none;color:inherit;
-      transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
-    .hub-card:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:var(--shadow-raised)}
-    .hub-ico{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;
-      color:var(--accent);background:var(--accent-wash)}
-    .hub-card h3{font-size:18px;font-weight:800;letter-spacing:-.01em}
-    .hub-card p{font-size:12.5px;line-height:1.5;color:var(--text-muted)}
-    .hub-go{margin-top:auto;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:var(--accent)}
-    .hub-go i{transition:transform .25s}
-    .hub-card:hover .hub-go i{transform:translateX(5px)}
-    .hub-lock{position:absolute;top:14px;right:14px;font-size:10px;font-weight:800;padding:4px 9px;border-radius:99px;
-      background:rgba(245,158,11,.14);color:#f59e0b;border:1px solid rgba(245,158,11,.35);display:none}
+      transition:transform .25s cubic-bezier(0.16,1,0.3,1),box-shadow .25s cubic-bezier(0.16,1,0.3,1),border-color .25s cubic-bezier(0.16,1,0.3,1)}
+    .hub-card:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--c1,var(--accent)) 65%,var(--border));box-shadow:var(--shadow-raised),0 0 25px -5px color-mix(in srgb,var(--c1,var(--accent)) 25%,transparent)}
+    .hub-ico{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;
+      color:var(--c1,var(--accent));background:color-mix(in srgb,var(--c1,var(--accent)) 14%,var(--bg-card));border:1px solid color-mix(in srgb,var(--c1,var(--accent)) 30%,transparent);transition:transform .25s cubic-bezier(0.16,1,0.3,1)}
+    .hub-card:hover .hub-ico{transform:scale(1.08) rotate(3deg)}
+    .hub-card h3{font-size:18px;font-weight:800;letter-spacing:-.02em}
+    .hub-card p{font-size:12.75px;line-height:1.55;color:var(--text-muted)}
+    .hub-go{margin-top:auto;display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:800;color:var(--c1,var(--accent))}
+    .hub-go i{transition:transform .25s cubic-bezier(0.16,1,0.3,1)}
+    .hub-card:hover .hub-go i{transform:translateX(6px)}
+    .hub-lock{position:absolute;top:16px;right:16px;font-size:10px;font-weight:800;padding:4px 10px;border-radius:9999px;
+      background:rgba(245,158,11,.14);color:#f59e0b;border:1px solid rgba(245,158,11,.35);display:none;backdrop-filter:blur(4px)}
     body:not(.is-operator) .hub-card[data-op] .hub-lock{display:inline-flex;gap:5px;align-items:center}
-    .recent-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--border)}
+    .recent-row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-top:1px solid var(--border);transition:background-color .2s cubic-bezier(0.16,1,0.3,1)}
     .recent-row:first-child{border-top:0}
+    .recent-row:hover{background:var(--bg-hover)}
   </style>
-</head>
+<style>.dashboard-hero{display:block;min-height:0;padding:clamp(22px,4vw,40px)}.dashboard-hero .dashboard-intro{max-width:850px}.dashboard-hero h1{font-size:clamp(1.8rem,3vw,2.8rem)}</style><style>
+.dashboard-hero{position:relative;overflow:hidden;display:flex!important;align-items:center;justify-content:space-between;gap:28px}
+.dashboard-hero .dashboard-intro{position:relative;z-index:1;flex:1;max-width:700px}
+.welcome-motion{position:relative;flex:0 0 265px;height:165px;pointer-events:none}
+.welcome-orbit{position:absolute;width:155px;height:155px;left:55px;top:5px;border:1px dashed #38bdf866;border-radius:50%;animation:welcome-spin 28s linear infinite}
+.welcome-package{position:absolute;display:grid;place-items:center;width:66px;height:66px;border-radius:18px;border:1px solid #38bdf84d;background:var(--bg-card);box-shadow:0 8px 25px #0284c714;font-size:27px;animation:welcome-float 4s ease-in-out infinite}
+.package-one{left:10px;top:65px;color:#f97316}
+.package-two{left:100px;top:15px;color:#0284c7;animation-delay:-1.3s}
+.package-three{left:185px;top:70px;color:#059669;animation-delay:-2.6s}
+.welcome-track{position:absolute;bottom:12px;left:25px;right:10px;height:2px;background:linear-gradient(90deg,transparent,#38bdf8,#fb923c,transparent);opacity:.6}
+@keyframes welcome-float{50%{transform:translateY(-10px)}}
+@keyframes welcome-spin{to{transform:rotate(360deg)}}
+@media(max-width:850px){.welcome-motion{flex-basis:190px;transform:scale(.8);transform-origin:right center}}
+@media(max-width:620px){.welcome-motion{display:none}}
+@media(prefers-reduced-motion:reduce){.welcome-package,.welcome-orbit{animation:none}}
+</style><style>
+.welcome-motion{pointer-events:auto}
+.welcome-package i{display:block;transition:transform .38s cubic-bezier(.2,.8,.2,1);will-change:transform}
+.welcome-motion.is-scattered .welcome-orbit{animation-duration:8s}
+@media(prefers-reduced-motion:reduce){.welcome-package i{transition:none;transform:none!important}}
+</style><style>
+.welcome-wave-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:hidden}
+.welcome-wave{fill:none;stroke-width:9;stroke-linecap:round;opacity:0}
+.dashboard-hero.wave-active .welcome-wave{animation:welcome-wave-travel 2.8s ease-in-out infinite}
+@keyframes welcome-wave-travel{0%,100%{opacity:.18;stroke-width:8}50%{opacity:.55;stroke-width:12}}
+@media(prefers-reduced-motion:reduce){.dashboard-hero.wave-active .welcome-wave{animation:none}}
+</style><style>
+.welcome-motion{pointer-events:auto}
+.welcome-package,.welcome-orbit{animation:none!important}
+.welcome-package i{transform:none!important}
+.package-one{color:#ed741b;background:#fff1e6;border-color:#f6c59d}
+.package-two{color:#17aaba;background:#e2f8fa;border-color:#9bdee4}
+.package-three{color:#173d65;background:#e9eff7;border-color:#b7cbe0}
+.dashboard-hero{transition:background-color .45s ease,box-shadow .45s ease}
+.dashboard-hero:has(.package-one:hover){background:#fff0df!important;box-shadow:0 6px 24px #ed741b25}.dashboard-hero:has(.package-two:hover){background:#def7fa!important;box-shadow:0 6px 24px #17aaba25}.dashboard-hero:has(.package-three:hover){background:#dce7f3!important;box-shadow:0 6px 24px #173d6525}
+@media(prefers-reduced-motion:reduce){.dashboard-hero{transition:none}}
+</style><style>
+.welcome-package{transition:transform .3s ease,box-shadow .3s ease}
+.welcome-package:hover{transform:translateY(-7px) rotate(-7deg) scale(1.08);box-shadow:0 12px 25px #173d652b}
+html:not(.light) .dashboard-hero:has(.package-one:hover){background:#4c2b20!important}
+html:not(.light) .dashboard-hero:has(.package-two:hover){background:#123e48!important}
+html:not(.light) .dashboard-hero:has(.package-three:hover){background:#173451!important}
+@media(prefers-reduced-motion:reduce){.welcome-package{transition:none}.welcome-package:hover{transform:none}}
+</style><style>
+.dashboard-hero:has(.package-one:hover),html:not(.light) .dashboard-hero:has(.package-one:hover){background:linear-gradient(110deg,#fff8f1,#ffe2bf)!important;color:#173d65}
+.dashboard-hero:has(.package-two:hover),html:not(.light) .dashboard-hero:has(.package-two:hover){background:linear-gradient(110deg,#f1fdff,#cef2f5)!important;color:#173d65}
+.dashboard-hero:has(.package-three:hover),html:not(.light) .dashboard-hero:has(.package-three:hover){background:linear-gradient(110deg,#f8fbff,#dbe9fa)!important;color:#173d65}
+.dashboard-hero:has(.welcome-package:hover) .dashboard-intro p{color:#334e68}
+.welcome-package{width:76px;height:76px;display:grid;place-items:center}
+.welcome-drawing{position:relative;display:block;filter:drop-shadow(2px 5px 3px #173d6526)}
+.realistic-parcel{width:44px;height:40px;background:linear-gradient(110deg,#ffbd67,#d87720);border:1px solid #ad5816;border-radius:3px;transform:rotate(-8deg);box-shadow:inset -7px 0 #ac581c35,inset 0 6px #fff5}
+.parcel-tape{position:absolute;left:16px;width:10px;height:100%;background:linear-gradient(90deg,#ffdc9b,#f1bd6c);border-inline:1px solid #bd772d55}
+.parcel-label{position:absolute;right:4px;bottom:7px;width:15px;height:11px;background:repeating-linear-gradient(90deg,#3d4248 0 1px,#fff 1px 3px);border:2px solid white}
+.realistic-label{width:39px;height:49px;background:linear-gradient(120deg,#fff,#dff6f8);border:1px solid #88b9c6;border-radius:4px;transform:rotate(8deg);box-shadow:inset -4px -3px #b8e7ea}
+.label-lines{position:absolute;left:6px;top:8px;width:24px;height:10px;background:repeating-linear-gradient(#4d7785 0 2px,transparent 2px 5px)}
+.label-code{position:absolute;left:6px;bottom:10px;width:25px;height:16px;background:repeating-linear-gradient(90deg,#173d65 0 2px,transparent 2px 4px,#173d65 4px 5px,transparent 5px 7px)}
+.realistic-van{width:64px;height:43px}
+.van-body{position:absolute;left:0;top:3px;width:62px;height:31px;background:linear-gradient(145deg,#5a8db8,#173d65);border:1px solid #143353;border-radius:7px 15px 5px 4px;clip-path:polygon(0 0,75% 0,87% 12%,100% 61%,100% 100%,0 100%);box-shadow:inset 0 4px #ffffff40}
+.van-body::before{content:"";position:absolute;right:5px;top:4px;width:16px;height:13px;background:linear-gradient(130deg,#e3fbff,#65bad1);border:1px solid #127f96;border-radius:2px 8px 2px 2px;transform:skewX(13deg)}
+.van-body::after{content:"";position:absolute;left:7px;top:7px;width:24px;height:15px;border:1px solid #a1c6e452;border-radius:3px;box-shadow:8px 10px 0 -7px #ff971f}
+.van-door{position:absolute;right:23px;top:7px;height:25px;border-left:1px solid #102e4e80}
+.van-door::after{content:"";position:absolute;left:3px;top:15px;width:5px;height:2px;background:#d2e6ee;border-radius:2px}
+.van-wheel{position:absolute;bottom:3px;width:12px;height:12px;border:3px solid #233443;border-radius:50%;background:linear-gradient(135deg,#eef4f8,#8298aa)}
+.wheel-one{left:7px}.wheel-two{right:6px}
+.welcome-package:hover{transform:none!important;animation:welcome-hover-bob 1.5s ease-in-out infinite!important}
+@keyframes welcome-hover-bob{0%,100%{translate:0 -3px;rotate:-3deg}50%{translate:0 -12px;rotate:4deg}}
+@media(prefers-reduced-motion:reduce){.welcome-package:hover{animation:none!important;translate:none;rotate:none}}
+</style></head>
 <body data-module="index" class="min-h-screen flex flex-col antialiased">
 
 
   <header class="app-header relative z-30 no-print">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.25rem] py-2 flex items-center justify-between gap-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[5.5rem] py-2.5 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
         <div class="app-brand"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536" decoding="async"></div>
         <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
-      <div id="headerActions" class="flex items-center gap-2">
-        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
-      </div>
+      <div id="headerActions" class="flex items-center gap-2"></div>
     </div>
   </header>
 
@@ -73,15 +156,13 @@
         <span class="dashboard-eyebrow"><i class="fa-solid fa-industry" aria-hidden="true"></i> Eurequat Algérie · Usine de Tlemcen</span>
         <h1 id="hello">Pilotage des opérations</h1>
         <p>Suivez les lots de production, organisez le colisage et retrouvez les expéditions de l’usine.</p>
-        <div class="dashboard-actions">
-          <a href="envois.html" class="btn dashboard-primary"><i class="fa-solid fa-truck-ramp-box" aria-hidden="true"></i> Consulter les envois</a>
-          <a href="production.html" class="btn dashboard-secondary"><i class="fa-solid fa-industry" aria-hidden="true"></i> Voir la production</a>
-        </div>
       </div>
-      <div class="dashboard-illustration" aria-hidden="true">
-        <div class="dashboard-step"><i class="fa-solid fa-industry"></i><span>Production</span></div>
-        <div class="dashboard-step"><i class="fa-solid fa-boxes-packing"></i><span>Colisage</span></div>
-        <div class="dashboard-step"><i class="fa-solid fa-truck-ramp-box"></i><span>Expédition</span></div>
+      <div class="welcome-motion" aria-hidden="true">
+        <div class="welcome-orbit"></div>
+        <div class="welcome-package package-one"><span class="welcome-drawing realistic-parcel"><span class="parcel-tape"></span><span class="parcel-label"></span></span></div>
+        <div class="welcome-package package-two"><span class="welcome-drawing realistic-label"><span class="label-lines"></span><span class="label-code"></span></span></div>
+        <div class="welcome-package package-three"><span class="welcome-drawing realistic-van"><span class="van-body"></span><span class="van-door"></span><span class="van-wheel wheel-one"></span><span class="van-wheel wheel-two"></span></span></div>
+        <span class="welcome-track"></span>
       </div>
     </section>
 
@@ -90,7 +171,7 @@
       <div class="panel kpi"><small>Envois ce mois</small><b id="kEnv">…</b></div>
       <div class="panel kpi"><small>Cartons ce mois</small><b id="kCol" class="text-amber-500">…</b></div>
       <div class="panel kpi"><small>Lots expédiés</small><b id="kShippedLots" class="text-indigo-400" title="Lots entièrement expédiés dans des envois validés, jusqu’à aujourd’hui">…</b></div>
-      <div class="panel kpi"><small>Lots à expédier</small><b id="kLots" class="text-emerald-500" title="Réservé aux opérateurs">…</b></div>
+      <div class="panel kpi"><small>Lots à expédier</small><b id="kLots" class="text-emerald-500" title="Lots restants disponibles à l'expédition">…</b></div>
     </section>
 
     <div id="pendingBar" class="hidden max-w-4xl mx-auto w-full panel p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3" style="border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.06)"></div>
@@ -98,10 +179,22 @@
     <div class="dashboard-section-label"><h2>Modules LogiTrak</h2><span>Accès aux outils</span></div>
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
       <a href="production.html" data-module="production" class="hub-card" data-op style="--c1:#10b981;--c2:#34d399">
-        <span class="hub-lock"><i class="fa-solid fa-lock"></i>Opérateurs</span>
         <div class="hub-ico"><i class="fa-solid fa-industry"></i></div>
-        <div><h3>Production</h3><p>Saisir les lots fabriqués (OF, référence, quantité), cocher ceux à expédier et voir ce qu'il reste.</p></div>
+        <div><h3>Fabrication (OF)</h3><p>Saisir les lots fabriqués (OF, référence, quantité), cocher ceux à expédier et voir ce qu'il reste.</p></div>
         <span class="hub-go">Ouvrir <i class="fa-solid fa-arrow-right"></i></span>
+      </a>
+
+      <a href="production.html?tab=stock" data-module="stock" class="hub-card" style="--c1:#00d2ff;--c2:#0284c7">
+        <div class="hub-ico"><i class="fa-solid fa-warehouse"></i></div>
+        <div><h3>Stock de Production</h3><p>Consulter les stocks disponibles réels, les cartons pleins prêts, les réservations BL et exporter l'état d'inventaire.</p></div>
+        <span class="hub-go">Consulter le Stock <i class="fa-solid fa-arrow-right"></i></span>
+      </a>
+
+      <a href="production.html?tab=recept" data-module="recept" class="hub-card" data-op style="--c1:#ff6b00;--c2:#f59e0b">
+        <span class="hub-lock"><i class="fa-solid fa-lock"></i>Opérateurs</span>
+        <div class="hub-ico"><i class="fa-solid fa-truck-ramp-box"></i></div>
+        <div><h3>Réceptions &amp; Retours</h3><p>Enregistrer les produits confectionnés ailleurs ou les retours clients (SAV) et les expédier depuis l'usine.</p></div>
+        <span class="hub-go">Gérer les Entrées <i class="fa-solid fa-arrow-right"></i></span>
       </a>
 
       <a href="colisage.html" data-module="colisage" class="hub-card" style="--c1:#f59e0b;--c2:#fbbf24">
@@ -110,8 +203,7 @@
         <span class="hub-go">Ouvrir <i class="fa-solid fa-arrow-right"></i></span>
       </a>
 
-      <a href="envois.html?new=1" data-module="new" class="hub-card" data-op style="--c1:#6366f1;--c2:#3b82f6">
-        <span class="hub-lock"><i class="fa-solid fa-lock"></i>Opérateurs</span>
+      <a href="envois.html?new=1" data-module="new" class="hub-card" style="--c1:#0284c7;--c2:#38bdf8">
         <div class="hub-ico"><i class="fa-solid fa-plus"></i></div>
         <div><h3>Nouvel envoi</h3><p>Créer un envoi en important des lots depuis la production ou en saisissant les lignes.</p></div>
         <span class="hub-go">Créer <i class="fa-solid fa-arrow-right"></i></span>
@@ -171,7 +263,7 @@
   <script src="js/calendar.js"></script>
   <script src="js/data-pages.js"></script>
   <script>
-    const THEME_KEY = 'logitrak_theme', LOCAL_KEY = 'eurequat_expeditions_v1';
+    const LOCAL_KEY = 'eurequat_expeditions_v1';
     const $ = s => document.querySelector(s);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -179,19 +271,21 @@
     const fmtDate = d => { if (!d) return '—'; const [y,m,day] = String(d).split('-'); return `${day}/${m}/${y}`; };
     const intOf = v => parseInt(String(v ?? '').replace(/[^0-9]/g, ''), 10) || 0;
 
-    function syncThemeIcon() { $('#themeIcon').className = 'fa-solid text-sm ' + (document.documentElement.classList.contains('light') ? 'fa-moon' : 'fa-sun'); }
-    function toggleTheme() {
-      const light = document.documentElement.classList.toggle('light');
-      try { localStorage.setItem(THEME_KEY, light ? 'light' : 'dark'); } catch {}
-      syncThemeIcon();
-    }
+
 
     let sb = null, expeditions = [], isOperator = false, isAdmin = false, username = '';
 
     async function loadRole() {
       try {
-        const { data } = await sb.auth.getSession();
-        const email = data.session?.user?.email;
+        let session = typeof getLogiTrakSession === 'function' ? getLogiTrakSession() : null;
+        if (!session && sb) {
+          const res = await Promise.race([
+            sb.auth.getSession().catch(() => ({ data: { session: null } })),
+            new Promise(r => setTimeout(() => r({ data: { session: null } }), 400))
+          ]);
+          session = res?.data?.session;
+        }
+        const email = session?.user?.email;
         if (!email) return;
         username = email.split('@')[0];
         const r = await sb.from('operateurs').select('role').eq('username', username).maybeSingle();
@@ -200,7 +294,7 @@
       document.body.classList.toggle('is-operator', isOperator);
       document.body.classList.toggle('is-admin', isAdmin);
       if (username) {
-        $('#hello').innerHTML = `Bonjour <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-blue-400">${esc(username)}</span>`;
+        $('#hello').innerHTML = `Bonjour <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-blue-400">${esc(username.charAt(0).toLocaleUpperCase('fr-FR')+username.slice(1))}</span>`;
       }
     }
 
@@ -280,10 +374,22 @@
     }
 
     (async function init() {
-      syncThemeIcon();
+      const isAuth = (() => {
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+              const v = JSON.parse(localStorage.getItem(localStorage.key(i)));
+              return !!((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email));
+            }
+          }
+        } catch (e) {}
+        return false;
+      })();
+      if (!isAuth) return;
+
       try {
         const url = lsGet('supabase_url') || SUPABASE_URL, key = lsGet('supabase_key') || SUPABASE_ANON;
-        sb = window.supabase.createClient(url, key);
+        sb = typeof getLogiTrakClient === 'function' ? getLogiTrakClient(url, key) : window.supabase.createClient(url, key);
       } catch (e) { sb = null; }
       if (sb) await loadRole();
       if (sb) await loadExpeditions(); else { try { await loadExpeditions(); } catch {} }
@@ -291,7 +397,11 @@
       if (sb) loadLots(); else { $('#kLots').textContent = '—'; $('#kShippedLots').textContent = '—'; }
     })();
   </script>
-  <script src="js/nav.js?v=4.0.23"></script>
+  <script src="js/nav.js?v=5.2.0"></script>
   <script src="js/pwa.js"></script>
+
+
+
+
 </body>
 </html>

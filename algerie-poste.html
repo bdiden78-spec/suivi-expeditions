@@ -3,20 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#14395f">
+  <meta name="theme-color" content="#f8fafc">
   <meta name="application-name" content="LogiTrak">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="apple-touch-icon" href="assets/app-icon-192.png">
+  <link rel="apple-touch-icon" href="assets/logitrak-favicon-192.png">
   <meta name="description" content="Fabrication des étiquettes Algérie Poste — LogiTrak Eurequat Algérie">
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <title>Algérie Poste • LogiTrak Eurequat Algérie</title>
 
   <script>
-    try {
-      if (localStorage.getItem('logitrak_theme') !== 'dark')
-        document.documentElement.classList.add('light');
-    } catch(e) {}
+    (function () {
+      try {
+        var a = false;
+        for (var i = 0; i < localStorage.length; i++) {
+          if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+            var v = JSON.parse(localStorage.getItem(localStorage.key(i)));
+            if ((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email)) {
+              a = true; break;
+            }
+          }
+        }
+        if (!a) {
+          var cur = encodeURIComponent(location.pathname.split('/').pop() || 'algerie-poste.html');
+          location.replace('login.html?from=' + cur + (location.search ? encodeURIComponent(location.search) : ''));
+        }
+      } catch (e) {
+        location.replace('login.html');
+      }
+    })();
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -24,9 +39,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=5.2.0-install-nexa-1">
 
   <style>
     .ap-range-word{color:#d21034;font-weight:700}.ap-machine{color:#fbbf24}.ap-operator{color:#34d399}
@@ -36,16 +51,20 @@
     .ap-running i{width:8px;height:8px;border-radius:50%;background:#10b981;animation:apRunPulse 1.8s ease-in-out infinite}
     @keyframes apRunPulse{50%{opacity:.45;transform:scale(.8)}}
     @media(prefers-reduced-motion:reduce){.ap-running i{animation:none}}
-    .kpi{padding:14px 16px}
-    .kpi small{display:block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim)}
-    .kpi b{display:block;font-size:20px;font-weight:900;margin-top:2px}
-    .seg{padding:8px 16px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;color:var(--text-muted);transition:all .15s;display:inline-flex;align-items:center;gap:8px}
-    .seg[data-ap-tab="commandes"]{background:#dbeafe;color:#1e40af}
-    .seg[data-ap-tab="production"]{background:#ffedd5;color:#9a3412}
-    .seg[data-ap-tab="historique"]{background:#dcfce7;color:#166534}
-    .seg[data-ap-tab="statistiques"]{background:#ede9fe;color:#5b21b6}
-    .seg.active{outline:2px solid currentColor}
-    .seg.active{background:#f59e0b;color:#fff;box-shadow:0 4px 12px -2px rgba(245,158,11,.45)}
+    .kpi{padding:16px 18px;border-radius:var(--radius);border-top:3px solid var(--accent);box-shadow:var(--shadow-card);transition:all .22s cubic-bezier(0.16,1,0.3,1)}
+    .kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow-raised)}
+    .kpi small{display:block;font-size:10.5px;font-weight:750;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted)}
+    .kpi b{display:block;font-size:22px;font-weight:850;margin-top:3px;letter-spacing:-.03em}
+    .seg{padding:7px 16px;transform:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;color:var(--text-muted);border:1px solid var(--border-strong);background:var(--bg-card);transition:all .2s cubic-bezier(0.16,1,0.3,1);display:inline-flex;align-items:center;gap:8px}
+    .seg > *{transform:none;display:inline-flex;align-items:center}
+    .seg:hover{transform:translateY(-2px);box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 25%,transparent)}
+    .seg:hover i{transform:scale(1.15)}
+    .seg[data-ap-tab="commandes"]{background:#eff6ff;color:#1e40af;border-color:#bfdbfe}
+    .seg[data-ap-tab="production"]{background:#fff7ed;color:#9a3412;border-color:#fed7aa}
+    .seg[data-ap-tab="historique"]{background:#f0fdf4;color:#166534;border-color:#bbf7d0}
+    .seg[data-ap-tab="statistiques"]{background:#f5f3ff;color:#5b21b6;border-color:#ddd6fe}
+    .seg.active{background:linear-gradient(135deg,#f59e0b 0%,#ea580c 50%,#fbbf24 75%,#f59e0b 100%) !important;background-size:220% 220% !important;animation:btnGradShift 5s ease-in-out infinite !important;color:#fff !important;border-color:transparent !important;box-shadow:0 4px 16px rgba(245,158,11,.45) !important;outline:none}
+    .seg.active > *{color:#fff !important}
     .lbl{display:block;font-size:11px;font-weight:700;margin-bottom:5px}
     .ap-print-operator{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 18px;font-size:13px;margin:2px 0 10px}
     .ap-print-table-wrap{width:100%;overflow-x:auto;border:1px solid var(--border);border-radius:8px}
@@ -79,18 +98,17 @@
     .ap-stat-legend i{width:10px;height:10px;border-radius:50%}
     @media(prefers-reduced-motion:no-preference){#apTab_statistiques:not(.hidden) .ap-stat-donut{animation:ap-stat-fade .55s ease-out}}
   .ap-print-countdown{align-self:center;font-size:1.125rem;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;padding:.25rem .5rem}</style>
+<script src="js/pwa.js?v=5.2.0-install-nexa-1"></script>
 </head>
 <body data-module="algerie-poste" class="min-h-screen flex flex-col antialiased">
 
   <header class="app-header relative z-30 no-print">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[4.25rem] py-2 flex items-center justify-between gap-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[5.5rem] py-2.5 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
         <div class="app-brand"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak — Envoi et traçabilité" width="2752" height="1536" decoding="async"></div>
         <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
       </div>
-      <div id="headerActions" class="flex items-center gap-2">
-        <button onclick="toggleTheme()" class="btn-icon" title="Changer de thème" aria-label="Changer de thème"><i id="themeIcon" class="fa-solid fa-sun text-sm"></i></button>
-      </div>
+      <div id="headerActions" class="flex items-center gap-2"></div>
     </div>
   </header>
 
@@ -125,16 +143,16 @@
         <button type="button" class="seg" data-ap-tab="production"><i class="fa-solid fa-boxes-packing"></i>Production</button>
         <button type="button" class="seg" data-ap-tab="historique"><i class="fa-solid fa-table-list"></i>Historique</button>
         <button type="button" class="seg" data-ap-tab="expedition">Expédition</button>
-        <button type="button" class="seg adm-only" data-ap-tab="statistiques">Statistiques</button>
+        <button type="button" class="seg op-only" data-ap-tab="statistiques">Statistiques</button>
       </div>
 
       <!-- ==================== SOUS-SECTION 1 : COMMANDES ==================== -->
       <div id="apNotices" class="space-y-2" role="status"></div>
-      <section id="apTab_statistiques" class="panel p-4 hidden adm-only"></section>
+      <section id="apTab_statistiques" class="panel p-4 hidden"></section>
       <div id="apTab_commandes" class="space-y-5">
-        <section class="panel p-4 sm:p-5 space-y-4 op-only">
-          <h3 id="apOrderTitle" class="font-bold"><i class="fa-solid fa-plus text-amber-500 mr-1.5"></i>Nouvelle commande UPW</h3>
-          <form id="apOrderForm" class="space-y-4">
+        <details id="apOrderEditor" class="panel p-4 sm:p-5 op-only">
+          <summary class="cursor-pointer font-bold" style="padding:10px 12px;border-radius:10px;background:rgba(14,165,233,.12);color:var(--info)"><span id="apOrderTitle"><i class="fa-solid fa-plus text-amber-500 mr-1.5"></i>Nouvelle commande UPW</span></summary>
+          <form id="apOrderForm" class="space-y-4 mt-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div><label class="lbl" for="apClient">Agence / UPW *</label><input id="apClient" class="inp input-uppercase" list="apClients" required maxlength="160" placeholder="UPW…"></div>
               <div><label class="lbl" for="apCategory">Catégorie *</label><select id="apCategory" class="inp" required><option value="NATIONAL">National</option><option value="INTERNATIONAL">International</option></select></div>
@@ -149,7 +167,7 @@
               <button id="apOrderSave" type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i>Enregistrer la commande</button>
             </div>
           </form>
-        </section>
+        </details>
 
         <section class="space-y-3">
           <div class="flex flex-wrap items-center gap-2">
@@ -241,15 +259,7 @@
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-xs text-left align-middle">
-              <thead style="background:var(--bg-input)">
-                <tr class="font-bold uppercase tracking-wider text-[10px]" style="color:var(--text-muted)">
-                  <th class="p-3">Plage</th>
-                  <th class="p-3">Nombre</th>
-                  <th class="p-3 whitespace-nowrap">Heure de fin</th>
-                  <th class="p-3">Statut</th><th class="p-3">Machine</th>
-                  <th class="p-3">Opérateur</th>
-                </tr>
-              </thead>
+              
               <tbody id="apTraceRows" class="divide-y" style="border-color:var(--border)"></tbody>
             </table>
           </div>
@@ -269,10 +279,10 @@
   <script src="js/data-pages.js"></script>
   <script src="js/ap-calc.js"></script>
   <script src="js/ap-products.js"></script>
+  <script src="js/ap-grouping.js?v=5.2.0-fractions-1"></script>
   <script src="js/colisage-calc.js"></script>
   <script src="js/ap-trace.js"></script>
-  <script src="js/algerie-poste.js?v=4.0.25"></script>
-  <script src="js/nav.js?v=4.0.25"></script>
-  <script src="js/pwa.js"></script>
-</body>
+  <script src="js/algerie-poste.js?v=5.2.0-fractions-6"></script>
+  <script src="js/nav.js?v=5.2.0"></script>
+  </body>
 </html>

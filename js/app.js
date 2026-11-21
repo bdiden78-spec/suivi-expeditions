@@ -53,8 +53,45 @@ function toast(msg, type='info') {
   setTimeout(() => { el.classList.add('translate-y-4','opacity-0'); setTimeout(() => el.remove(), 300); }, 3500);
 }
 
-function openModal(id) { const m = document.getElementById(id); if (m) { m.classList.add('open'); setTimeout(() => m.querySelector('input,button')?.focus(), 50); } }
-function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+function updateEnvoisTabs(activeView) {
+  const bList = document.getElementById('tabBtnList');
+  const bNew = document.getElementById('tabBtnNew');
+  if (!bList || !bNew) return;
+  const isNew = activeView === 'new';
+  bList.classList.toggle('selected-view', !isNew);
+  bList.style.color = !isNew ? 'var(--text)' : 'var(--text-muted)';
+  bNew.classList.toggle('selected-view', isNew);
+  bNew.style.color = isNew ? 'var(--text)' : 'var(--text-muted)';
+}
+
+function openModal(id) {
+  if (id === 'expeditionModal') {
+    const list = document.getElementById('shipmentsListView');
+    const editor = document.getElementById('shipmentEditorPage');
+    if (list && editor) {
+      list.classList.add('hidden');
+      editor.classList.remove('hidden');
+      updateEnvoisTabs('new');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => editor.querySelector('input,button')?.focus(), 50);
+      return;
+    }
+  }
+  const m = document.getElementById(id); if (m) { m.classList.add('open'); setTimeout(() => m.querySelector('input,button')?.focus(), 50); }
+}
+function closeModal(id) {
+  if (id === 'expeditionModal') {
+    const list = document.getElementById('shipmentsListView');
+    const editor = document.getElementById('shipmentEditorPage');
+    if (list && editor) {
+      editor.classList.add('hidden');
+      list.classList.remove('hidden');
+      updateEnvoisTabs('list');
+      return;
+    }
+  }
+  document.getElementById(id)?.classList.remove('open');
+}
 function confirmDialog(msg) {
   return new Promise(resolve => {
     const m = $('#confirmModal'); m.querySelector('[data-msg]').textContent = msg;
@@ -67,12 +104,8 @@ function confirmDialog(msg) {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') $$('.modal-backdrop.open').forEach(m => m.classList.remove('open')); });
 $$('.modal-backdrop').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
 
-function syncThemeIcon() { $('#themeIcon').className = `fa-solid text-sm ${document.documentElement.classList.contains('light') ? 'fa-moon' : 'fa-sun'}`; }
-function toggleTheme() { 
-  const isLight = document.documentElement.classList.toggle('light'); 
-  lsSet(THEME_KEY, isLight ? 'light' : 'dark'); 
-  syncThemeIcon(); 
-}
+function syncThemeIcon() { if ($('#themeIcon')) $('#themeIcon').remove(); }
+function toggleTheme() {}
 
 function initSupabase() {
   const url = lsGet(CFG_URL) || SUPABASE_URL, key = lsGet(CFG_KEY) || SUPABASE_ANON;
@@ -80,7 +113,7 @@ function initSupabase() {
   if ($('#sbKey')) $('#sbKey').value = key;
   try {
     if (!window.supabase) throw new Error('SDK non chargé');
-    state.supabase = window.supabase.createClient(url, key);
+    state.supabase = typeof getLogiTrakClient === 'function' ? getLogiTrakClient(url, key) : window.supabase.createClient(url, key);
   } catch (error) { state.supabase = null; console.warn(error); }
 }
 
@@ -98,9 +131,19 @@ async function initAuth() {
       setTimeout(() => { if (state.supabase === client) syncAuth(session).catch(console.warn); }, 0);
     }
   }).data.subscription;
-  const { data, error } = await client.auth.getSession();
-  if (error) console.warn(error);
-  return syncAuth(data?.session || null);
+
+  // Lecture immédiate du localStorage + timeout de sécurité 400ms pour éviter tout blocage navigator.locks
+  let session = typeof getLogiTrakSession === 'function' ? getLogiTrakSession() : null;
+  if (!session) {
+    try {
+      const res = await Promise.race([
+        client.auth.getSession(),
+        new Promise(r => setTimeout(() => r({ data: { session: null } }), 400))
+      ]);
+      session = res?.data?.session;
+    } catch (e) { console.warn(e); }
+  }
+  return syncAuth(session || null);
 }
 
 function syncAuth(session) {
@@ -174,7 +217,8 @@ async function doLogin(e) {
     await openRequestedShipment();
     return;
   }
-  window.location.assign('index.html');
+  await syncAuth(loginSession);
+  await fetchData();
 }
 
 function requireOperator() {
@@ -187,6 +231,7 @@ function requireOperator() {
 
 function setEnvoisStatus(message) {
   const status = $('#envoisStatus');
+  if (!status) return;
   status.textContent = message;
   status.classList.toggle('hidden', !message);
 }
@@ -209,7 +254,8 @@ async function fetchData() {
     catch { state.expeditions = []; }
     message = state.expeditions.length ? 'Copie locale affichée. La base est indisponible.' : 'Chargement des envois impossible. Réessayez avec le bouton Actualiser.';
   }
-  $('#visitorBar').classList.toggle('hidden', state.isOperator || state.expeditions.length > 0);
+  const vBar = $('#visitorBar');
+  if (vBar) vBar.classList.toggle('hidden', state.isOperator || state.expeditions.length > 0);
   setEnvoisStatus(message);
   fillFilters();
   applyFilters();
@@ -227,8 +273,10 @@ async function fetchData() {
       if (item.destinataire) clients.add(item.destinataire.toUpperCase());
     }
   }
-  $('#clientsList').innerHTML = [...clients].map(c => '<option value="' + esc(c) + '">').join('');
-  $('#carriersList').innerHTML = [...carriers].map(c => '<option value="' + esc(c) + '">').join('');
+  const clList = $('#clientsList');
+  if (clList) clList.innerHTML = [...clients].map(c => '<option value="' + esc(c) + '">').join('');
+  const crList = $('#carriersList');
+  if (crList) crList.innerHTML = [...carriers].map(c => '<option value="' + esc(c) + '">').join('');
   fillReferenceOptions();
   if (state.isOperator) fillProductionReferences(state.supabase, refMemory).catch(console.warn);
 }
@@ -292,10 +340,20 @@ function applyFilters() {
   }
   const carr = $('#filterCarrier').value;
   const dest = $('#filterDest').value;
+  const statusSel = $('#filterStatus');
+  const status = statusSel ? statusSel.value : (state.onlyPending ? 'pending' : 'all');
+
+  // Si aucun envoi en attente, ne pas rester bloqué sur "pending"
+  if (state.onlyPending && pendingCount() === 0) {
+    state.onlyPending = false;
+    if (statusSel && statusSel.value === 'pending') statusSel.value = 'all';
+  }
 
   state.filtered = state.expeditions.filter(e => {
     if (year !== 'all' && !(e.date_envoi||'').startsWith(year)) return false;
-    if (state.onlyPending && isValidated(e)) return false;
+    if (status === 'valide' && !isValidated(e)) return false;
+    if (status === 'pending' && isValidated(e)) return false;
+    if (status === 'all' && state.onlyPending && isValidated(e)) return false;
     if (carr !== 'all' && e.transporteur !== carr) return false;
     if (dest !== 'all' && !(e.items||[]).some(it => (it.destinataire||'').toUpperCase().includes(dest))) return false;
     
@@ -337,9 +395,9 @@ function shipmentDisplayItems(items) {
       continue;
     }
     const spec=apProductSpec(packing.type), settings=apPackingSettings(packing.settings,spec);
-    const key=JSON.stringify([packing.orderId||packing.orderNumber||item.destinataire,item.destinataire,packing.type,settings,!!packing.settings?.regroupement_h2]);
+    const key=JSON.stringify([packing.groupId||packing.orderId||packing.orderNumber||item.destinataire,item.destinataire,packing.type,settings,!!packing.settings?.regroupement_h2]);
     if(!groups.has(key)) {
-      const group={item,spec,settings:packing.settings,order:packing.orderNumber,quantity:0,ranges:[]};
+      const group={item,spec,settings:packing.settings,order:packing.groupOrderNumbers||packing.orderNumber,quantity:0,ranges:[]};
       groups.set(key,group);
       visible.push(group);
     }
@@ -379,11 +437,20 @@ function shipmentDisplayItems(items) {
       quantite:String(entry.quantity),cartons:parts.reduce((total,part)=>total+part.nb,0)}];
   });
 }
-const cartonsOfItem = it => { const n = parseInt(it.cartons); return Number.isFinite(n) ? n : 1; };
+function cartonsOfItem(it) { const n = parseInt(it?.cartons); return Number.isFinite(n) ? n : 1; }
 function pendingCount() { return state.expeditions.filter(e => !isValidated(e)).length; }
 
+async function preflightShipment(id) {
+ const {data,error}=await state.supabase.rpc('lt_check_shipment',{p_id:id});
+ if(error){toast('Contrôle indisponible : '+error.message+'. Vérifiez la migration 5.2.0.','error');return false;}
+ const errors=[...new Set(data?.errors||[])],warnings=[...new Set(data?.warnings||[])];
+ if(errors.length){await confirmDialog('Validation impossible :\n'+errors.join('\n'),'Fermer','Retour');return false;}
+ if(warnings.length&&!await confirmDialog('Points à vérifier avant le départ :\n'+warnings.join('\n')+'\nConfirmer la validation ?'))return false;
+ return true;
+}
 async function validerEnvoi(id, ok = true) {
   if (!state.isAdmin) return toast('Seul un administrateur peut valider un envoi.', 'warning');
+  if(ok&&!await preflightShipment(id))return;
   const { error } = await state.supabase.rpc('valider_expedition', { p_id: id, p_valide: ok });
   if (error) return toast('Échec : ' + (error.message || error), 'error');
   toast(ok ? 'Envoi validé.' : 'Validation annulée : l\'envoi est de nouveau à valider.', 'success');
@@ -394,18 +461,32 @@ async function validerTout() {
   const n = pendingCount();
   if (!n) return toast('Aucun envoi à valider.', 'info');
   if (!await confirmDialog(`Valider les ${n} envoi(s) en attente ?`)) return;
+  for(const shipment of state.expeditions.filter(e=>!isValidated(e)))if(!await preflightShipment(shipment.id))return;
   const { data, error } = await state.supabase.rpc('valider_toutes_expeditions');
   if (error) return toast('Échec : ' + (error.message || error), 'error');
   toast(`${data ?? n} envoi(s) validé(s).`, 'success');
   state.onlyPending = false;
   await fetchData();
 }
-function showPending(on) { state.onlyPending = on; applyFilters(); }
+function showPending(on) {
+  state.onlyPending = Boolean(on);
+  const statusSel = $('#filterStatus');
+  if (statusSel) statusSel.value = on ? 'pending' : 'all';
+  applyFilters();
+}
 function renderValidationBar() {
   const bar = $('#validationBar'); if (!bar) return;
   const n = pendingCount();
   if (window.LTNavRefreshPending) window.LTNavRefreshPending(state.isOperator ? n : 0);
-  if (!state.isOperator || !n) { bar.classList.add('hidden'); return; }
+  if (!state.isOperator || !n) {
+    bar.classList.add('hidden');
+    if (state.onlyPending) {
+      state.onlyPending = false;
+      const statusSel = $('#filterStatus');
+      if (statusSel && statusSel.value === 'pending') statusSel.value = 'all';
+    }
+    return;
+  }
   bar.classList.remove('hidden');
   bar.innerHTML = `<div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:rgba(245,158,11,.18);color:#f59e0b"><i class="fa-solid fa-bell"></i></div>
       <div class="min-w-0"><div class="text-sm font-extrabold">${n} envoi(s) ${state.isAdmin ? 'à valider' : 'en attente de validation par un administrateur'}</div>
@@ -516,23 +597,40 @@ function switchView(v) {
   if (v === 'date') { dateBox.classList.remove('hidden'); tableBox.classList.add('hidden'); bD.className = active; bT.className = idle; bT.style.color = 'var(--text-muted)'; }
   else { dateBox.classList.add('hidden'); tableBox.classList.remove('hidden'); bT.className = active; bT.style.color = ''; bD.className = idle; bD.style.color = 'var(--text-muted)'; }
 }
-function resetFilters() { state.onlyPending = false; $('#searchInput').value = ''; $('#filterYear').value = 'all'; $('#filterCarrier').value = 'all'; $('#filterDest').value = 'all'; applyFilters(); }
+function resetFilters() {
+  state.onlyPending = false;
+  const statusSel = $('#filterStatus');
+  if (statusSel) statusSel.value = 'all';
+  $('#searchInput').value = '';
+  $('#filterYear').value = 'all';
+  $('#filterCarrier').value = 'all';
+  $('#filterDest').value = 'all';
+  applyFilters();
+}
 
 let rowCounter = 0;
 
 function nextNumEnvoi(dateStr) {
-  const y = (dateStr||'').slice(0,4) || String(new Date().getFullYear());
-  const re = new RegExp('^ENV' + y + '(\\d+)$'); 
+  let y = '', m = '';
+  if (dateStr && dateStr.length >= 7) {
+    y = dateStr.slice(2, 4);
+    m = dateStr.slice(5, 7);
+  } else {
+    const d = new Date();
+    y = String(d.getFullYear()).slice(-2);
+    m = String(d.getMonth() + 1).padStart(2, '0');
+  }
+  const prefix = `ENV${y}${m}-`;
+  const re = new RegExp('^' + prefix + '(\\d+)$');
   let max = 0;
-  state.expeditions.forEach(e => {
-    const m = re.exec(e.numero_bl || '');
-    if (m) max = Math.max(max, +m[1]);
+  (state.expeditions || []).forEach(e => {
+    const match = re.exec(e.numero_bl || '');
+    if (match) max = Math.max(max, +match[1]);
   });
-  return `ENV${y}${String(max+1).padStart(3,'0')}`;
+  return `${prefix}${String(max + 1).padStart(4, '0')}`;
 }
 
 function openExpeditionModal(id) {
-  if (!id && !state.isOperator) requestedShipment = {};
   if (!requireOperator()) return;
   const isEdit = !!id, exp = isEdit ? state.expeditions.find(e => e.id === id) : null;
   if (isEdit && !exp) return;
@@ -577,8 +675,13 @@ function packingFromDetail(d, qty) {
 }
 function refreshProdTag(tr) {
   const tg = tr.querySelector('[data-prodtag]'); if (!tg) return;
-  if (!tr.dataset.prod) { tg.classList.add('hidden'); tg.textContent = ''; return; }
   const d = getDetail(tr);
+  if (d && d.reception_id) {
+    tg.textContent = (d.type_entree === 'RETOUR' ? 'Retour SAV ' : 'Réception ') + (d.numero_reception || '') + (d.provenance ? ' • ' + d.provenance : '');
+    tg.classList.remove('hidden');
+    return;
+  }
+  if (!tr.dataset.prod) { tg.classList.add('hidden'); tg.textContent = ''; return; }
   let txt = 'OF ' + (tr.dataset.of || '');
   if (d && d.mixte) txt += ' • carton mixte' + (d.carton_mixte ? ' ' + d.carton_mixte : '') + (d.stock_box_id ? ' · ' + d.stock_box_id.slice(0, 8).toUpperCase() : '');
   else if (d && d.manual) txt += ' • cartons modifiés' + (window.LTColis.typesText(d) ? ' (' + window.LTColis.typesText(d) + ')' : '');
@@ -604,6 +707,7 @@ function addItemRow(item = {}) {
   tr.dataset.linkRef = String(item.reference || '').toUpperCase();
   const det = item.colisage_detail && Object.keys(item.colisage_detail).length ? item.colisage_detail : null;
   tr.dataset.detail = det ? JSON.stringify(det) : '';
+  if (det && det.reception_id) tr.dataset.reception = det.reception_id;
   if (det && det.mixte) tr.dataset.mixte = '1';
   if (det?.ap_production_id) {
     for (const field of ['reference','categorie','designation','destinataire','unite','cartons',...(!det.ap_pack?['quantite']:[])]) {
@@ -662,10 +766,10 @@ function addItemRow(item = {}) {
   const desInput = tr.querySelector('[data-field="designation"]');
   const unitInput = tr.querySelector('[data-field="unite"]');
 
-  // Si l'utilisateur change la référence d'une ligne importée, le lien avec la production est coupé
+  // Si l'utilisateur change la référence d'une ligne importée, le lien avec la production / réception est coupé
   refInput.addEventListener('input', () => {
-    if (tr.dataset.prod && refInput.value.trim().toUpperCase() !== tr.dataset.linkRef) {
-      tr.dataset.prod = ''; tr.dataset.of = ''; tr.dataset.detail = ''; tr.dataset.cartonsManual = ''; tr.dataset.mixte = '';
+    if ((tr.dataset.prod || tr.dataset.reception) && refInput.value.trim().toUpperCase() !== tr.dataset.linkRef) {
+      tr.dataset.prod = ''; tr.dataset.reception = ''; tr.dataset.of = ''; tr.dataset.detail = ''; tr.dataset.cartonsManual = ''; tr.dataset.mixte = '';
       const cin = tr.querySelector('[data-field="cartons"]'); cin.disabled = false; if (!cin.value) cin.value = '1';
       refreshProdTag(tr); updateModalTotals();
     }
@@ -706,7 +810,7 @@ function regroupAPCartons(rows) {
   for(const row of rows) {
     const detail=getDetail(row), packing=detail?.ap_pack;
     if(!packing?.orderId || !apProductSpec(packing.type)) continue;
-    const key=JSON.stringify([packing.orderId,packing.type,apPackingSettings(packing.settings,apProductSpec(packing.type))]);
+    const key=JSON.stringify([packing.groupId||packing.orderId,packing.type,apPackingSettings(packing.settings,apProductSpec(packing.type))]);
     if(!groups.has(key)) groups.set(key,[]);
     groups.get(key).push({row,detail,packing});
   }
@@ -728,8 +832,9 @@ function renderAPCartonSummary(rows) {
   for(const row of rows) {
     const packing=getDetail(row)?.ap_pack;
     if(!packing?.orderId) continue;
-    if(!groups.has(packing.orderId)) groups.set(packing.orderId,[]);
-    groups.get(packing.orderId).push(row);
+    const packingKey=packing.groupId||packing.orderId;
+    if(!groups.has(packingKey)) groups.set(packingKey,[]);
+    groups.get(packingKey).push(row);
   }
   box.replaceChildren();
   for(const group of groups.values()) {
@@ -739,7 +844,7 @@ function renderAPCartonSummary(rows) {
     const div=document.createElement('div');
     div.className='panel-soft p-3 flex flex-wrap items-center justify-between gap-2';
     const label=document.createElement('span');
-    label.textContent=[packing.orderNumber,group[0].querySelector('[data-field="destinataire"]').value,fmtNum(quantity)+' ID',cartons+' carton(s)'].filter(Boolean).join(' · ');
+    label.textContent=[packing.groupOrderNumbers||packing.orderNumber,group[0].querySelector('[data-field="destinataire"]').value,fmtNum(quantity)+' ID',cartons+' carton(s)'].filter(Boolean).join(' · ');
     const remove=document.createElement('button');
     remove.type='button'; remove.className='btn btn-secondary'; remove.textContent='Retirer';
     remove.onclick=()=>{ group.forEach(row=>row.remove()); updateModalTotals(); };
@@ -854,7 +959,7 @@ async function loadOperators() {
   if (error) return box.innerHTML = `<p class="py-3 text-rose-400">${esc(error.message)}</p>`;
   const me = (state.session?.user?.email || '').split('@')[0];
   box.innerHTML = (data||[]).map(o => `
-    <div class="py-2.5 flex items-center justify-between gap-2"><div class="min-w-0"><p class="font-semibold truncate">${esc(o.username)}</p><p class="text-[11px]" style="color:var(--text-muted)">${o.role === 'admin' ? 'Administrateur' : o.role === 'visionnaire' ? 'Visionnaire' : 'Opérateur'}</p></div>
+    <div class="py-2.5 flex items-center justify-between gap-2"><div class="min-w-0"><p class="font-semibold truncate">${esc(o.username)}</p><p class="text-[11px]" style="color:var(--text-muted)">${o.role === 'admin' ? 'Administrateur' : 'Opérateur'}</p></div>
     ${o.username === me ? '<span class="text-[11px]" style="color:var(--text-dim)">vous</span>' : `<button onclick="removeOperator('${esc(o.username)}')" class="btn btn-secondary"><i class="fa-solid fa-trash text-rose-400"></i>Supprimer</button>`}</div>`).join('') || '<p class="py-3 text-xs" style="color:var(--text-muted)">Aucun opérateur.</p>';
 }
 
@@ -1095,6 +1200,8 @@ async function availableAPShipmentItems(orderId, includeDraft) {
     readLogiTrakRows(state.supabase,'ap_productions'),
   ]);
   const byOrder=new Map(orders.map(order=>[order.id,order]));
+  const packingGroups=await APGrouping.load(state.supabase);
+  const wantedIds=orderId?APGrouping.members(orderId,packingGroups):null;
   if(orderId&&!apProductSpec(byOrder.get(orderId)?.type_produit)) throw new Error('Commande Algérie Poste introuvable ou type de produit manquant.');
   const reserved=new Map();
   const add=(id,qty)=>{ if(id) reserved.set(id,(reserved.get(id)||0)+Number(qty||0)); };
@@ -1107,18 +1214,24 @@ async function availableAPShipmentItems(orderId, includeDraft) {
     for(const row of $$('#itemsBody tr')) add(getDetail(row)?.ap_production_id,row.querySelector('[data-field="quantite"]').value);
   }
   const items=[];
+  for(const group of packingGroups){
+    if(wantedIds&&!group.commande_ids.some(id=>wantedIds.includes(id)))continue;
+    const availableIds=group.commande_ids.filter(id=>runs.some(run=>run.commande_id===id&&run.statut==='TERMINE'&&Number(run.quantite_imprimee)>(reserved.get(run.id)||0)));
+    if(availableIds.length>1){const error=APGrouping.check(availableIds,orders,runs,reserved);if(error)throw new Error('Regroupement de fractions : '+error);}
+  }
   for(const run of runs) {
-    if(run.statut!=='TERMINE'||(orderId&&run.commande_id!==orderId)) continue;
+    if(run.statut!=='TERMINE'||(wantedIds&&!wantedIds.includes(run.commande_id))) continue;
     const order=byOrder.get(run.commande_id);
     const spec=apProductSpec(order?.type_produit);
     const remaining=run.quantite_imprimee-(reserved.get(run.id)||0);
     if(!spec||remaining<=0) continue;
-    const settings={regroupement_h2:order.regroupement_h2,type_carton_ap:run.type_carton_ap,paquets_par_carton_ap:run.paquets_par_carton_ap,poids_paquet_ap:run.poids_paquet_ap};
+    const packingGroup=APGrouping.groupFor(order.id,packingGroups);
+    const settings={regroupement_h2:packingGroup?false:order.regroupement_h2,type_carton_ap:run.type_carton_ap,paquets_par_carton_ap:run.paquets_par_carton_ap,poids_paquet_ap:run.poids_paquet_ap};
     const parts=apShipmentParts(remaining,spec,settings);
     items.push({
       reference:spec.reference,categorie:'ALGERIE POSTE',designation:spec.label+' · Tirage '+run.numero_debut+' → '+run.numero_fin,
       destinataire:order.client,unite:'ID',quantite:String(remaining),cartons:parts.reduce((sum,part)=>sum+part.nb,0),
-      colisage_detail:{ap_production_id:run.id,ap_pack:{orderId:order.id,orderNumber:order.ap_numero,type:order.type_produit,settings},ap_range:{first:run.numero_debut,last:run.numero_fin},parts},
+      colisage_detail:{ap_production_id:run.id,ap_pack:{orderId:order.id,orderNumber:order.ap_numero,groupId:packingGroup?.id||null,groupOrderNumbers:packingGroup?packingGroup.commande_ids.map(id=>byOrder.get(id)?.ap_numero).filter(Boolean).join(' + '):null,type:order.type_produit,settings},ap_range:{first:/^\d{8}$/.test(APGrouping.number(run.numero_debut))?String(Number(APGrouping.number(run.numero_debut))+(reserved.get(run.id)||0)).padStart(8,'0').replace(/^(\d{2})(\d{3})(\d{3})$/,'$1 $2 $3'):run.numero_debut,last:run.numero_fin},parts},
     });
   }
   return items;
@@ -1140,7 +1253,7 @@ async function openAPShipmentPicker() {
     const items=await availableAPShipmentItems(null,true);
     const orders=new Map();
     for(const item of items) {
-      const id=item.colisage_detail.ap_pack.orderId;
+      const id=item.colisage_detail.ap_pack.groupId||item.colisage_detail.ap_pack.orderId;
       if(!orders.has(id)) orders.set(id,[]);
       orders.get(id).push(item);
     }
@@ -1150,7 +1263,7 @@ async function openAPShipmentPicker() {
     picker.innerHTML='<label>Commande en stock<select class="inp"><option value="">Choisir une commande</option>'+
       [...orders].map(([id,lines])=>{
         const first=lines[0], total=lines.reduce((sum,item)=>sum+Number(item.quantite),0);
-        return '<option value="'+esc(id)+'">'+esc((first.colisage_detail.ap_pack.orderNumber||'')+' · '+first.destinataire)+' · '+fmtNum(total)+' ID</option>';
+        return '<option value="'+esc(id)+'">'+esc((first.colisage_detail.ap_pack.groupOrderNumbers||first.colisage_detail.ap_pack.orderNumber||'')+' · '+first.destinataire)+' · '+fmtNum(total)+' ID</option>';
       }).join('')+'</select></label><button type="button" class="btn btn-primary">Importer la commande</button>';
     const select=picker.querySelector('select');
     picker.querySelector('button').onclick=()=>{
@@ -1176,23 +1289,44 @@ async function openAPShipmentPicker() {
 let requestedShipment = null;
 async function openRequestedShipment() {
   const request = requestedShipment;
-  if (!state.isOperator || !request) return;
+  if (!request) return;
   requestedShipment = null;
   if (request.apOrder) return openAPShipment(request.apOrder);
   openExpeditionModal();
   if (request.lots) await importLotsByIds(request.lots.split(',').filter(Boolean));
   if (request.carton) await importStockCartonById(request.carton);
+  if (request.reception) await importReceptionById(request.reception);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  syncThemeIcon(); if (window.Listes) { Listes.bind('#unitsList', 'unites'); Listes.bind('#categoriesList', 'categories'); } initSupabase(); try { if (state.supabase) await initAuth(); else await fetchData(); } catch (e) { console.warn(e); }
-  // Depuis l'accueil : envois.html?new=1 ouvre directement la fenêtre « Nouvel envoi »
+  const isAuth = (() => {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+          const v = JSON.parse(localStorage.getItem(localStorage.key(i)));
+          return !!((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email));
+        }
+      }
+    } catch (e) {}
+    return false;
+  })();
+  if (!isAuth) return;
+
+  syncThemeIcon();
+  if (window.Listes) { Listes.bind('#unitsList', 'unites'); Listes.bind('#categoriesList', 'categories'); }
+  initSupabase();
+  try { if (state.supabase) await initAuth(); else await fetchData(); } catch (e) { console.warn(e); }
+  
+  // Depuis l'accueil ou la production : envois.html?new=1 ouvre directement la page « Nouvel envoi »
   const q = new URLSearchParams(location.search);
-  if (q.has('new') || q.has('login') || q.has('admin')) history.replaceState(null, '', location.pathname);
-  if (q.has('lots') || q.has('carton')) history.replaceState(null, '', location.pathname);
-  if (q.get('new') === '1') {
-    requestedShipment = { lots: q.get('lots'), carton: q.get('carton'), apOrder: q.get('commande-ap') };
-    if (state.isOperator) await openRequestedShipment(); else requireOperator();
+  const isNew = q.get('new') === '1';
+  const hasLots = q.has('lots') || q.has('carton') || q.has('reception') || q.has('commande-ap');
+  if (isNew || hasLots) {
+    requestedShipment = { lots: q.get('lots'), carton: q.get('carton'), apOrder: q.get('commande-ap'), reception: q.get('reception') };
+    await openRequestedShipment();
+  }
+  if (q.has('new') || q.has('login') || q.has('admin') || hasLots) {
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
   }
   if (q.get('login') === '1') authAction();
   if (q.get('admin') === 'ops') openOperators();
@@ -1200,13 +1334,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /* ==========================================================
-   IMPORT DEPUIS LA PRODUCTION (v21)
+   IMPORT DEPUIS LA PRODUCTION & RÉCEPTIONS (v21 & v4027)
    - seuls les lots dont le colisage est rempli ET dont le reliquat est décidé peuvent partir
    - cartons calculés avec js/colisage-calc.js (cartons pleins + carton du reliquat choisi par l'opérateur)
    - reliquat « en stock » : il part dans un CARTON MIXTE (plusieurs références dans un seul carton)
+   - réceptions externes & retours : partent depuis l'usine avec traçabilité complète
    ========================================================== */
 state.production = [];
 state.stockCartons = [];
+state.receptions = [];
+
+function shippedReception(recId) {
+  const editing = $('#expId')?.value;
+  let sum = 0;
+  state.expeditions.forEach(e => {
+    if (editing && e.id === editing) return;
+    (e.items || []).forEach(it => {
+      const itRecId = it.reception_id || (it.colisage_detail && it.colisage_detail.reception_id);
+      if (itRecId === recId) {
+        sum += parseQty(it.quantite);
+      }
+    });
+  });
+  return sum;
+}
 
 function reservedStockFor(lotId) {
   const available = state.stockCartons.reduce((sum, box) => sum + (+box.contenu[lotId] || 0), 0);
@@ -1245,36 +1396,69 @@ function lotAvail(lot) {
 // Contrôles avant enregistrement : colisage validé, reliquat décidé, quantités <= reste, carton mixte <= 15 kg
 async function checkProductionLimits(items) {
   const ids = [...new Set(items.map(i => i.production_id).filter(Boolean))];
-  if (!ids.length || !state.supabase) return null;
-  await loadAvailableStock();
-  const { data, error } = await state.supabase.from('production').select('*').in('id', ids);
-  if (error || !data) return null;
-  for (const raw of data) {
-    const lot = { ...raw, quantite_produite: +raw.quantite_produite, qte_par_carton: +raw.qte_par_carton || 1 };
-    const label = `Lot ${lot.of_numero} (${lot.reference})`;
-    if (!lot.colisage_valide) return `${label} : le colisage n'est pas rempli. Remplissez-le dans la page Colisage avant d'expédier.`;
-    const reserved=shippedSplit(lot.id);
-    const remaining=lot.quantite_produite-reserved.n-reserved.m-reservedStockFor(lot.id);
-    const requested=items.filter(item=>item.production_id===lot.id).reduce((sum,item)=>sum+parseQty(item.quantite),0);
-    if(requested>remaining) return label+' : quantité supérieure au stock disponible.';
+  if (state.supabase && ids.length) {
+    await loadAvailableStock();
+    const { data, error } = await state.supabase.from('production').select('*').in('id', ids);
+    if (!error && data) {
+      for (const raw of data) {
+        const lot = { ...raw, quantite_produite: +raw.quantite_produite, qte_par_carton: +raw.qte_par_carton || 1 };
+        const label = `Lot ${lot.of_numero} (${lot.reference})`;
+        if (!lot.colisage_valide) return `${label} : le colisage n'est pas rempli. Remplissez-le dans la page Colisage avant d'expédier.`;
+        const reserved=shippedSplit(lot.id);
+        const remaining=lot.quantite_produite-reserved.n-reserved.m-reservedStockFor(lot.id);
+        const requested=items.filter(item=>item.production_id===lot.id).reduce((sum,item)=>sum+parseQty(item.quantite),0);
+        if(requested>remaining) return label+' : quantité supérieure au stock disponible.';
+      }
+    }
+  }
+  // Contrôle des réceptions externes & retours
+  for (const item of items) {
+    const recId = item.reception_id || item.colisage_detail?.reception_id;
+    if (recId) {
+      const rec = (state.receptions || []).find(r => r.id === recId);
+      if (rec) {
+        const remaining = rec.quantite_recue - shippedReception(recId);
+        const requested = items.filter(it => (it.reception_id === recId || it.colisage_detail?.reception_id === recId)).reduce((sum, it) => sum + parseQty(it.quantite), 0);
+        if (requested > remaining) {
+          return `Entrée ${rec.numero_reception} (${rec.reference || rec.designation}) : quantité saisie (${requested}) supérieure au stock restant (${remaining}).`;
+        }
+      }
+    }
   }
   return null;
 }
 
 /* ----- Fenêtre « Importer depuis la production » ----- */
 async function loadAvailableStock() {
-  const { data } = await state.supabase.from('cartons_stock').select('*').is('expedition_id', null).order('created_at');
-  state.stockCartons = data || [];
+  try {
+    const { data, error } = await state.supabase.from('cartons_stock').select('*').is('expedition_id', null).order('created_at');
+    state.stockCartons = (!error && data) ? data : [];
+  } catch (e) {
+    state.stockCartons = [];
+  }
 }
 
 async function loadProductionLots() {
   await loadAvailableStock();
-  const { data, error } = await state.supabase.from('production').select('*')
+  const prodRes = await state.supabase.from('production').select('*')
     .order('date_production', { ascending: false }).order('created_at', { ascending: false });
-  if (error) throw error;
-  state.production = (data || []).filter(l=>LTColis.categoryId(l.categorie)!=='AP').map(l => ({
-    ...l, quantite_produite: +l.quantite_produite, qte_par_carton: +l.qte_par_carton || 1, poids_carton: +l.poids_carton || 0,
+  if (prodRes.error) throw prodRes.error;
+
+  let recData = [];
+  try {
+    const recRes = await state.supabase.from('receptions_externes').select('*')
+      .order('date_reception', { ascending: false }).order('created_at', { ascending: false });
+    if (!recRes.error && recRes.data) recData = recRes.data;
+  } catch (e) {
+    recData = [];
+  }
+
+  state.production = (prodRes.data || []).filter(l=>LTColis.categoryId(l.categorie)!=='AP').map(l => ({
+    ...l, quantite_produite: +l.quantite_produite || 0, qte_par_carton: +l.qte_par_carton || 1, poids_carton: +l.poids_carton || 0,
     poids_bobine: +l.poids_bobine || 0, poids_carton_vide: +l.poids_carton_vide || 0, qte_reliquat: +l.qte_reliquat || 0,
+  }));
+  state.receptions = recData.map(r => ({
+    ...r, quantite_recue: +r.quantite_recue || 0, cartons: +r.cartons || 1
   }));
 }
 
@@ -1298,7 +1482,8 @@ async function openProdPicker() {
   try {
     await loadProductionLots();
   } catch (e) {
-    $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)"><i class="fa-solid fa-database text-amber-500 text-2xl mb-2 block"></i>Le module Production n\'est pas à jour dans la base.<br>Exécutez <b>sql/v21-colisage-reference.sql</b> dans Supabase (SQL Editor).</div>';
+    console.error('Erreur chargement production:', e);
+    $('#ppList').innerHTML = `<div class="p-8 text-center text-xs" style="color:var(--text-muted)"><i class="fa-solid fa-database text-amber-500 text-2xl mb-2 block"></i>Le module Production n'est pas à jour dans la base.<br>Exécutez <b>sql/v500-correctifs-envois-et-cartons.sql</b> dans Supabase (SQL Editor).<br><span class="text-rose-500 mt-2 block font-mono text-[11px]">${esc(e.message || e)}</span></div>`;
     return;
   }
   renderProdPicker();
@@ -1314,8 +1499,10 @@ function renderProdPicker() {
   const items = state.production.map(lot => ({ lot, av: lotAvail(lot) })).filter(x => x.av.blocked || x.av.normal > 0 || x.av.mixte > 0 || (!state.isAdmin && !x.lot.colisage_valide));
   const open = items.filter(x => (x.lot.quantite_produite - (shippedSplit(x.lot.id).n + shippedSplit(x.lot.id).m)) > 0);
   const boxes = state.stockCartons.filter(box => !$$('#itemsBody tr').some(row => row.dataset.stockBox === box.id));
-  if (!open.length && !boxes.length) {
-    $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-3xl mb-2 block" style="color:var(--text-dim)"></i>Aucun lot à expédier.<br>Saisissez la production, puis remplissez le colisage de la référence.</div>';
+  const availableRecs = (state.receptions || []).filter(r => (r.quantite_recue - shippedReception(r.id)) > 0);
+
+  if (!open.length && !boxes.length && !availableRecs.length) {
+    $('#ppList').innerHTML = '<div class="p-8 text-center text-xs" style="color:var(--text-muted)"><i class="fa-regular fa-folder-open text-3xl mb-2 block" style="color:var(--text-dim)"></i>Aucun lot ni produit à expédier.<br>Saisissez la production ou une réception externe pour constituer du stock.</div>';
     return;
   }
   const headOf = (lot, extra = '') => {
@@ -1387,12 +1574,42 @@ function renderProdPicker() {
     const label = 'Carton ' + box.type_carton + ' · ' + box.id.slice(0, 8).toUpperCase() + ' · ' + content;
     return '<label class="pp-row panel-soft p-3 flex gap-3 text-sm" data-stock-box="' + esc(box.id) + '" data-search="' + esc(label.toLowerCase()) + '"><input type="checkbox" class="pp-check"> ' + esc(label) + '</label>';
   }).join('');
+
+  let recHtml = '';
+  if (availableRecs.length) {
+    recHtml = availableRecs.map(r => {
+      const rest = r.quantite_recue - shippedReception(r.id);
+      const search = [r.numero_reception, r.provenance, r.reference, r.designation, r.categorie, r.client_destinataire].join(' ').toLowerCase();
+      const isRet = r.type_entree === 'RETOUR';
+      const badgeType = isRet
+        ? '<span class="badge st-part"><i class="fa-solid fa-rotate-left mr-1"></i>Retour SAV</span>'
+        : '<span class="badge st-new"><i class="fa-solid fa-truck mr-1"></i>Réception Externe</span>';
+      return `<div class="pp-row panel-soft p-3 flex flex-wrap items-center gap-3" data-reception="${esc(r.id)}" data-search="${esc(search)}">
+        <input type="checkbox" class="pp-check w-5 h-5 accent-indigo-500" aria-label="Sélectionner">
+        <div class="flex-1 min-w-[200px]">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-[11px] font-mono-code font-bold text-amber-500">${esc(r.numero_reception)}</span>
+            ${badgeType}
+            <span class="text-[10px] px-2 py-0.5 rounded-full" style="background:var(--bg-input);color:var(--text-muted)">Provenance : ${esc(r.provenance || '—')}</span>
+          </div>
+          <div class="text-xs mt-0.5"><span class="font-mono-code font-bold text-indigo-400">${esc(r.reference || '-')}</span> <span class="font-semibold">${esc(r.designation || '')}</span></div>
+          <div class="text-[11px]" style="color:var(--text-muted)">Client prévu : <b>${esc(r.client_destinataire || 'STOCK')}</b> · Dispo : <b>${fmtNum(rest)}</b> ${esc(r.unite)} • ${esc(r.type_carton || 'H2')}</div>
+        </div>
+        <div class="w-32"><label class="block text-[10px] font-bold mb-1" style="color:var(--text-muted)">Qté (${esc(r.unite)})</label>
+          <input class="inp text-right font-mono-code font-bold pp-qty" inputmode="numeric" pattern="[0-9]*" maxlength="9" value="${rest}" data-avail="${rest}"></div>
+        <div class="w-24"><label class="block text-[10px] font-bold mb-1" style="color:var(--text-muted)">Cartons</label>
+          <input type="number" min="1" step="1" class="inp text-center font-bold text-amber-400 pp-cartons" value="${r.cartons || 1}"></div>
+      </div>`;
+    }).join('');
+  }
+
   $('#ppList').innerHTML =
     (boxHtml ? '<h4 class="text-xs font-bold">Cartons déjà composés en stock</h4>' + boxHtml : '') +
-    ((normalHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mb-2" style="color:var(--text-muted)"><i class="fa-solid fa-box mr-1.5"></i>Lots à expédier en cartons</div><div class="space-y-2">${normalHtml}</div>` : '') +
+    (normalHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mb-2" style="color:var(--text-muted)"><i class="fa-solid fa-box mr-1.5"></i>Lots à expédier en cartons</div><div class="space-y-2">${normalHtml}</div>` : '') +
+    (recHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mt-5 mb-2" style="color:var(--text-muted)"><i class="fa-solid fa-truck-ramp-box mr-1.5"></i>Produits Reçus d’Ailleurs &amp; Retours Clients</div><div class="space-y-2">${recHtml}</div>` : '') +
     (mixteHtml ? `<div class="text-[11px] font-extrabold uppercase tracking-wider mt-5 mb-1" style="color:var(--text-muted)"><i class="fa-solid fa-warehouse mr-1.5"></i>Reliquats en stock — CARTON MIXTE</div>
-       <p class="text-[11px] mb-2" style="color:var(--text-dim)">Les reliquats cochés ci-dessous partent ensemble dans <b>un carton mixte du type choisi</b>. Pour choisir le type ou préparer plusieurs cartons, utilisez <b>Cartons en stock</b> dans Production. Limite de référence : ${window.LTColis.MAX_CARTON_KG} kg.</p><div class="space-y-2">${mixteHtml}</div>` : '') || (boxHtml ? '' :
-    '<div class="p-8 text-center text-xs" style="color:var(--text-muted)">Rien à expédier pour le moment.</div>'));
+       <p class="text-[11px] mb-2" style="color:var(--text-dim)">Les reliquats cochés ci-dessous partent ensemble dans <b>un carton mixte du type choisi</b>. Pour choisir le type ou préparer plusieurs cartons, utilisez <b>Cartons en stock</b> dans Production. Limite de référence : ${window.LTColis.MAX_CARTON_KG} kg.</p><div class="space-y-2">${mixteHtml}</div>` : '') ||
+    '<div class="p-8 text-center text-xs" style="color:var(--text-muted)">Rien à expédier pour le moment.</div>';
 }
 
 function filterProdPicker() {
@@ -1414,11 +1631,11 @@ document.addEventListener('input', e => {
     let d = digitsOnly(inp.value);
     if (d !== inp.value) { inp.value = d; flashError(inp); }
     if ((+d || 0) > avail) { inp.value = String(avail); flashError(inp); d = String(avail); }
-    if (!row.classList.contains('pp-mix')) {
+    if (!row.classList.contains('pp-mix') && !row.dataset.reception) {
       const lot = state.production.find(l => l.id === row.dataset.id);
       const pk = lot && packingFor(lot, d);
       const c = row.querySelector('.pp-cartons');
-      if (c.dataset.manual !== '1' && pk) c.value = pk.total;
+      if (c && c.dataset.manual !== '1' && pk) c.value = pk.total;
       const det = row.querySelector('.pp-smart-detail');
       if (det) det.textContent = pk ? window.LTColis.text(pk.parts) : '';
     }
@@ -1444,9 +1661,27 @@ function addLotRows(picked, dest) {
   // on retire la ligne vide du départ
   $$('#itemsBody tr').forEach(tr => {
     const v = f => tr.querySelector(`[data-field="${f}"]`).value.trim();
-    if (!v('reference') && !v('designation') && !parseQty(v('quantite')) && !tr.dataset.prod) tr.remove();
+    if (!v('reference') && !v('designation') && !parseQty(v('quantite')) && !tr.dataset.prod && !tr.dataset.reception) tr.remove();
   });
   picked.forEach(p => {
+    if (p.isReception) {
+      const r = p.reception;
+      const detail = {
+        reception_id: r.id,
+        numero_reception: r.numero_reception,
+        type_entree: r.type_entree,
+        provenance: r.provenance,
+        type_carton: r.type_carton || 'H2',
+        unite: r.unite,
+        manual: true
+      };
+      addItemRow({
+        reference: r.reference, categorie: r.categorie, designation: r.designation,
+        destinataire: dest || r.client_destinataire || 'STOCK', unite: r.unite, quantite: String(p.qty), cartons: p.cartons, cartonsManual: true,
+        production_id: '', of_numero: r.numero_reception, colisage_detail: detail,
+      });
+      return;
+    }
     const base = lotDetail(p.lot);
     let detail, cartons;
     if (p.mixte) {
@@ -1467,8 +1702,8 @@ function addLotRows(picked, dest) {
   updateModalTotals();
 }
 
-$('#prodPickerModal').addEventListener('input',previewMixedWeight);
-$('#prodPickerModal').addEventListener('click',()=>queueMicrotask(previewMixedWeight));
+$('#prodPickerModal')?.addEventListener('input', previewMixedWeight);
+$('#prodPickerModal')?.addEventListener('click', () => queueMicrotask(previewMixedWeight));
 async function importFromProduction() {
   const dest = $('#ppDest').value.trim().toUpperCase();
   const picked = [];
@@ -1479,6 +1714,23 @@ async function importFromProduction() {
       if (box) picked.push(...stockBoxLines(box));
       return;
     }
+    if (row.dataset.reception) {
+      const rec = (state.receptions || []).find(r => r.id === row.dataset.reception);
+      if (rec) {
+        const qty = parseQty(row.querySelector('.pp-qty').value);
+        const cInp = row.querySelector('.pp-cartons');
+        if (qty > 0) {
+          picked.push({
+            isReception: true,
+            reception: rec,
+            qty,
+            cartons: Math.max(1, parseInt(cInp.value) || 1),
+            manual: cInp.dataset.manual === '1'
+          });
+        }
+      }
+      return;
+    }
     const lot = state.production.find(l => l.id === row.dataset.id); if (!lot || (!lot.colisage_valide && !state.isAdmin)) return;
     const qty = parseQty(row.querySelector('.pp-qty').value);
     if (qty < 1) return;
@@ -1486,8 +1738,8 @@ async function importFromProduction() {
     const cInp = row.querySelector('.pp-cartons');
     picked.push({ lot, qty, cartons: Math.max(1, parseInt(cInp.value) || 1), manual: cInp.dataset.manual === '1', mixte: false });
   });
-  if (!picked.length) return toast('Cochez au moins un lot de production avec une quantité.', 'warning');
-  const selectedOFs=new Set(picked.filter(line=>!line.box).map(({lot})=>JSON.stringify([lot.of_numero,lot.reference,lot.client])));
+  if (!picked.length) return toast('Cochez au moins un lot ou produit avec une quantité.', 'warning');
+  const selectedOFs=new Set(picked.filter(line=>!line.box && !line.isReception).map(({lot})=>JSON.stringify([lot.of_numero,lot.reference,lot.client])));
   const loose=state.production.filter(lot=>lotAvail(lot).mixte>0&&
     selectedOFs.has(JSON.stringify([lot.of_numero,lot.reference,lot.client]))&&
     !picked.some(line=>line.mixte&&line.lot.id===lot.id));
@@ -1496,7 +1748,7 @@ async function importFromProduction() {
     const proceed=await confirmDialog('Reliquats en vrac pour '+labels+'. Vous pouvez les cocher et choisir un carton H1 ou H2. Ajouter les lignes sélectionnées sans ces reliquats ?');
     if(!proceed) return;
   }
-  const clients=[...new Set(picked.filter(line=>!line.box).map(line=>line.lot.client||'STOCK'))];
+  const clients=[...new Set(picked.filter(line=>!line.box).map(line=>line.isReception ? (line.reception.client_destinataire||'STOCK') : (line.lot.client||'STOCK')))];
   if(dest&&clients.length>1&&!await confirmDialog('Clients d’origine : '+clients.join(', ')+'. Remplacer ces destinataires par '+dest+' ?')) return;
   addLotRows(picked, dest);
   updateModalTotals();
@@ -1506,10 +1758,25 @@ async function importFromProduction() {
   if (!dest && picked.some(p => p.box && p.boxClient === 'STOCK')) toast('Vérifiez le destinataire des cartons mixtes.', 'info');
 }
 
+async function importReceptionById(id) {
+  try { await loadProductionLots(); } catch (e) { return toast('Données indisponibles.', 'error'); }
+  const rec = (state.receptions || []).find(r => r.id === id);
+  if (!rec) return toast('Entrée externe ou retour introuvable.', 'warning');
+  const rest = rec.quantite_recue - shippedReception(rec.id);
+  if (rest <= 0) return toast('Ce produit a déjà été intégralement expédié.', 'warning');
+  addLotRows([{ isReception: true, reception: rec, qty: rest, cartons: rec.cartons || 1, manual: false }], '');
+  toast(`Produit ${rec.reference || rec.designation} (${rec.numero_reception}) ajouté à l'envoi.`, 'success');
+}
+
 // Depuis la page Production : les lots cochés arrivent directement dans « Nouvel envoi » (quantité disponible en cartons)
 function stockBoxLines(box) {
-  const lines = Object.entries(box.contenu).map(([id, qty]) => ({ lot: state.production.find(l => l.id === id), qty, mixte: true, box }));
-  if (lines.some(line => !line.lot)) return [];
+  const lines = Object.entries(box.contenu || {}).map(([id, qty]) => {
+    let lot = state.production.find(l => l.id === id);
+    if (!lot) {
+      lot = { id, of_numero: 'LOT', reference: 'RELIQUAT', designation: 'Reliquat ' + id.slice(0, 8), unite: 'UN', client: 'STOCK', colisage_valide: true, quantite_produite: qty, qte_par_carton: qty };
+    }
+    return { lot, qty, mixte: true, box };
+  });
   const clients = new Set(lines.map(line => line.lot.client || 'STOCK'));
   const boxClient = clients.size === 1 ? [...clients][0] : 'STOCK';
   return lines.map(line => ({ ...line, boxClient }));
@@ -1517,11 +1784,20 @@ function stockBoxLines(box) {
 
 async function importStockCartonById(id) {
   try { await loadProductionLots(); } catch (error) { return toast(error.message, 'error'); }
-  const box = state.stockCartons.find(b => b.id === id);
+  let box = state.stockCartons.find(b => b.id === id);
+  if (!box && state.supabase) {
+    try {
+      const { data: bData } = await state.supabase.from('cartons_stock').select('*').eq('id', id).maybeSingle();
+      if (bData) {
+        box = bData;
+        state.stockCartons.push(box);
+      }
+    } catch (e) { console.warn('Recherche directe carton_stock:', e); }
+  }
   const lines = box ? stockBoxLines(box) : [];
   if (!lines.length) return toast('Carton indisponible. Rechargez le stock de production.', 'warning');
   addLotRows(lines, '');
-  if (lines[0].boxClient === 'STOCK') toast('Vérifiez le destinataire du carton.', 'info');
+  if (lines[0]?.boxClient === 'STOCK') toast('Vérifiez le destinataire du carton.', 'info');
 }
 
 async function importLotsByIds(ids) {

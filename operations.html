@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f8fafc">
+  <meta name="application-name" content="LogiTrak">
+  <meta name="mobile-web-app-capable" content="yes">
+  <script>if(location.protocol!=='file:'){const l=document.createElement('link');l.rel='manifest';l.href='./manifest.webmanifest';document.head.appendChild(l);}</script>
+  <link rel="apple-touch-icon" href="assets/app-icon-192.png">
+  <meta name="description" content="Paramètres et administration — LogiTrak Eurequat Algérie">
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <title>Suivi & alertes • LogiTrak</title>
+
+  <script>
+    (function () {
+      try {
+        var a = false;
+        for (var i = 0; i < localStorage.length; i++) {
+          if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+            var v = JSON.parse(localStorage.getItem(localStorage.key(i)));
+            if ((v && v.user && v.user.email) || (v && v.currentSession && v.currentSession.user && v.currentSession.user.email)) {
+              a = true; break;
+            }
+          }
+        }
+        if (!a) {
+          var cur = encodeURIComponent(location.pathname.split('/').pop() || 'machines.html');
+          location.replace('login.html?from=' + cur + (location.search ? encodeURIComponent(location.search) : ''));
+        }
+      } catch (e) {
+        location.replace('login.html');
+      }
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="css/style.css?v=5.0.0">
+</head>
+<body data-module="operations" class="min-h-screen flex flex-col">
+  <header class="app-header relative z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[5.5rem] py-2.5 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <a href="index.html" class="app-brand" title="Accueil LogiTrak"><img id="appBrandLogo" src="assets/logitrak-eurequat.jpg" alt="LogiTrak" width="2752" height="1536" decoding="async"></a>
+        <p class="site-label text-xs font-medium truncate hidden lg:block" style="color:var(--text-muted)"><i class="fa-solid fa-location-dot text-indigo-400 text-[10px] mr-1"></i>Usine Tlemcen • Suivi d'expéditions</p>
+      </div>
+      <div id="headerActions" class="flex items-center gap-2"></div>
+    </div>
+  </header>
+
+<main class="max-w-7xl mx-auto px-4 py-8 w-full flex-1 space-y-6"><div class="page-heading"><h1 class="text-2xl font-extrabold">Suivi & alertes</h1><p>Alertes, traçabilité et mouvements du stock.</p></div><div class="flex gap-2 flex-wrap"><button class="btn btn-secondary" data-view="alerts">Alertes</button><button class="btn btn-secondary" data-view="moves">Mouvements de stock</button><button class="btn btn-secondary" data-view="audit">Journal des modifications</button><button class="btn btn-primary" id="refreshOps">Actualiser</button></div><input class="inp" id="searchOps" placeholder="Rechercher une référence, un utilisateur, une opération…"><p id="opsStatus" role="status"></p><section id="opsContent" class="panel p-4 overflow-x-auto"></section><button class="btn btn-secondary" id="moreOps" hidden>Charger la suite</button></main><script src="js/config.js"></script><script src="js/calendar.js"></script><script src="js/data-pages.js"></script><script src="js/nav.js?v=5.2.0"></script><script src="js/pwa.js"></script><script src="js/operations.js?v=5.2.0"></script></body></html>
