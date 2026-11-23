@@ -173,6 +173,14 @@ html[data-production-view="recept"] .page-heading p{display:none}
         <section class="panel p-4 sm:p-5 space-y-4 op-only" style="border:1px solid rgba(16,185,129,.45);box-shadow:0 0 0 3px rgba(16,185,129,.12)">
           <details id="productionCreateEditor"><summary class="cursor-pointer" style="padding:10px 12px;border-radius:10px;background:rgba(16,185,129,.12);color:var(--success)"><span id="formTitle" class="text-sm font-extrabold"><i class="fa-solid fa-plus text-emerald-400 mr-2"></i>Nouveau lot de production</span></summary><div class="space-y-4 mt-4"><div class="flex justify-end"><button id="btnCancelEdit" type="button" onclick="resetForm()" class="btn btn-secondary hidden"><i class="fa-solid fa-xmark text-xs"></i>Annuler</button></div><input type="hidden" id="fType" value="ETIQUETTE">
           <div id="productionFields" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div id="resumeQuantityBox" class="col-span-2 lg:col-span-4 panel-soft p-3 hidden">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label class="lbl">Quantité déjà produite<input id="fPreviousQty" class="inp text-right font-mono-code" readonly aria-readonly="true"></label>
+                <label class="lbl">Cumul après cet ajout<input id="fResumeTotal" class="inp text-right font-mono-code" readonly aria-readonly="true"></label>
+                <div id="resumeAdminCorrection" hidden><label class="lbl" for="resumePreviousLot">Corriger un lot précédent (administrateur)</label><select id="resumePreviousLot" class="inp"></select><button type="button" class="btn btn-secondary mt-2" onclick="correctPreviousProduction()">Modifier ce lot</button></div>
+              </div>
+              <p class="text-xs mt-2">Le cumul déjà produit est conservé. Saisissez uniquement la nouvelle quantité dans « Quantité à ajouter ».</p>
+            </div>
             <div><label class="lbl" for="fOF">Ordre de fabrication (OF) * <span style="color:var(--text-dim);font-weight:500">MOyymm-xxxx</span></label><input id="fOF" class="inp font-mono-code input-uppercase" placeholder="MO2610-0000" maxlength="11" autocomplete="off" spellcheck="false" title="Format imposé : MOyymm-xxxx (ex. MO2610-0000)"></div>
             <div><label class="lbl" for="fRef">Référence * <span style="color:var(--text-dim);font-weight:500">(toucher = scanner)</span></label><input id="fRef" data-field="reference" class="inp font-mono-code input-uppercase" list="refList" placeholder="📷 Réf" autocomplete="off"><div id="fInlayHint" class="flex flex-wrap gap-1 mt-1" aria-live="polite"></div></div>
             <label id="fInlayField" hidden class="lbl">Inlay RFID<input id="fInlay" class="inp" maxlength="160"></label>
@@ -184,7 +192,7 @@ html[data-production-view="recept"] .page-heading p{display:none}
             <div><label class="lbl" id="lblQty" for="fQty">Quantité produite *</label><input id="fQty" class="inp text-right font-mono-code font-bold" inputmode="numeric" pattern="[0-9]*" maxlength="9" placeholder="Ex : 100" autocomplete="off" title="Nombre entier uniquement"></div>
             <div><label class="lbl" for="fDate">Date de production</label><input id="fDate" type="date" class="inp"></div>
             <div><label class="lbl" for="fClient">Client</label><input id="fClient" value="STOCK" class="inp input-uppercase" list="prodClients" placeholder="STOCK" autocomplete="off"><datalist id="prodClients"></datalist></div>
-            <div><label class="lbl" for="fLot">N° de Lot <span style="color:var(--text-dim);font-weight:500">(traçabilité)</span></label><input id="fLot" class="inp font-mono-code input-uppercase" placeholder="Ex : LOT2611-01" autocomplete="off"></div>
+            <div class="col-span-2 lg:col-span-4 panel-soft p-3"><div class="flex items-center justify-between gap-2 mb-2"><label class="lbl" for="fLot">Numéros de lot — facultatif</label><button type="button" class="btn btn-secondary" onclick="addProductBatch()">+ Ajouter un n° de lot</button></div><div id="productBatchRows" class="space-y-2"></div><p id="productBatchInfo" class="text-xs mt-2" role="status"></p></div>
             <!-- Colisage de la référence : rempli automatiquement depuis la page Colisage -->
             <div id="colisInfo" class="col-span-2 lg:col-span-4 px-4 py-3 rounded-xl text-xs" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--text-muted)"></div>
 
@@ -903,7 +911,7 @@ html[data-production-view="recept"] .page-heading p{display:none}
       const u = $('#fUni').value || 'UN';
       const lblTarget = $('#lblTarget');
       if (lblTarget) lblTarget.textContent = `Quantité à Produire (${u}) *`;
-      $('#lblQty').textContent = `Quantité produite (${u}) *`;
+      $('#lblQty').textContent = state.resumeId ? `Quantité à ajouter (${u}) *` : `Quantité produite (${u}) *`;
     }
     function applyCategoryUI(resetUnit) {
       const type = typeFromCat($('#fCat').value);
@@ -914,6 +922,7 @@ html[data-production-view="recept"] .page-heading p{display:none}
       }
       refreshLabels();
       renderColisInfo();
+      updateProductBatchInfo();
     }
 
     /* ----- Ordre de fabrication verrouillé : MOyymm-xxxx ----- */
@@ -1338,6 +1347,72 @@ html[data-production-view="recept"] .page-heading p{display:none}
       if (!info) return;
       info.textContent = 'Les quantités produites sont ajoutées au stock par référence. Le choix des cartons se fait lors de la préparation de l’envoi.';
     }
+    function productBatchPrefix(){
+      const category=String($('#fCat').value||'').toUpperCase(),ref=String($('#fRef').value||'').toUpperCase();
+      const year=String($('#fDate').value||logitrakToday()).slice(2,4);
+      if(category.includes('PVC')||ref.startsWith('PVC'))return 'CL'+year+'-';
+      if(category.includes('RFID'))return 'RFL'+year+'-';
+      if(category.includes('RUBAN')||category.includes('TTR'))return 'RL'+year+'-';
+      if(category.includes('ETIQUET')||category.includes('ÉTIQUET'))return 'EL'+year+'-';
+      return '';
+    }
+    function refreshProductBatchPrefixes(){
+      const prefix=productBatchPrefix();
+      document.querySelectorAll('#productBatchRows > div').forEach(row=>{
+        const number=row.querySelector('[data-batch="number"]');
+        const badge=row.querySelector('[data-batch="prefix"]');
+        if(!number||!badge)return;
+        const match=number.value.match(/^(?:RFL|EL|RL|CL)[0-9]{2}-([0-9]{4})$/);
+        if(prefix&&match)number.value=match[1];
+        badge.textContent=prefix;badge.hidden=!prefix;
+        number.maxLength=prefix?4:100;number.placeholder=prefix?'0000':'N° de lot';
+        number.inputMode=prefix?'numeric':'text';
+      });
+    }
+    function addProductBatch(value = {}) {
+      const box=document.getElementById('productBatchRows');
+      const row=document.createElement('div');row.className='flex flex-wrap items-center gap-2';
+      const number=document.createElement('input');number.type='text';number.className='inp font-mono-code flex-1';number.dataset.batch='number';number.placeholder='N° de lot';number.maxLength=100;number.value=value.numero||'';number.setAttribute('aria-label','Numéro de lot');
+      const quantity=document.createElement('input');quantity.type='number';quantity.min='1';quantity.max='2147483647';quantity.step='1';quantity.className='inp text-right font-mono-code';quantity.style.width='180px';quantity.dataset.batch='quantity';quantity.placeholder='Quantité (facultative)';quantity.value=value.quantite??'';quantity.setAttribute('aria-label','Quantité de ce lot');
+      const prefix=document.createElement('span');prefix.dataset.batch='prefix';prefix.className='font-mono-code font-bold';
+      const remove=document.createElement('button');remove.type='button';remove.className='btn btn-secondary';remove.textContent='Retirer';remove.onclick=()=>{row.remove();syncBatchInputId();updateProductBatchInfo();};
+      number.oninput=quantity.oninput=updateProductBatchInfo;row.append(prefix,number,quantity,remove);box.append(row);syncBatchInputId();refreshProductBatchPrefixes();updateProductBatchInfo();
+    }
+    function syncBatchInputId(){
+      document.querySelectorAll('#productBatchRows [data-batch="number"]').forEach((input,index)=>{input.id=index===0?'fLot':'';});
+    }
+    function readProductBatches(qty) {
+      const values=[],seen=new Set();let assigned=0;
+      for(const row of document.querySelectorAll('#productBatchRows > div')){
+        const suffix=row.querySelector('[data-batch="number"]').value.trim().toUpperCase();
+        const prefix=productBatchPrefix();
+        const numero=suffix?(prefix+suffix):'';
+        const raw=row.querySelector('[data-batch="quantity"]').value.trim();
+        if(!numero&&!raw)continue;
+        if(!numero)throw Error('Renseignez le numéro du lot associé à la quantité.');
+        if(prefix&&!/^[0-9]{4}$/.test(suffix))throw Error('Saisissez exactement 4 chiffres après '+prefix+' pour ce lot.');
+        if(seen.has(numero))throw Error('Le numéro de lot '+numero+' est saisi deux fois. Regroupez ses quantités.');
+        seen.add(numero);const quantite=raw===''?null:Number(raw);
+        if(quantite!==null&&(!Number.isSafeInteger(quantite)||quantite<1||quantite>2147483647))throw Error('La quantité du lot '+numero+' doit être un entier positif.');
+        assigned+=quantite||0;values.push({numero,quantite});
+      }
+      if(assigned>qty)throw Error('Les quantités des lots ('+assigned+') dépassent la quantité produite ou ajoutée ('+qty+').');
+      return values;
+    }
+    function setProductBatches(lot) {
+      document.getElementById('productBatchRows').replaceChildren();
+      const batches=Array.isArray(lot?.lots_tracabilite)&&lot.lots_tracabilite.length?lot.lots_tracabilite:lot?.numero_lot?[{numero:lot.numero_lot,quantite:null}]:[{}];
+      batches.forEach(addProductBatch);
+    }
+    function updateProductBatchInfo(){
+      refreshProductBatchPrefixes();
+      const qty=intOf($('#fQty').value);
+      try{const batches=readProductBatches(qty);const assigned=batches.reduce((n,b)=>n+(b.quantite||0),0);$('#productBatchInfo').textContent=batches.length+' lot(s) · '+assigned+' unité(s) affectée(s) sur '+qty+'. Les quantités non affectées restent en stock.';$('#productBatchInfo').style.color='var(--text-muted)';}
+      catch(error){$('#productBatchInfo').textContent=error.message;$('#productBatchInfo').style.color='var(--danger)';}
+    }
+    function productBatchLabel(lot){
+      return Array.isArray(lot.lots_tracabilite)&&lot.lots_tracabilite.length?lot.lots_tracabilite.map(batch=>batch.numero+(batch.quantite!==null?' ('+fmtNum(batch.quantite)+' '+(lot.unite||'UN')+')':'')).join(' · '):lot.numero_lot||lot.id?.slice(0,8)||'—';
+    }
     function resetForm() {
       if ($('#productionCreateEditor')) $('#productionCreateEditor').open=false;
       document.getElementById("fInlay").value="";
@@ -1348,9 +1423,11 @@ html[data-production-view="recept"] .page-heading p{display:none}
       $('#fCalcGap').value=3;
       state.editId = null;
       state.resumeId = null;
+      updateResumeQuantities();
       delete $('#fClient').dataset.manual;
       ['#fRef', '#fDes', '#fQty', '#fClient', '#fLot'].forEach(s => { if ($(s)) $(s).value = ''; });
       $('#fClient').value='STOCK';
+      setProductBatches(null);
       $('#fDate').value = new Date().toISOString().slice(0, 10);
       $('#fOF').readOnly=false;
       $('#fOF').value = ofPrefix($('#fDate').value);
@@ -1374,6 +1451,7 @@ html[data-production-view="recept"] .page-heading p{display:none}
       if ($('#productionCreateEditor')) $('#productionCreateEditor').open=true;
       state.editId = resume ? null : id;
       state.resumeId = resume ? id : null;
+      updateResumeQuantities();
       $('#fOF').readOnly=!state.isAdmin&&(resume||!l.of_numero.endsWith('-0000'));
       $('#fOF').value = l.of_numero || '';
       $('#fTarget').value=l.objectif_of||'';
@@ -1383,9 +1461,10 @@ html[data-production-view="recept"] .page-heading p{display:none}
       Listes.setValue('#fCat', l.categorie || '');
       $('#fDes').value = l.designation || '';
       $('#fClient').value = l.client || '';
-      if ($('#fLot')) $('#fLot').value = l.numero_lot || '';
+      setProductBatches(resume?null:l);
       Listes.setValue('#fUni', l.unite || 'UN');
       $('#fQty').value = l.quantite_produite;
+      updateProductBatchInfo();
       $('#fDate').value = l.date_production || '';
       if ($('#fPlaque')) $('#fPlaque').value = l.plaque_id || '';
       if ($('#fBobineMere')) $('#fBobineMere').value = l.bobine_mere_id || '';
@@ -1401,8 +1480,13 @@ html[data-production-view="recept"] .page-heading p{display:none}
 
     // Colonnes du colisage recopiées de la fiche de la référence dans le lot (copie figée)
     function colisageColumns(f, qty) {
-      const qpc = f.qte_par_carton, R = qty % qpc;
-      const lot = lotFromFiche(f, qty);
+      const qpc = Math.max(1, intOf(f.qte_par_carton)), R = qty % qpc;
+      const lot = {
+        quantite_produite: qty, qte_par_carton: qpc, type_carton: f.type_carton,
+        poids_bobine: Number(f.poids_bobine) || 0,
+        poids_carton_vide: Number(f.poids_carton_vide) || 0,
+        poids_carton: 0, reliquat_carton: ''
+      };
       return {
         type_produit: f.type_produit, matiere: f.matiere || '', mandrin: f.mandrin || '', etq_par_bobine: f.etq_par_bobine || 0,
         cartes_par_paquet: f.cartes_par_paquet || 100, dim_produit: f.gabarit || '', gabarit: f.gabarit || '',
@@ -1438,12 +1522,14 @@ html[data-production-view="recept"] .page-heading p{display:none}
       const inlay=document.getElementById('fInlay').value.trim();
       if(traits.rfid&&!inlay) return bad('#fInlay','Renseignez l’inlay RFID utilisé.');
       
+      let batches;
+      try { batches=readProductBatches(qty); } catch(error) { return toast(error.message,'warning'); }
       const calculated=recalcDropsAndLinear();
       const dropsData={...calculated,bobine_mere_id:null,lineaire_total_consomme_m:0};
       const core = {
         inlay:traits.rfid?inlay:'',
         of_numero: of, reference: ref, categorie: up('#fCat'), designation: des, client: up('#fClient')||'STOCK', gabarit:$('#fCut').value.trim().toUpperCase(), dim_produit:$('#fCut').value.trim().toUpperCase(),
-        numero_lot: up('#fLot'),
+        numero_lot: batches.map(batch=>batch.numero).join(' · '), lots_tracabilite: batches,
         type_produit: $('#fType').value || 'ETIQUETTE', unite: $('#fUni').value,
         objectif_of: Number($('#fTarget').value)||null,
         quantite_produite: qty, date_production: $('#fDate').value || new Date().toISOString().slice(0, 10),
@@ -1583,15 +1669,35 @@ html[data-production-view="recept"] .page-heading p{display:none}
       render();
     }
 
+    function previousProductionRows(lot) {
+      return state.lots.filter(row=>row.of_numero===lot.of_numero && row.reference===lot.reference && (row.client||'STOCK')===(lot.client||'STOCK'));
+    }
+    function updateResumeQuantities() {
+      const lot=state.lots.find(row=>row.id===state.resumeId);
+      $('#resumeQuantityBox').classList.toggle('hidden',!lot);
+      if(!lot) return;
+      const previous=previousProductionRows(lot).reduce((sum,row)=>sum+Number(row.quantite_produite||0),0);
+      $('#fPreviousQty').value=fmtNum(previous)+' '+($('#fUni').value||'UN');
+      $('#fResumeTotal').value=fmtNum(previous+intOf($('#fQty').value))+' '+($('#fUni').value||'UN');
+      $('#resumeAdminCorrection').hidden=!state.isAdmin;
+      if(state.isAdmin)$('#resumePreviousLot').innerHTML=previousProductionRows(lot).map(row=>'<option value="'+esc(row.id)+'">'+esc(row.date_production)+' · '+fmtNum(row.quantite_produite)+' '+esc(row.unite||'UN')+'</option>').join('');
+    }
+    function correctPreviousProduction() {
+      if(!state.isAdmin)return;
+      const id=$('#resumePreviousLot').value;
+      if(id)editLot(id);
+    }
     function resumeOF(id) {
       if(!state.isOperator) return;
       const lot=state.lots.find(row=>row.id===id);
       if(!lot) return;
       editLot(id,true);
-      $('#btnSave').textContent='Enregistrer le nouveau lot';
+      $('#btnSave').textContent='Enregistrer la quantité ajoutée';
       $('#fQty').value='';
+      setProductBatches(null);
       $('#fDate').value=logitrakToday();
       $('#formTitle').textContent='Reprendre l’OF '+lot.of_numero;
+      refreshLabels();updateResumeQuantities();
       $('#fQty').focus();
     }
     function render() {
@@ -1841,7 +1947,7 @@ html[data-production-view="recept"] .page-heading p{display:none}
           type: 'OF',
           id: lot.id,
           numero: lot.of_numero || '(Sans N° OF)',
-          numero_lot: lot.numero_lot || (lot.id ? lot.id.slice(0, 8) : '—'),
+          numero_lot: productBatchLabel(lot),
           client: lot.client || 'STOCK',
           date: lot.date_production || (lot.created_at ? lot.created_at.slice(0, 10) : ''),
           quantite_produite: lot.quantite_produite,
@@ -3238,14 +3344,14 @@ html[data-production-view="recept"] .page-heading p{display:none}
       } catch (e) {
         return showGate('<h3 class="text-base font-extrabold">Base indisponible</h3><p class="text-xs" style="color:var(--text-muted)">Impossible de joindre Supabase. Vérifiez votre connexion internet.</p>');
       }
-      $('#fQty').addEventListener('input', e => { cleanInt(e.target); renderColisInfo(); recalcDropsAndLinear(); });
+      $('#fQty').addEventListener('input', e => { cleanInt(e.target); updateResumeQuantities(); updateProductBatchInfo(); renderColisInfo(); recalcDropsAndLinear(); });
       $('#fTarget').addEventListener('input', () => recalcDropsAndLinear());
       $('#fCat').addEventListener('change', () => {
         applyCategoryUI(true);
       });
-      $('#fUni').addEventListener('change', () => { refreshLabels(); renderColisInfo(); });
+      $('#fUni').addEventListener('change', () => { refreshLabels(); updateResumeQuantities(); renderColisInfo(); });
       $('#fOF').addEventListener('input', e => { e.target.value = state.isAdmin ? e.target.value.toUpperCase() : formatOF(e.target.value); });
-      $('#fDate').addEventListener('change', () => { if (/^MO\d{0,4}-?$/.test($('#fOF').value) && !state.editId) $('#fOF').value = ofPrefix($('#fDate').value); });
+      $('#fDate').addEventListener('change', () => { updateProductBatchInfo(); if (/^MO\d{0,4}-?$/.test($('#fOF').value) && !state.editId) $('#fOF').value = ofPrefix($('#fDate').value); });
       $('#fRef').addEventListener('change', onRefChange);
       $('#fClient').addEventListener('input', e => { e.target.dataset.manual = '1'; });
       // Saisie ou scan de la référence : dès qu'elle correspond à une fiche de colisage, les détails se remplissent

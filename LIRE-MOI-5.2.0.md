@@ -32,3 +32,13 @@ Avant validation d’un envoi : contrôle des quantités, transporteur, destinat
 - Vérifier les commandes AP, le regroupement des fractions et l’installation depuis HTTPS.
 
 Les scripts JavaScript et les ressources locales ont été vérifiés, avec des simulations du précontrôle et du regroupement AP. La migration SQL n’a pas été exécutée sur votre base depuis cette session ; son application et les parcours réels restent à confirmer sur votre environnement.
+
+## Complément : plusieurs numéros de lot par production
+
+Exécuter également sql/v520-lots-tracabilite.sql avant de publier cette correction.
+Chaque numéro de lot et sa quantité sont facultatifs. Une quantité renseignée nécessite un numéro ; les quantités affectées ne peuvent pas dépasser la quantité produite. Le solde peut rester sans lot renseigné.
+Les lots sont conservés à la modification ; une reprise démarre avec de nouvelles lignes facultatives pour la quantité ajoutée. Les lots des productions précédentes restent inchangés.
+L’affichage du stock présente les numéros et leurs quantités. Cette saisie ne réserve pas une quantité à expédier par numéro de lot : elle documente la fabrication.
+La correction d’enregistrement « lotFromFiche is not defined » est également incluse.
+
+Les numéros suivent désormais ELaa-xxxx (étiquettes), RLaa-xxxx (rubans), RFLaa-xxxx (étiquettes RFID), CLaa-xxxx (cartes PVC). L’année aa provient de la date de production. L’opérateur saisit exactement les quatre chiffres ; aucun compteur n’est généré. Si v520-lots-tracabilite.sql a déjà été appliqué avant cette modification, le réexécuter pour actualiser le contrôle de format (sans effacer les données).
