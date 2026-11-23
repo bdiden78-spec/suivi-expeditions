@@ -711,3 +711,4 @@
 })();
 
 (()=>{const add=()=>{const h=document.getElementById('headerActions');if(h&&!document.getElementById('operationsLink')){const a=document.createElement('a');a.id='operationsLink';a.href='operations.html';a.className='nav-btn';a.innerHTML='<i class="fa-solid fa-bell"></i><span>Suivi & alertes</span>';h.append(a);}};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',add);else add();})();
+(()=>{const src=new URL('pointrak-download.js?v=5.2.0-1',document.currentScript.src);const script=document.createElement('script');script.src=src.href;document.head.append(script);})();
