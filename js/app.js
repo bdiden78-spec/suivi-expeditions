@@ -536,7 +536,7 @@ function render() {
           : `<button onclick="validerEnvoi('${esc(e.id)}', true)" class="btn btn-primary" style="padding:6px 12px" title="Valider cet envoi"><i class="fa-solid fa-check"></i><span class="hidden sm:inline">Valider</span></button>`)
       : '';
     const statusBadge = validated
-      ? `<span class="badge" title="${esc(e.valide_at ? 'Validé le ' + new Date(e.valide_at).toLocaleString('fr-FR') : '')}" style="background:var(--success-bg);color:var(--success);border-color:var(--success)"><i class="fa-solid fa-circle-check"></i>Validé${e.valide_par && e.valide_par !== '(historique)' ? ' par ' + esc(e.valide_par) : ''}</span>`
+      ? `<span class="badge" title="${esc(e.valide_at ? 'Validé le ' + new Date(e.valide_at).toLocaleString('fr-FR') : '')}" style="background:var(--success-bg);color:var(--success);border-color:var(--success)"><i class="fa-solid fa-circle-check"></i>Validé${e.valide_par === 'Automatique (24 h)' ? ' (24h)' : e.valide_par && e.valide_par !== '(historique)' ? ' par ' + esc(e.valide_par) : ''}</span>`
       : `<span class="badge shipment-in-progress"><i aria-hidden="true"></i>En cours</span>`;
     const editBtn = canEdit 
       ? `<button onclick="openExpeditionModal('${esc(e.id)}')" class="op-only btn-icon" title="Modifier"><i class="fa-solid fa-pen-to-square text-amber-400"></i></button>
