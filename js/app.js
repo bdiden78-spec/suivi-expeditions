@@ -438,11 +438,15 @@ function shipmentDisplayItems(items) {
   });
 }
 function cartonsOfItem(it) { const n = parseInt(it?.cartons); return Number.isFinite(n) ? n : 1; }
+function shipmentAutoValidationDate(expedition) {
+ const created=Date.parse(expedition.created_at);return Number.isFinite(created)?new Date(created+24*3600000):null;
+}
+function shipmentAutoValidationLabel(expedition){const due=shipmentAutoValidationDate(expedition);return due?'Validation automatique prévue le '+due.toLocaleString('fr-FR',{timeZone:'Africa/Algiers',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'Heure de création indisponible';}
 function pendingCount() { return state.expeditions.filter(e => !isValidated(e)).length; }
 
 async function preflightShipment(id) {
  const {data,error}=await state.supabase.rpc('lt_check_shipment',{p_id:id});
- if(error){toast('Contrôle indisponible : '+error.message+'. Vérifiez la migration 5.2.0.','error');return false;}
+ if(error){toast('Contrôle indisponible : '+error.message+'. Vérifiez la migration 5.2.1.','error');return false;}
  const errors=[...new Set(data?.errors||[])],warnings=[...new Set(data?.warnings||[])];
  if(errors.length){await confirmDialog('Validation impossible :\n'+errors.join('\n'),'Fermer','Retour');return false;}
  if(warnings.length&&!await confirmDialog('Points à vérifier avant le départ :\n'+warnings.join('\n')+'\nConfirmer la validation ?'))return false;
@@ -547,7 +551,7 @@ function render() {
               <span class="text-[9px] font-black uppercase leading-none">${esc(dayName(e.date_envoi))}</span><span class="text-sm font-black leading-none mt-1">${esc(dayNumber(e.date_envoi))}</span>
             </div>
             <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2"><h3 class="font-extrabold text-sm sm:text-base">${esc(fmtDate(e.date_envoi))}</h3><span class="badge font-mono-code" style="background:var(--info-bg);color:var(--info);border-color:var(--info)">${esc(e.numero_bl || 'SANS NUM')}</span>${statusBadge}</div>
+              <div class="flex flex-wrap items-center gap-2"><h3 class="font-extrabold text-sm sm:text-base">${esc(fmtDate(e.date_envoi))}</h3><span class="badge font-mono-code" style="background:var(--info-bg);color:var(--info);border-color:var(--info)">${esc(e.numero_bl || 'SANS NUM')}</span>${statusBadge}</div>${!validated?`<p class="text-xs mt-1" style="color:var(--text-muted)">${esc(shipmentAutoValidationLabel(e))}</p>`:''}
               <div class="flex flex-wrap items-center gap-2 mt-1 text-xs" style="color:var(--text-muted)"><span class="inline-flex items-center gap-1 font-semibold" style="color:var(--text)"><i class="fa-solid fa-truck text-indigo-400 text-[11px]"></i>${esc(e.transporteur)}</span><span>•</span><span class="font-bold text-amber-400"><i class="fa-solid fa-box text-[11px]"></i> ${cartons} carton(s)</span><span>•</span><span>${count} article(s)</span></div>
             </div>
           </div>
@@ -907,10 +911,26 @@ function collectItems() {
       production_id: tr.dataset.prod || '', type_carton: window.LTColis.typesText(d), poids_carton: 0, of_numero: tr.dataset.of || '', colisage_detail: d || {} };
   }).filter(it => it.reference || it.designation);
 }
+let savingShipment=false;
 async function saveExpedition() {
+  if(savingShipment)return;
+  savingShipment=true;
+  try { await saveExpeditionOnce(); } finally { savingShipment=false; }
+}
+async function saveExpeditionOnce() {
   if (!requireOperator()) return;
   const dateVal = $('#formDate').value; if (!dateVal) return toast("Date d'expédition requise.", "error");
-  const items = collectItems(); if (!items.length) return toast("Renseignez au moins un article.", "error");
+  let items = collectItems();
+  if(!items.length&&!$('#apOrderPicker').hidden){
+    const selection=$('#apOrderPicker').querySelector('select');
+    if(!selection?.value)return toast('Choisissez une commande Algérie Poste à importer.','warning');
+    const button=$('#apOrderPicker').querySelector('button');
+    if(button.disabled)return toast('Import en cours. Patientez avant d’enregistrer.','info');
+    await button.onclick();
+    items=collectItems();
+    if(!items.length)return;
+  }
+  if (!items.length) return toast("Ajoutez un article ou importez une commande avant d’enregistrer.", "error");
   const badQty = firstBadQuantity();
   if (badQty) { badQty.classList.add('inp-error'); badQty.focus(); return toast("Quantité invalide : saisissez un nombre entier supérieur à 0 (sans virgule).", "error"); }
   
@@ -1194,6 +1214,7 @@ async function syncData(button) {
 function apShipmentParts(quantity, spec, settings) {
   return apCartons(quantity,spec,settings).map(group=>({type:group.carton,nb:group.count,qte:group.ids,poids:group.grossKg??group.netKg}));
 }
+let apShipmentContext=null;
 async function availableAPShipmentItems(orderId, includeDraft) {
   const [orders,runs]=await Promise.all([
     readLogiTrakRows(state.supabase,'ap_commandes','*'),
@@ -1213,6 +1234,7 @@ async function availableAPShipmentItems(orderId, includeDraft) {
   if(includeDraft) {
     for(const row of $$('#itemsBody tr')) add(getDetail(row)?.ap_production_id,row.querySelector('[data-field="quantite"]').value);
   }
+  apShipmentContext={orders,runs,packingGroups,reserved};
   const items=[];
   for(const group of packingGroups){
     if(wantedIds&&!group.commande_ids.some(id=>wantedIds.includes(id)))continue;
@@ -1237,17 +1259,19 @@ async function availableAPShipmentItems(orderId, includeDraft) {
   return items;
 }
 async function openAPShipment(orderId) {
-  try {
-    const items=await availableAPShipmentItems(orderId,false);
-    if(!items.length) throw new Error('Aucun tirage validé disponible pour cette commande.');
-    openExpeditionModal();
-    $('#formObs').value='Algérie Poste · '+items[0].destinataire;
-    $('#itemsBody').innerHTML='';
-    items.forEach(addItemRow);
-    updateModalTotals();
-  } catch(error) { toast(error.message||'Impossible de charger la commande.','error'); }
+ openExpeditionModal();
+ await openAPShipmentPicker(orderId);
 }
-async function openAPShipmentPicker() {
+function compatibleShipmentFractions(seed, items, context) {
+ if(!seed?.length||!context)return [];
+ const {orders,runs,packingGroups,reserved}=context;
+ let ids=[...new Set(seed.flatMap(item=>APGrouping.members(item.colisage_detail.ap_pack.orderId,packingGroups)))];
+ const availableIds=[...new Set(items.map(item=>item.colisage_detail.ap_pack.orderId))];
+ let changed=true;
+ while(changed){changed=false;for(const id of availableIds){if(ids.includes(id))continue;const test=[...new Set([...ids,...APGrouping.members(id,packingGroups)])];if(!APGrouping.check(test,orders,runs,reserved)){ids=test;changed=true;}}}
+ return ids;
+}
+async function openAPShipmentPicker(preselectedOrderId=null) {
   if (!requireOperator()) return;
   try {
     const items=await availableAPShipmentItems(null,true);
@@ -1266,21 +1290,47 @@ async function openAPShipmentPicker() {
         return '<option value="'+esc(id)+'">'+esc((first.colisage_detail.ap_pack.groupOrderNumbers||first.colisage_detail.ap_pack.orderNumber||'')+' · '+first.destinataire)+' · '+fmtNum(total)+' ID</option>';
       }).join('')+'</select></label><button type="button" class="btn btn-primary">Importer la commande</button>';
     const select=picker.querySelector('select');
-    picker.querySelector('button').onclick=()=>{
-      try {
-      const selected=orders.get(select.value);
-      if(!selected) return toast('Choisissez une commande.','warning');
-      for(const row of $$('#itemsBody tr')) {
-        if(!row.querySelector('[data-field="reference"]').value.trim()&&!row.querySelector('[data-field="designation"]').value.trim()) row.remove();
-      }
-      selected.forEach(addItemRow);
-      updateModalTotals();
-      picker.hidden=true;
-      toast('Commande Algérie Poste ajoutée.','success');
-      } catch(error) {
-        console.error(error);
-        toast('Import Algérie Poste : '+error.message,'error');
-      }
+    const summary=document.createElement('div');summary.className='panel-soft p-3 mt-3';picker.append(summary);
+    let plannedIds=[];
+    function preview(){
+      const seed=orders.get(select.value);plannedIds=compatibleShipmentFractions(seed,items,apShipmentContext);
+      if(!seed){summary.textContent='Choisissez une commande.';return;}
+      const seedIds=new Set(seed.map(item=>item.colisage_detail.ap_pack.orderId));
+      const extra=plannedIds.filter(id=>!seedIds.has(id));
+      const selectedItems=items.filter(item=>plannedIds.includes(item.colisage_detail.ap_pack.orderId));
+      const quantity=selectedItems.reduce((n,item)=>n+Number(item.quantite),0);
+      const packing=seed[0].colisage_detail.ap_pack;
+      const cartons=apShipmentParts(quantity,apProductSpec(packing.type),{...packing.settings,regroupement_h2:extra.length?false:packing.settings.regroupement_h2}).reduce((n,part)=>n+part.nb,0);
+      const names=[...new Set(selectedItems.map(item=>item.colisage_detail.ap_pack.orderNumber))];
+      summary.innerHTML=(extra.length?'<label class="font-bold"><input type="checkbox" data-join checked> Réunir les fractions compatibles dans les mêmes cartons</label>':'<b>Colisage de la commande sélectionnée</b>')+'<p>'+names.map(esc).join(' + ')+'</p><p><b>'+fmtNum(quantity)+' ID · '+cartons+' carton(s)</b></p><p class="text-xs">Seuls les paquets validés disponibles sont comptés. Les APN°, plages, machines et opérateurs sont conservés.</p>';
+      const checkbox=summary.querySelector('[data-join]');
+      if(checkbox)checkbox.onchange=()=>{if(checkbox.checked){preview();}else{const qty=seed.reduce((n,item)=>n+Number(item.quantite),0);summary.querySelectorAll('p')[1].textContent=fmtNum(qty)+' ID · '+apShipmentParts(qty,apProductSpec(packing.type),packing.settings).reduce((n,part)=>n+part.nb,0)+' carton(s) — fraction sélectionnée seulement';}};
+    }
+    select.onchange=preview;
+    if(preselectedOrderId){const entry=[...orders].find(([,lines])=>lines.some(item=>item.colisage_detail.ap_pack.orderId===preselectedOrderId));if(entry)select.value=entry[0];}
+    preview();
+    const importButton=picker.querySelector('button');
+    importButton.onclick=async()=>{
+      const seed=orders.get(select.value);if(!seed)return toast('Choisissez une commande.','warning');
+      importButton.disabled=true;
+      try{
+        const join=summary.querySelector('[data-join]')?.checked;
+        const seedId=seed[0].colisage_detail.ap_pack.orderId;
+        if(join){
+          const names=apShipmentContext.orders.filter(order=>plannedIds.includes(order.id)).map(order=>order.ap_numero).join(' + ');
+          if(!await confirmDialog('Réunir '+names+' dans un colisage commun ? Les commandes restent distinctes pour la traçabilité.'))return;
+          const {data:groupId,error}=await state.supabase.rpc('ap_regrouper_fractions_liste',{p_commandes:plannedIds});
+          if(error)throw error;
+          for(const row of $$('#itemsBody tr')){const detail=getDetail(row);if(detail?.ap_pack&&plannedIds.includes(detail.ap_pack.orderId)){detail.ap_pack.groupId=groupId;detail.ap_pack.groupOrderNumbers=names;detail.ap_pack.settings={...detail.ap_pack.settings,regroupement_h2:false};setDetail(row,detail);}}
+          updateModalTotals();
+        }
+        const selected=await availableAPShipmentItems(seedId,true);
+        if(!selected.length)throw Error('Ces paquets ne sont plus disponibles. Actualisez la liste.');
+        for(const row of $$('#itemsBody tr'))if(!row.querySelector('[data-field="reference"]').value.trim()&&!row.querySelector('[data-field="designation"]').value.trim())row.remove();
+        selected.forEach(addItemRow);updateModalTotals();picker.hidden=true;
+        toast('Fractions importées et cartons recalculés.','success');
+      }catch(error){console.error(error);toast('Import Algérie Poste : '+error.message,'error');}
+      finally{importButton.disabled=false;}
     };
     select.focus();
   } catch(error) { toast(error.message||'Impossible de charger les commandes.','error'); }

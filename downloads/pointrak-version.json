@@ -1,7 +1,7 @@
 {
   "packageName": "com.eurequat.espace",
-  "versionCode": 12,
-  "versionName": "1.4.1",
-  "apk": "pointrak-1.4.1.apk",
-  "notes": "Messagerie privée entre collègues et alertes sur les conversations récentes."
+  "versionCode": 13,
+  "versionName": "1.4.2",
+  "apk": "pointrak-1.4.2.apk",
+  "notes": "Bouton de pointage et espace administrateur pour les validations et les présences du jour."
 }

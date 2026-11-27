@@ -29,6 +29,9 @@ function switchAPTab(tab) {
     if (box) box.classList.toggle('hidden', name !== tab);
   });
 }
+function canEditOrder(order) {
+ return !apState.viewer && (apState.admin || (!!apState.username && order.created_by===apState.username));
+}
 function canEdit(row) {
   return !apState.viewer && (apState.admin || Date.now() - new Date(row.created_at).getTime() < 24 * 3600000);
 }
@@ -321,8 +324,8 @@ function renderOrders() {
       '<div class="flex flex-wrap items-center gap-2">' +
         (rem > 0 ? '<button type="button" class="btn btn-primary op-only" data-ap-action="goto-prod" data-id="' + esc(order.id) + '"><i class="fa-solid fa-print"></i>Produire</button>' : '<span class="badge" style="background:rgba(16,185,129,.15);color:#34d399">Complète</span>') +
         (apState.admin&&rem>0?'<button class="btn btn-secondary" type="button" data-ap-action="permit-order" data-id="'+esc(order.id)+'">'+(order.autorise_nouvelle_commande?'Retirer l’autorisation':'Autoriser une nouvelle commande')+'</button>':'')+
-        (canEdit(order) ? '<button type="button" class="btn btn-secondary" data-ap-action="edit-order" data-id="' + esc(order.id) + '">Modifier</button>' : '') +
-        (canEdit(order)&&(apState.admin||!orderRuns(order.id).length) ?
+        (canEditOrder(order) ? '<button type="button" class="btn btn-secondary" data-ap-action="edit-order" data-id="' + esc(order.id) + '">Modifier</button>' : '') +
+        (apState.admin ?
         '<button type="button" class="btn btn-secondary" data-ap-action="delete-order" data-id="' + esc(order.id) + '">Supprimer</button>' : '') +
       '</div>' +
     '</div>';
@@ -679,6 +682,7 @@ async function saveOrder(event) {
       const reasons=newOrderPrerequisites();
       if(reasons.length){$('#apOrderPrerequisites')?.scrollIntoView({behavior:'smooth',block:'center'});throw new Error(reasons.join('\n'));}
     }
+    if(apState.orderEdit&&!canEditOrder(apState.orderEdit))throw new Error('Seul le créateur ou un administrateur peut modifier cette commande.');
     const spec = apProductSpec($('#apSubtype').value);
     if (!spec) throw new Error('Choisissez un type de produit.');
     const payload = {
@@ -688,6 +692,7 @@ async function saveOrder(event) {
     };
     if (!payload.client || !payload.sous_categorie || !Number.isSafeInteger(payload.quantite_demandee) || payload.quantite_demandee < 1)
       throw new Error('Renseignez le client, le produit et une quantité entière positive.');
+    if(apState.orderEdit){const planned=orderRuns(apState.orderEdit.id).reduce((sum,run)=>sum+Number(run.statut==='EN_COURS'?run.quantite_prevue:run.quantite_imprimee||0),0);if(payload.quantite_demandee<planned)throw new Error('La commande compte déjà '+fmt(planned)+' ID produits ou en cours : la quantité corrigée ne peut pas être inférieure.');}
     // APN attribué par la base et immuable, y compris pour un administrateur.
     const creating=!apState.orderEdit;
     const id=await saveRecord('ap_commandes',payload,apState.orderEdit);
@@ -698,7 +703,7 @@ async function saveOrder(event) {
   });
 }
 function editOrder(order) {
-  if (!canEdit(order)) return message('Modification réservée à l’administrateur après 24 h.', true);
+  if (!canEditOrder(order)) return message('Seul le créateur de la commande ou un administrateur peut la modifier.', true);
   apState.orderEdit = order;
   if ($('#apOrderEditor')) $('#apOrderEditor').open = true;
   renderOrderPrerequisites();
@@ -712,8 +717,7 @@ function editOrder(order) {
   $('#apClient').focus();
 }
 async function deleteOrder(order, button) {
-  if (!apState.admin && orderRuns(order.id).length) return message('Seul un administrateur peut supprimer une commande dont la production a démarré.', true);
-  if (!canEdit(order)) return message('Suppression réservée à l’administrateur après 24 h.', true);
+  if (!apState.admin) return message('La suppression des commandes est réservée à l’administrateur.', true);
   const runs = orderRuns(order.id);
   if (runs.some(run => apState.shipments.some(line => line.ap_production_id === run.id))) {
     return message('Cette commande est liée à un envoi. Retirez ses tirages de l’envoi avant de la supprimer.', true);

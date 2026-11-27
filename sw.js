@@ -1,6 +1,6 @@
-/* LogiTrak v5.2.0. Seuls l'écran hors connexion et son icône sont mis en cache. */
+/* LogiTrak v5.2.1. Seuls l'écran hors connexion et son icône sont mis en cache. */
 'use strict';
-const VERSION = '5.2.0';
+const VERSION = '5.2.1';
 const CACHE_PREFIX = 'logitrak-offline:' + self.registration.scope + ':';
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 const offlineURL = new URL('offline.html', self.registration.scope).href;

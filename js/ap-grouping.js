@@ -1,4 +1,4 @@
-/* Colisage volontaire de fractions Algérie Poste, LogiTrak 5.2.0. */
+/* Colisage volontaire de fractions Algérie Poste, LogiTrak 5.2.1. */
 window.APGrouping = (() => {
   const normalized = value => String(value || '').trim().replace(/\s+/g, ' ').toUpperCase();
   const number = value => String(value || '').replace(/\s/g, '');

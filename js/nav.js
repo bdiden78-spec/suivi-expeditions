@@ -1,12 +1,12 @@
 /* ==========================================================
    LogiTrak — Barre d'onglets, identité visuelle et contrôles
    Palette officielle Eurequat Algérie (Bleu marine, Cyan & Orange vif)
-   Version v5.2.0 — Thème Clair Dynamique & Personnalisation
+   Version v5.2.1 — Thème Clair Dynamique & Personnalisation
    ========================================================== */
 (function () {
   'use strict';
 
-  const APP_VERSION = 'v5.2.0';
+  const APP_VERSION = 'v5.2.1';
 
   /* ---------- Identité Visuelle Immuable Eurequat Algérie ---------- */
   const BRAND_LOGO = 'assets/logitrak-eurequat.jpg';
@@ -320,7 +320,7 @@
           <img src="assets/favicon.ico" alt="LogiTrak" width="44" height="44" style="width:44px;height:44px;object-fit:contain">
         </div>
         <div class="space-y-2">
-          <h3 class="text-base font-extrabold text-slate-900">LogiTrak <span class="text-sky-600">v5.2.0</span></h3>
+          <h3 class="text-base font-extrabold text-slate-900">LogiTrak <span class="text-sky-600">v5.2.1</span></h3>
           <div class="p-3.5 rounded-xl border space-y-2" style="background:var(--bg-soft);border-color:var(--border)">
             <p class="text-xs text-slate-700 font-bold">
               Contacter le propriétaire sur :
@@ -711,4 +711,4 @@
 })();
 
 (()=>{const add=()=>{const h=document.getElementById('headerActions');if(h&&!document.getElementById('operationsLink')){const a=document.createElement('a');a.id='operationsLink';a.href='operations.html';a.className='nav-btn';a.innerHTML='<i class="fa-solid fa-bell"></i><span>Suivi & alertes</span>';h.append(a);}};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',add);else add();})();
-(()=>{const src=new URL('pointrak-download.js?v=5.2.0-1',document.currentScript.src);const script=document.createElement('script');script.src=src.href;document.head.append(script);})();
+(()=>{const src=new URL('pointrak-download.js?v=5.2.1-1',document.currentScript.src);const script=document.createElement('script');script.src=src.href;document.head.append(script);})();
